@@ -1,4 +1,4 @@
-# Evals — 3d-explainer-ad
+# Evals — zack-d-style-ad
 
 Every case below is a real failure from the build that produced this skill
 (2026-08-24, Stanley Quencher concept ad, 12 scenes). None is hypothetical. Cases

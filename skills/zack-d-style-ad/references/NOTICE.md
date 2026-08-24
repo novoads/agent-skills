@@ -1,9 +1,13 @@
 # NOTICE
 
-The genre this skill teaches — narrated 3D science-explainer ads in an empty pale
-void — is popularly associated with the "Zack D Films" YouTube style and is a public
-creative format, not anyone's protected text. The name appears in this skill's
-description only as the trigger phrase users actually say.
+This skill teaches the narrated 3D science-explainer ad genre popularly associated
+with the "Zack D Films" YouTube channel, and it is named after that association
+because it is the phrase people actually use for the format. The naming is a
+deliberate maintainer decision, made with the same reasoning as the pack's
+`pixar-ad`: the name identifies a widely-imitated STYLE, not an affiliation. This
+pack and this skill are **not affiliated with, endorsed by, or connected to Zack D
+Films**; the format — narrated explainers in an empty pale void — is a public
+creative structure, not anyone's protected text.
 
 The method here was written from our own measured build (2026-08-24: a 12-scene
 concept ad, two full iterations, frame-level comparison against a reference ad in

@@ -1,5 +1,5 @@
 ---
-name: 3d-explainer-ad
+name: zack-d-style-ad
 description: >-
   Build a Zack-D-Films-style animated science-explainer ad through the Novoads API: a
   3D explainer that shows WHY a product works — script first, one still per scene, each

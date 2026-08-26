@@ -2,15 +2,16 @@
 name: zack-d-style-ad
 description: >-
   Build a Zack-D-Films-style animated science-explainer ad through the Novoads API: a
-  3D explainer that shows WHY a product works — script first, one still per scene, each
-  still animated as its own clip, cut to a single voiceover. Use when the user asks for
-  an "explainer ad", "Zack D Films style", "science explainer ad", "mechanism ad",
-  "educational product ad", "cartoon explainer video", "show how my product works inside
-  the body / inside the device", or wants an ad where a narrator names a root cause and
-  the product fixes it. Not for animating ONE existing still (image-to-motion),
-  not for character-comedy storyboard ads (pixar-ad, claymation-ad),
-  not for cloning a specific reference video (clone-video-ad), and not for talking-head
-  UGC (novoads-api).
+  narrated 3D explainer that shows WHY a physical product works — script first, one
+  still per scene, each still animated as its own clip, cut to a single voiceover. Use
+  when the user asks for a "Zack D Films style" ad, a "science explainer ad", a
+  "mechanism ad", a "narrated cartoon / 3D ad where the narrator explains the mechanism",
+  an "educational product ad", or wants to show what happens inside the body or inside
+  the device when a physical product is used. Not for software, apps, APIs or services:
+  "explain how our product / API works in a video" is a demo or screencast, not this
+  genre — say so and stop. Not for animating ONE existing still (image-to-motion),
+  character-comedy storyboard ads (pixar-ad, claymation-ad), cloning a reference video
+  (clone-video-ad), or talking-head UGC (novoads-api).
 ---
 
 # 3D Explainer Ad (Zack-D-style)

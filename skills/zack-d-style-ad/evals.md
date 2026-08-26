@@ -71,3 +71,31 @@ Should NOT trigger (near-misses): "animate this image" (→ image-to-motion) ·
 competitor video ad" (→ clone-video-ad) · "UGC ad of a woman explaining why she
 switched" (→ novoads-api) · "explain how our API works in a video" (product demo /
 screencast — not this genre; say so).
+
+### Recorded routing runs
+
+Method: each fixture run 3× as a fresh `claude -p … --max-turns 1` process in a
+clean clone of the pack (no session context, no memory namespace), the invoked skill
+read from the stream. Pass bar: positives ≥ 0.5 trigger rate; **any** near-miss
+routing here is a defect.
+
+| Date | Description version | Positives | False positives | Note |
+|---|---|---|---|---|
+| 2026-08-26 | initial ("explainer video", "show how my product works") | 11/12 | **2/3** on "explain how our API works in a video" | Defect: generic explainer wording caught software demos. |
+| 2026-08-26 | scoped to physical products + explicit software/API/screencast exclusion + "narrated" | **12/12** | **0/3** | Fixed. Neighbors unchanged (image-to-motion 3/3, pixar-ad 3/3, clone-video-ad 2/3, novoads-api 2/3 — the misses there chose no skill, not this one). |
+
+Re-run the harness whenever a skill is added to the pack or this description changes;
+routing decays silently as the catalog grows.
+
+## Acceptance run (public API, clean room)
+
+**Status: NOT YET RUN.** The method was validated by hand before this skill was
+written; the skill as an artifact has not yet carried a fresh agent through the
+Novoads API end to end. Until the run below is recorded, treat E1–E5 as specs, not
+evidence, and do not cite this skill as verified.
+
+Protocol: fresh session, clean clone, a product other than the one the build used,
+operator ≠ author, spend capped at the skill's own gates (anchor + 2 stills, 1–2
+clips, 1 voiceover). Headline question: whether the API's start-image path
+(`seedance-2.0` today) carries the genre's motion. Record the result here, one row
+per run, and convert each ticked E-case into a dated pass.

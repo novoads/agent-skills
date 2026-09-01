@@ -208,9 +208,21 @@ prompt template at 720p, then read every string back at full size. If text holds
 skill may say so and cite the date. If it does not hold at 720p, that is a caveat this file
 must carry, and the honest version of this skill states it.
 
-**Until this has been run, the skill must not assert that text holds on our path.** It may
-say the clause is what the model responds to, which is craft, and it may not say it was
-verified here, which would be a claim.
+**Run 2026-08-15, and it holds — for text that is in the still.** Thirteen `seedance-2.5`
+renders at 720p (a 16:9 UI dashboard with small axis and nav labels, a flat 1:1 infographic,
+a 9:16 story hero with a typewriter paragraph, three photographic 1:1 flat-lays and packshots,
+and a 3:4 scratch ticket). In every one, every string present in the source still was legible
+and correctly spelled in the last frame, read at full size. The pairs are committed under
+`assets/gallery/image-to-motion/*/source-vs-final.jpg` and shown in [README.md](README.md).
+
+**Where it did NOT hold: text that existed only in the prompt.** Two renders used an
+opening-state still (overlays removed) and described the overlays' text in the prompt. The
+model re-lettered them — "aluminum" → "aluminium", a "/" line-break marker rendered literally,
+"Screen Defense" → "Screen Mones" — and placed them loosely. So the skill's rule 8 now says
+exactly that: verified for text in the still, seen to fail for text only in the prompt.
+
+**Recheck when the render path changes** (a new provider, a new resolution ceiling): one UI
+still, one photographic still, read every string. That is two renders, priced live.
 
 ---
 
@@ -271,5 +283,24 @@ and ad creatives are written in exactly this vocabulary.
 **Check:** animate a still whose copy contains one of those words. Confirm the skill locates
 where the hit came from, sees that it is inside quotes, **overrides it out loud**, and leaves
 the transcription untouched. A run that edited a quoted string to clear a warning fails.
+
+---
+
+### E10 — the still is frame one, and the reveal is staged accordingly
+
+**Why:** `startImageAssetId` animates the still as the literal first frame. E3's clause ("the
+0.0s frame states what is absent") was written against a connector where that was the whole
+instruction; here it collides with mechanics. Measured 2026-08-15: with an element that is in
+the still declared absent at 0.0s, four of six renders showed the reference for 3–13 frames,
+cut to the described opening state and built forward (a clean head trim), and two of six
+**duplicated** the element instead (a second answer card, a second set of callout labels).
+Naming the vanish — `0.0s the reference frame; 0.0–0.3s the cards vanish cleanly; then …` —
+came back clean on three of three retakes, with the returning elements pixel-true.
+
+**Check:** hand the skill a still with a card in it and ask for the card to pop in partway
+through. Confirm the prompt either names the vanish-and-return (text-bearing element) or the
+skill proposes an opening-state still made with the image edit path (text-free reveal), and that
+it never describes a text-bearing element only in the prompt. A prompt that says the card "is
+absent at 0.0s" with the card still in the reference, and nothing else, is the failure.
 
 ---

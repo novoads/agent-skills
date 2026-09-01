@@ -1,0 +1,17 @@
+{
+  "slug": "07-before-after-cans-land",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "1:1",
+  "renderedDurationSeconds": 8,
+  "trimmedHeadSeconds": 0.167,
+  "finalDurationSeconds": 7.83,
+  "renderedAt": "2026-08-15",
+  "promptChars": 1997,
+  "sourceFile": "source.jpg",
+  "clipFile": "07-before-after-cans-land--seedance-2.5--720p--8s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/a0407180-27e0-4183-a1ee-4545a18ba568",
+  "still": "pack template T13 (chatgpt-image-ad)",
+  "pattern": "absent-then-build; head trimmed at the cut",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/07-before-after-cans-land--seedance-2.5--720p--8s.mp4"
+}

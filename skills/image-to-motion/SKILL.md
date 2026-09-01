@@ -22,6 +22,9 @@ Any still can become a professional motion graphic. The work is direction, not d
 
 Vague prompts produce vague motion. Specific prompts produce the shot you pictured. That is the whole discipline.
 
+Seven finished examples — the still we sent beside the last frame that came back, the ask, the
+prompt, the clip — are in [README.md](README.md). Read the pairs before promising anything.
+
 > **Resolved, 2026-08-12 — `seedance-2.5` takes a start image again, and the render honours
 > the `aspectRatio` you ask for.**
 >
@@ -212,6 +215,23 @@ Five clauses that carry most of the weight:
 
 **State the opening frame including what is absent.** If a tooltip, badge or card is visible in the reference and you want it to appear partway through, the prompt must say it is not there at 0.0s. Otherwise it is present from frame one and the reveal never happens. This is logic, not model behaviour — it applies no matter how capable the model is.
 
+**On this API the still IS frame one**, so read that clause with the start-frame mechanics in
+mind (measured on thirteen renders, 2026-08-15, see [README.md](README.md)):
+
+- An element that is *in the still* cannot be literally absent at 0.0s. Written that way, the
+  model showed the reference for 3–13 frames, cut to the described opening state and built
+  forward (four of six) — a head that trims cleanly — or **duplicated** the element, a second
+  card beside the first (two of six). **Name the vanish instead:** `0.0s — the reference frame.
+  0.0–0.3s — the cards vanish cleanly, leaving …` and then stage the return. Three of three
+  retakes written that way came back clean, and the returning elements were pixel-true because
+  the model had seen them.
+- **If it carries words, keep it in the still.** A card or label described only in the prompt
+  is re-lettered — "aluminum" came back "aluminium", a label came back "Screen Mones". Text
+  survives when it is in the picture and merely vanishes and returns.
+- **A text-free reveal is best from an opening-state still**: make the still the opening frame
+  (the image edit path can produce it from the finished ad in one call), describe what each beat
+  reveals, and there is nothing to trim. The scratch-ticket example is this pattern.
+
 **Declare anything that holds still.** A region that should not move needs saying so. Silence is not an instruction.
 
 **End with an explicit hold.** Without a final beat pinning the last state, models tend to invent a drift, a fade or a camera move to fill the remaining time.
@@ -246,8 +266,9 @@ Submit returns `202` with `jobId` and `creditsCharged`. **The poll payload does 
 charge**, so log it from the `202` while you have it — a line written without it cannot be
 completed later. Poll `GET /v1/generations/{jobId}` every 15 seconds until
 a **terminal** status, then `GET /v1/generations/{jobId}/watch` for the file into
-`outputs/<descriptive-name>/`. Nothing here has measured a `seedance-2.5` wait: say it is
-unknown rather than lending it `seedance-2.0`'s range. Full sequence in
+`outputs/<descriptive-name>/`. Measured 2026-08-15: thirteen `seedance-2.5` renders
+of 8–10 seconds at 720p took **154–385 seconds** each from submit to terminal, most between four
+and five minutes; say "a few minutes" and poll, do not promise less. Full sequence in
 [`novoads-api/SKILL.md`](../novoads-api/SKILL.md).
 
 If the still needs building or rebuilding first, generate it before animating. A crisp, correctly-composed, correctly-lettered source frame is the foundation of the whole shot — the video stage carries forward what it is handed. Both [`chatgpt-image-ad`](../chatgpt-image-ad/SKILL.md) (`gpt-image-2`) and [`nano-banana-image-ad`](../nano-banana-image-ad/SKILL.md) (`nano-banana-pro`) are available, and the decision tree between them is in [OVERVIEW.md](../../shared/skills/image-ad-prompting/OVERVIEW.md); when it matters, run the same prompt through both and compare rather than assuming. `POST /v1/images` is synchronous, and the `assetId` it returns goes straight into `startImageAssetId` with no download-and-re-upload hop.
@@ -326,9 +347,11 @@ When something is off, add specificity rather than emphasis. Naming the object, 
 6. **The 0.0s beat names what is absent**, or the reveal cannot happen.
 7. **Quote every string individually** in the TEXT clause, and read every one back at full
    size in QA.
-8. **Text fidelity on our render path is unverified.** Write the clause because it is what
-   the model responds to. Do not tell a user it has been verified here until eval E6 has
-   been run. See [evals.md](evals.md).
+8. **Text fidelity on our render path is verified for text that is IN the still** — eval E6,
+   run 2026-08-15 at 720p: every string present in the source was legible and correctly
+   spelled in the last frame across thirteen renders. It is **not** verified, and was seen to
+   fail, for text that exists only in the prompt. Say exactly that, with the date. See
+   [evals.md](evals.md).
 9. **Never add an actor to satisfy `missing_actor_descriptor`.** Override it out loud, and
    read nothing into whether it appeared — its check is keyed on substrings a beat list
    trips by accident.

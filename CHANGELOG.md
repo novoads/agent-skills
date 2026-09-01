@@ -12,6 +12,27 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Added
+
+**`image-to-motion` ships seven finished examples**, each with the still we sent beside the last
+frame that came back, the ask, three timed frames, the clip and the prompt —
+[skills/image-to-motion/README.md](skills/image-to-motion/README.md), media under
+`assets/gallery/image-to-motion/`. Rendered 2026-08-15 on `seedance-2.5` at 720p through the
+skill as a customer runs it. Nobody in the field shows the input beside the output; this skill's
+claim is *that exact image, moving, every word intact*, and a pair is the only thing that shows it.
+
+- **Eval E6 has been run** (thirteen renders): text that is in the still survives our render
+  path at 720p; text that exists only in the prompt does not. Hard rule 8 now says so, with the
+  date, instead of forbidding the claim.
+- **New craft, measured, now in SKILL.md and eval E10**: on this API the still is frame one, so an
+  element that is in the still cannot be literally absent at 0.0s — written that way the model
+  cut to the opening state (four of six) or duplicated the element (two of six). Name the vanish
+  and stage the return instead (three of three clean); keep anything that carries words in the
+  still; use an opening-state still only for text-free reveals.
+- The `seedance-2.5` wait is measured (154–385s per 8–10s clip) instead of "unknown".
+- The root README's image-to-motion row is re-rendered on `seedance-2.5` and its stale note —
+  that 2.5 refused every start image — is retired; #85 fixed that on 2026-08-12.
+
 ### Changed
 
 **The repo is `novoads/agent-skills`.** It was `novoads/claude-code-ads`; the name described the

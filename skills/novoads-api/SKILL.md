@@ -65,7 +65,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 1. Repo root **`MASTER_CONTEXT.md`** when present: brand voice, default product, accumulated decisions. It carries **no prices** — that is deliberate, see gate 2.
 2. This file. It is the router and it covers the full call sequence.
 3. **List `references/` at the repo root before you ask the user for a photo.** It is where they keep product shots, actor stills, and style boards, and it is gitignored, so the files are theirs and are not in this skill's folder. A product photo found there becomes `startImageAssetId` (video) or an entry in `referenceAssetIds` (images). **An empty `references/` is the normal state of a fresh clone, not a blocker** — see below before you ask for anything.
-4. **MANDATORY before composing any prompt:** the `prompting/prompt-library/` file for the route you picked in the decision tree. The libraries carry the craft; every HTTP detail comes from this file and `reference.md`, which win whenever the two disagree.
+4. **MANDATORY before composing any prompt:** [`prompting/guide.md`](prompting/guide.md) first — it turns the marketing intent into the brief (audience, job, hook, CTA, constraints, language) that the formulas assume you already have — then the `prompting/prompt-library/` file for the route you picked in the decision tree. The libraries carry the craft; every HTTP detail comes from this file and `reference.md`, which win whenever the two disagree.
 5. `reference.md` when you need a field you do not see here, or when you hit a status code you want to branch on.
 
 ## Decision tree
@@ -76,7 +76,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 | The user says "a start frame for each scene", or asks for several scenes | That phrasing commits you to one call per scene (`startImageAssetId`), which forecloses multi-beat cuts inside a single render — the two modes are mutually exclusive. Say so, and offer the one-shot alternative from [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) before generating anything |
 | B-roll cutaways, burned captions, background music, or variations of a finished ad | Not part of making the ad. Deliver the base video first, then **offer** these as a separate pass, each owned by its own skill: `broll-overlay` (needs the base **and** its transcript from `POST /v1/transcripts` — no local install; it **overlays** — the base audio keeps running and the final duration is unchanged — it does not extend), `POST /v1/captions`, then `music-mix` last |
 | The same thing, but cheap, to test a prompt before committing | `seedance-2.0-mini`, same grid, same formulas, half the price and back in 2–3 minutes. The draft-then-finalize loop is *Mini-draft tier* in [seedance-2.md](prompting/prompt-library/seedance-2.md) |
-| A clip **longer than 15 seconds**, or `seedance-2.5` by name | `seedance-2.5` — the only model on this API that renders past 15s (any integer **4 to 30**). Same six aspect ratios, same 9 `referenceAssetIds`, same `audioEnabled`, same 4,000-character ceiling, so the Seedance formulas apply unchanged; write for the longer runtime rather than padding a 15s script. **Two things differ:** it renders `480p` and `720p` only — no `1080p`, no `4k`, on either provider — and nobody has timed one, so quote its wait as unknown. Price it explicitly: at the same length it is dearer than `seedance-2.0`, and thirty seconds of it is the most expensive single call on this API |
+| A clip **longer than 15 seconds**, or `seedance-2.5` by name | `seedance-2.5` — the only model on this API that renders past 15s (any integer **4 to 30**). Same six aspect ratios, same 9 `referenceAssetIds`, same `audioEnabled`, same 4,000-character ceiling, so the Seedance formulas apply unchanged; write for the longer runtime rather than padding a 15s script. **Two things differ:** it renders `480p` and `720p` only — no `1080p`, no `4k`, on either provider — and nothing here has timed one, so quote its wait as unknown to you and poll. Price it explicitly: at the same length it is dearer than `seedance-2.0`, and thirty seconds of it is the most expensive single call on this API |
 | A premium product reveal: dark void, no person, text narrative | `seedance-2.0` + [seedance-2-premium-reveal.md](prompting/prompt-library/seedance-2-premium-reveal.md) |
 | A product hero: elemental effects, splash or mist, no person | `seedance-2.0` + [seedance-2-product-hero.md](prompting/prompt-library/seedance-2-product-hero.md) |
 | A studio lookbook: polished, voiceover, multi-look | `seedance-2.0` + [seedance-2-studio-lookbook.md](prompting/prompt-library/seedance-2-studio-lookbook.md) |
@@ -318,8 +318,8 @@ working rule here too: budget ~0.5s with a reference or start frame, the reserve
 not slower delivery: a second location, a demo the actor actually performs, a reaction. If the
 script only fills 15s, render 15s — on `seedance-2.0`, which is cheaper at that length.
 
-**Nobody here has timed a `seedance-2.5` render.** Do not quote `seedance-2.0`'s 3-to-8-minute
-fleet range for it; say the wait is unknown and poll.
+**Do not borrow `seedance-2.0`'s 3-to-8-minute fleet range for `seedance-2.5`.** Nothing in
+this session has timed one, so quote its wait as unknown to you, and poll.
 
 ### `omni-flash` — enum 4, 6, 8, 10
 

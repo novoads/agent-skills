@@ -155,7 +155,7 @@ Each beat is one jump cut. Structure: **setup → demonstration → proof → ve
 
 | Beat # | Purpose | Framing | Example action |
 |--------|---------|---------|----------------|
-| 1 (Hook) | Grab attention | Looking into camera | Expressive opener, holds product up |
+| 1 (Hook) | Grab attention | Looking into camera | **Default:** a line naming the viewer's situation over one engineered physical action that dramatizes it — salience command, explicit end state, no product in frame. **Option:** an expressive opener holding the product up, when the brief asks for a reveal |
 | 2 (Show) | Product detail | Closer to lens | Tilts/turns product, shows label/texture |
 | 3 (Demo) | Proof of use | Extreme close-up | Applies product, shows consistency/texture |
 | 4 (Result) | Evidence | Mirror/different angle | Points at skin/result, shows before/after |

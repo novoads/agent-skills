@@ -19,7 +19,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [POST /videos](#post-videos)
   - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`resolution` — on `seedance-2.0` and `seedance-2.5`, and it is a price field](#resolution--on-seedance-20-and-seedance-25-and-it-is-a-price-field)
 - [POST /images](#post-images)
-  - [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, `gpt-image-2` only)](#sourceassetid--editing-an-image-spec-2100-gpt-image-2-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
+  - [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
 - [POST /captions, POST /videos/{jobId}/captions](#post-captions-post-videosjobidcaptions)
   - [Presets and pricing](#presets-and-pricing) · [Failure modes](#failure-modes)
 - [POST /transcripts](#post-transcripts)
@@ -152,13 +152,13 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 |---|---|---|
 | `kind` | required, `"video"` | required, `"image"` |
 | `prompt` | required | required |
-| `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2` | `gpt-image-2` (default), `nano-banana-pro`, `reve-2.1` |
+| `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2` | `gpt-image-2.5-sunburst` (default), `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `reve-2.1` |
 | `durationSeconds` | 4 to 30 | n/a |
 | `resolution` | `480p` `720p` `1080p` `4k` — **range-checked per model** | n/a |
 | `numImages` | n/a | 1 to 4 |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | same |
 
-All nine models price here, `veo-3.1` and `sora-2` included (verified live, 2026-08-02; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07).
+All eleven models price here, `veo-3.1` and `sora-2` included (verified live, 2026-08-02; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07).
 
 **The `4 to 30` span is the OUTER bound across the whole set, and no model renders all of it.** Only `seedance-2.5` goes past 15 seconds; asking `seedance-2.0` for 20 is a `400` here rather than a quote for something it cannot render. The spec says so in the field's own description — read `GET /v1/models` for the per-model grid.
 
@@ -310,15 +310,21 @@ There are **no idempotency keys.** See the 500 note below.
 
 | `model` | `aspectRatio` | `referenceAssetIds` | `numImages` | Prompt max |
 |---|---|---|---|---|
-| `gpt-image-2` (default) | `1:1` (default) `4:5` `2:3` `9:16` `16:9` `21:9` | up to **4** | 1 to 4 | **32,000** |
+| `gpt-image-2.5-sunburst` (default) | `1:1` (default) `4:5` `2:3` `9:16` `16:9` `21:9` | up to **4** | 1 to 4 | **32,000** |
+| `gpt-image-2.5-flare` | same six | up to **4** | 1 to 4 | **32,000** |
+| `gpt-image-2` | same six | up to **4** | 1 to 4 | **32,000** |
 | `nano-banana-pro` | `1:1` `2:3` `3:2` `3:4` `4:3` `4:5` `5:4` `9:16` `16:9` `21:9` | up to **14** | 1 to 4 | **50,000** |
 | `reve-2.1` | same as Nano Banana Pro | up to **8** | 1 to 4 | **4,000** |
 
-**The prompt ceiling is per model too, since deployed spec 2.16.0.** It was 4,000 on all three before that; now only `reve-2.1` carries that number, `gpt-image-2` takes 32,000 and `nano-banana-pro` 50,000. Read off the live per-model request schemas and verified on 2026-08-08. The consequence worth knowing is the reverse of the reference cap's: a prompt written for one model is not automatically sendable to another, and a run that switches `model` to `reve-2.1` for a second opinion can be refused on length alone with nothing else changed. The refusal is a `400` and charges nothing.
+**The default moved to `gpt-image-2.5-sunburst` in deployed spec 2.25.0** (2026-09-10), from `gpt-image-2`. A call that omits `model` renders on Sunburst and the response's `model` field says so, and reading it rather than assuming is the habit that survives the next move. `gpt-image-2` is untouched: still live, still offered, still the same grid and the same price. Nothing about an existing call changed except what an unqualified one lands on.
+
+**The three GPT models are one grid with two dials.** `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare` and `gpt-image-2` publish the same six aspect ratios, the same cap of 4 reference images, the same 32,000-character prompt ceiling, the same `sourceAssetId` edit arm and the same price per image. So switching between them changes the `model` value and nothing else in the body, and it does not re-price the call. What differs is speed against fidelity: Flare is fast and is the one to reach for on most images; Sunburst is slower and keeps fine detail and labels exact. On our own ten-prompt comparison the two were judged even on label text, logo geometry and product shape, so treat the difference as a latency-versus-detail preference rather than a quality ranking, and do not promise a customer a better render from either one.
+
+**The prompt ceiling is per model too, since deployed spec 2.16.0.** It was 4,000 on all of them before that; now only `reve-2.1` carries that number, the three GPT models take 32,000 and `nano-banana-pro` 50,000. Read off the live per-model request schemas and verified on 2026-08-08. The consequence worth knowing is the reverse of the reference cap's: a prompt written for one model is not automatically sendable to another, and a run that switches `model` to `reve-2.1` for a second opinion can be refused on length alone with nothing else changed. The refusal is a `400` and charges nothing.
 
 **One thing this does not cover: `POST /estimates` does not share these numbers.** Its own request schema caps `prompt` at 50,000 for every image model, so a 20,000-character `reve-2.1` prompt prices cleanly and is then refused by `POST /images`. A clean estimate is proof of the price, not of the length.
 
-**The reference cap is per model and is not uniform.** `gpt-image-2` takes 4, `nano-banana-pro` 14, `reve-2.1` 8. Do not carry one number across the set — the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` → too big, 8 → accepted; 5 on `gpt-image-2` → too big. Standing re-check: `./scripts/verify-image-caps.sh`.
+**The reference cap is per model and is not uniform.** Each of the three GPT models takes 4, `nano-banana-pro` 14, `reve-2.1` 8. Do not carry one number across the set — the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0. Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
 
 Synchronous. The response carries `images[]` (`url`, `expiresInSeconds` 3600, `assetId`, `width`, `height`), `jobId`, `status`, `creditsCharged`, and `model`. **No `warnings`**, for the same reason as video: the prompt rules run on `POST /estimates` only — where an image prompt *does* get read. `banned_polish` and `blank_label` observed on a `kind: "image"` estimate against deployed spec 2.19.0 (verified live 2026-08-12); the older note here, that images returned no `warnings` key at all, described the 2026-08-04 deployment. Nothing to poll. `numImages` multiplies the price.
 
@@ -337,7 +343,7 @@ page had never named the field. It is **optional** in the schema, so read it rat
 it: if a response ever omits it, the fallback is downloading the bytes and minting an id with
 `POST /v1/uploads`.
 
-### `sourceAssetId` — editing an image (spec 2.10.0, `gpt-image-2` only)
+### `sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)
 
 Pass an `assetId` as `sourceAssetId` and the prompt describes the CHANGE rather than the
 whole picture. Same endpoint, same `ImageJob` response, same price as a generation of the
@@ -345,7 +351,7 @@ same size — an edit is one image, charged once.
 
 | | |
 |---|---|
-| Models | `gpt-image-2` only. The field is ABSENT from the other two variants, and `.strict()` refuses it there. |
+| Models | The three GPT models only: `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare` and `gpt-image-2`. The field is ABSENT from the `nano-banana-pro` and `reve-2.1` variants, and `.strict()` refuses it there. |
 | `aspectRatio` | **Cannot be combined.** Sending both is `400`, not a silently-ignored field. |
 | Output shape | Tracks the source: the service measures it and renders the closest cell of the model's grid. Portrait never becomes landscape, or the reverse — but the grid has nothing between `1:1` and `16:9`, so a 4:3 source renders `1:1`. |
 | `referenceAssetIds` | Still allowed. The source **counts against the same cap** and is always first. |

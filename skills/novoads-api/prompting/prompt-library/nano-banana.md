@@ -4,7 +4,7 @@
 
 ## The endpoint
 
-**Image generation:** `POST /v1/images`. One endpoint serves all three image models; you pick
+**Image generation:** `POST /v1/images`. One endpoint serves every image model; you pick
 with `model`.
 
 It is **synchronous** — the call blocks for the render (typically 60–90 seconds) and comes back
@@ -27,13 +27,18 @@ There is **one** Nano Banana here: `nano-banana-pro`. The `nano-banana-2` / `nan
 legacy `nano-banana` split is gone, so **there is no variant question to ask the user** — the
 old "Nano Banana 2 or Pro?" prompt is void.
 
-The three image models, all on the same endpoint:
+The image models, all on the same endpoint:
 
 | API `model` value | When to use |
 |---|---|
-| `gpt-image-2` (the API default) | Typography, dense small text, UI mimicry. Cheapest of the three. |
+| `gpt-image-2.5-sunburst` (the API default since deployed spec 2.25.0) | Typography, dense small text, UI mimicry, and the one to name when labels and fine detail have to come back exact. Slower than Flare. |
+| `gpt-image-2.5-flare` | The same grid and the same price as Sunburst, faster. The everyday choice in the GPT family. |
+| `gpt-image-2` | The original GPT model, unchanged and still offered. Same six ratios, same reference cap, same prompt ceiling as the two above. |
 | `nano-banana-pro` | Photoreal humans, material realism, multi-reference blending, character continuity. |
-| `reve-2.1` | A deliberately different read on a concept, or a third opinion when the other two both miss. |
+| `reve-2.1` | A deliberately different read on a concept, or a third opinion when the others miss. |
+
+The three GPT rows differ in speed against fidelity and in nothing else a request body can see, so
+moving between them is a one-word change that does not re-price the call.
 
 **Credits:** every price comes from a live `POST /v1/estimates` in the current session. Do not
 quote a figure from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md` — none of
@@ -47,7 +52,7 @@ See [reference.md](../../reference.md) for the full schema. Key fields:
 
 - `model` (required) — `nano-banana-pro` for the stills this file covers
 - `prompt` (required) — the image prompt; follow the template and checklist below
-- `aspectRatio` (optional, **defaults to `1:1`**) — `nano-banana-pro` takes `1:1` `2:3` `3:2` `3:4` `4:3` `4:5` `5:4` `9:16` `16:9` `21:9`. Always set it explicitly; the default is rarely the shot you want. (`gpt-image-2` does **not** take `3:2`, `3:4`, `4:3` or `5:4`.)
+- `aspectRatio` (optional, **defaults to `1:1`**) — `nano-banana-pro` takes `1:1` `2:3` `3:2` `3:4` `4:3` `4:5` `5:4` `9:16` `16:9` `21:9`. Always set it explicitly; the default is rarely the shot you want. (the GPT models do **not** take `3:2`, `3:4`, `4:3` or `5:4`.)
 - `referenceAssetIds` (optional) — up to **14** `assetId` strings from `POST /v1/uploads` (spec 2.7.0; `gpt-image-2` caps at 4, `reve-2.1` at 8). Order is preserved and may be addressed positionally from the prompt. Few well-chosen references beat many.
 - `numImages` (optional, default 1) — 1–4 variants of the **same** prompt, in one call. Charged per image.
 - `productId` (optional) — organizational only; it does not influence what is generated.

@@ -74,7 +74,7 @@ the API like any other live plan:
 [Security](#security) · [Support](#support) · [License](#license)
 
 Twelve skills, plus the shared steps they call, make the ad and the things around it. The generated
-creative runs on [nine models](#supported-models), six for video and three for stills: UGC video,
+creative runs on [eleven models](#supported-models), six for video and five for stills: UGC video,
 static Meta creatives, Pixar and claymation storyboards, and YouTube thumbnails. The narrator
 voice-over, a replacement voice for an ad already made, a music bed, burned-in captions, a
 competitor swipe file and a paused Meta ad come from their own endpoints and APIs instead.
@@ -321,13 +321,21 @@ which is Google DeepMind's own guide with the parts this API cannot reach marked
 ### 🖼️ Stills — people, products, characters
 
 `POST /v1/images` is **synchronous**: the finished images come back in the response body, so there
-is nothing to poll. Up to 4 images per call; reference images are capped per model — 4 on
-`gpt-image-2`, 14 on `nano-banana-pro`, 8 on `reve-2.1`.
+is nothing to poll. Up to 4 images per call; reference images are capped per model — 4 on each of
+the three GPT models, 14 on `nano-banana-pro`, 8 on `reve-2.1`.
 
-- **`gpt-image-2`** — heavy typography and mimicked UI.
+- **`gpt-image-2.5-sunburst`** — the API default when `model` is omitted. Slower than Flare, and
+  it keeps fine detail and labels exact.
+- **`gpt-image-2.5-flare`** — fast, for most images.
+- **`gpt-image-2`** — heavy typography and mimicked UI. Still live, still offered, unchanged.
 - **`nano-banana-pro`** — photoreal people and products in a scene; holds a character's identity
   tightest across a reference batch.
 - **`reve-2.1`** — a different look on the same still, or a second opinion.
+
+The three GPT models share one grid: the same six aspect ratios, the same 32,000-character prompt
+ceiling, the same cap of 4 reference images, the same `sourceAssetId` edit arm, and the same price
+per image. What differs is speed against fidelity, so switching between them changes nothing in a
+request body but the `model` value.
 
 > "Create a new AI influencer — 22-year-old with freckles, golden-hour kitchen lighting"
 > · "UGC selfie of Sofia holding the product in her bedroom"
@@ -440,7 +448,7 @@ want to compare models yourself.
 
 ## Supported models
 
-All nine are live on `api.novoads.ai/v1`. Grids below come from `GET /v1/models` — that endpoint
+All eleven are live on `api.novoads.ai/v1`. Grids below come from `GET /v1/models` — that endpoint
 is the current answer, this table is a map.
 
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
@@ -451,16 +459,19 @@ is the current answer, this table is a map.
 | **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | No reference images. Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | `4` `8` `12` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Measured with **no leading silence** where Seedance front-loads 3–5s, and ~123s to render. Coarse grid: no 6s, no 10s. |
-| **`gpt-image-2`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | Typography and UI mimicry. Synchronous. |
+| **`gpt-image-2.5-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default**: omit `model` and this renders. Slower, keeps fine detail and labels exact. Synchronous. |
+| **`gpt-image-2.5-flare`** | Image | — | same six | **32,000 chars** | Fast, for most images. Synchronous. |
+| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 arrivals. Synchronous. |
 | **`nano-banana-pro`** | Image | — | 10 ratios incl. `3:2` `4:3` `5:4` | **50,000 chars** | Photoreal people and products; strongest identity lock across references. The most prompt room on the API. |
 | **`reve-2.1`** | Image | — | same 10 ratios | **4,000 chars** | Third look / second opinion on a still. The one image model still on the old tight budget. |
 
 Image calls take `numImages` 1–4. Two of their limits are **per model** and neither is one
 number across the set. The `referenceAssetIds` cap is 14 on `nano-banana-pro`, 8 on
-`reve-2.1`, 4 on `gpt-image-2`. The prompt ceiling is 50,000, 4,000 and 32,000 in that same
-order, split apart by deployed spec 2.16.0 from what used to be 4,000 everywhere. So a prompt
-written for one image model may be too long for another, and switching to `reve-2.1` for a
-second opinion is the case that hits it. Images have no start-frame concept. Videos are
+`reve-2.1`, 4 on each of the three GPT models. The prompt ceiling is 50,000, 4,000 and 32,000 in
+that same order, split apart by deployed spec 2.16.0 from what used to be 4,000 everywhere. So a
+prompt written for one image model may be too long for another, and switching to `reve-2.1` for a
+second opinion is the case that hits it. The three GPT models are the case that does not, because
+they share one grid. Images have no start-frame concept. Videos are
 asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body.
 
 `audioEnabled` is a Seedance-only boolean (default `true`) — all three variants take it; send

@@ -37,8 +37,14 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 
 # The one expected table, `model=refs:promptchars`. Scripts and docs are checked
 # AGAINST this; this is checked against the live spec. Update it only from verified
-# spec output. Last verified: deployed spec 2.16.0 on 2026-08-08.
-EXPECTED='gpt-image-2=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000'
+# spec output. Last verified: deployed spec 2.25.0 on 2026-09-10.
+#
+# The two GPT Image 2.5 ids joined in 2.25.0 and are audited by section 1 only:
+# section 2 runs the pack's own generators, and those lock the model they render
+# on, so there is nothing local to assert a cap against for a model no script
+# here will send. Section 1 is the half that matters for them anyway, because the
+# claim this repo makes about them is a DOCUMENTED cap and that is what drifts.
+EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000'
 
 STATUS=0
 problem() {

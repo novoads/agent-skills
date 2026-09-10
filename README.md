@@ -321,13 +321,13 @@ which is Google DeepMind's own guide with the parts this API cannot reach marked
 ### 🖼️ Stills — people, products, characters
 
 `POST /v1/images` is **synchronous**: the finished images come back in the response body, so there
-is nothing to poll. Up to 4 images per call; reference images are capped per model — 4 on each of
+is nothing to poll. Up to 4 images per call; reference images are capped per model: 4 on each of
 the three GPT models, 14 on `nano-banana-pro`, 8 on `reve-2.1`.
 
-- **`gpt-image-2.5-sunburst`** — the API default when `model` is omitted. Slower than Flare, and
+- **`gpt-image-2.5-sunburst`**: the API default when `model` is omitted. Slower than Flare, and
   it keeps fine detail and labels exact.
-- **`gpt-image-2.5-flare`** — fast, for most images.
-- **`gpt-image-2`** — heavy typography and mimicked UI. Still live, still offered, unchanged.
+- **`gpt-image-2.5-flare`**: fast, for most images.
+- **`gpt-image-2`**: heavy typography and mimicked UI. Still live, still offered, unchanged.
 - **`nano-banana-pro`** — photoreal people and products in a scene; holds a character's identity
   tightest across a reference batch.
 - **`reve-2.1`** — a different look on the same still, or a second opinion.
@@ -448,7 +448,7 @@ want to compare models yourself.
 
 ## Supported models
 
-All eleven are live on `api.novoads.ai/v1`. Grids below come from `GET /v1/models` — that endpoint
+All eleven are live on `api.novoads.ai/v1`. Grids below come from `GET /v1/models`. That endpoint
 is the current answer, this table is a map.
 
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |

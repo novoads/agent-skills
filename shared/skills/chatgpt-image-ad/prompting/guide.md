@@ -23,7 +23,7 @@ four variants or a clone workflow burns six generations. The two GPT Image 2.5 m
 `gpt-image-2.5-flare` and `gpt-image-2.5-sunburst`, sit on that same tier and share this model's
 whole grid: six ratios, 4 references, a 32,000-character ceiling, the edit arm. Sunburst is the
 one to name when labels and fine detail have to survive; Flare is the fast one. Confirm the actual
-figure with a live `POST /v1/estimates` — never quote one from memory.
+figure with a live `POST /v1/estimates`. Never quote one from memory.
 
 ## What `gpt-image-2` struggles with
 
@@ -44,7 +44,7 @@ These come from the live API contract (`GET /v1/openapi.json` is the authority):
 4. **No platform/screenshot chrome in output.** The `NO_CHROME_SUFFIX` is always on (unless you explicitly `--allow-chrome` for the rare UGC screen-recording aesthetic). Output is the standalone ad creative — the static image that gets uploaded.
 5. **Edge-safe rule always on.** Text and focal subjects must sit inside the central 84% of the canvas. Backgrounds may bleed.
 6. **Glyph-safety rule always on.** Plain words inside body-text blocks. Emoji OK in headlines.
-7. **Edit mode exists in the GPT family, and only there.** `sourceAssetId` on `POST /v1/images` (spec `2.10.0`; since `2.25.0` on `gpt-image-2`, `gpt-image-2.5-flare` and `gpt-image-2.5-sunburst`) edits an existing image from a prompt — so "change the background of this image" is an edit, not a re-draw. What does NOT exist is masking, region selection or an img2img strength dial: the change is described in words. `sourceAssetId` and `aspectRatio` are mutually exclusive, because an edit's output tracks the source's shape.
+7. **Edit mode exists in the GPT family, and only there.** `sourceAssetId` on `POST /v1/images` (spec `2.10.0`; since `2.25.0` on `gpt-image-2`, `gpt-image-2.5-flare` and `gpt-image-2.5-sunburst`) edits an existing image from a prompt, so "change the background of this image" is an edit, not a re-draw. What does NOT exist is masking, region selection or an img2img strength dial: the change is described in words. `sourceAssetId` and `aspectRatio` are mutually exclusive, because an edit's output tracks the source's shape.
 
 ## Aspect ratios
 

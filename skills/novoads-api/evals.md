@@ -163,7 +163,7 @@ than in the order it was edited. It was the last statement in the file on the su
 was stated as a rule rather than as a reference, and it was wrong. An agent that trusted
 it capped a fourteen-reference model at four, **silently**: nothing refuses a short array,
 the render succeeds, and the missing references show up as a likeness that drifted or a
-brand mark that got invented. The bullet now names all three caps in the body's order; the
+brand mark that got invented. The bullet now names each model's own cap, in the body's order; the
 assertions below are what a future edit must not undo.
 
 This is the failure the guardrail list is *designed* to cause when it goes stale, which

@@ -79,7 +79,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 
 | Field | Value |
 |---|---|
-| `model` | `gpt-image-2` (also the API default) |
+| `model` | `gpt-image-2`, locked by the script. No longer the API default; see the note under the table. |
 | `prompt` | the image prompt — the always-on suffixes count against the model's cap |
 | `aspectRatio` | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` — **defaults to `1:1`**, so always set it |
 | `referenceAssetIds` | up to **4**, order preserved, addressable positionally from the prompt |
@@ -90,14 +90,28 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 `reve-2.1`. The request schema is strict, so sending one is a `400` before anything is charged.
 No template in the shared library needs them.
 
+**Two newer GPT models now sit beside this one, and one of them is worth naming by hand.**
+Deployed spec 2.25.0 added `gpt-image-2.5-flare` and `gpt-image-2.5-sunburst`, and the API's
+default when `model` is omitted moved from `gpt-image-2` to Sunburst. This skill still locks
+`gpt-image-2`, which is unchanged and still offered. **When the brief turns on label text,
+small legal copy, a wordmark or a spec table coming back exact, render it on
+`gpt-image-2.5-sunburst` instead.** It is the slower of the two 2.5 models and the one built to
+hold fine detail. Everything in this skill carries over unaltered: the same six aspect ratios,
+the same **cap of 4 `referenceAssetIds`**, the same 32,000-character prompt ceiling, the same
+`sourceAssetId` edit arm, and the same price per image, so the change is the `model` value and
+nothing else. `generate_image.py` refuses any value but `gpt-image-2`, so a Sunburst render is a
+direct `POST /v1/images` call. Price it with the `image` arm of `POST /v1/estimates` first, the
+same as any other call here.
+
 **N variants is one call, not N calls.** Send `numImages: 4` and four images come back in
 `images[]`. Do not fan out four parallel requests — that burns four of your five concurrency
 slots to get the same result at the same price.
 
-**There IS an edit mode, on this model only.** `sourceAssetId` edits an existing image
+**There IS an edit mode, on the GPT models only.** `sourceAssetId` edits an existing image
 instead of drawing a new one — "remove the logo on the bottle", "make the background a
-kitchen counter". `POST /v1/images` since spec **2.10.0**; `nano-banana-pro` and `reve-2.1`
-do not publish the field, so an edit is a reason to stay on this skill rather than switch.
+kitchen counter". `POST /v1/images` since spec **2.10.0**, and since 2.25.0 on all three GPT
+models; `nano-banana-pro` and `reve-2.1` do not publish the field, so an edit is a reason to
+stay in this family rather than switch out of it.
 
 Two rules the API enforces with a `400`, not a shrug:
 

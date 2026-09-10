@@ -135,7 +135,7 @@ yes.
 Never quote a credit figure from memory, from `logs/novoads-api.jsonl`, or from
 `MASTER_CONTEXT.md` — there are no credit numbers written down anywhere in this repo, on
 purpose. **Name the model in the estimate body**: the image models' schedules differ by more
-than 3×, and an estimate that omits `model` prices `gpt-image-2`, understating a
+than 3×, and an estimate that omits `model` prices `gpt-image-2.5-sunburst`, understating a
 `nano-banana-pro` batch.
 
 The call says nothing about the prompt — no endpoint on this API reads one for quality. Re-read

@@ -37,8 +37,14 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 
 # The one expected table, `model=refs:promptchars`. Scripts and docs are checked
 # AGAINST this; this is checked against the live spec. Update it only from verified
-# spec output. Last verified: deployed spec 2.16.0 on 2026-08-08.
-EXPECTED='gpt-image-2=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000'
+# spec output. Last verified: deployed spec 2.25.0 on 2026-09-10.
+#
+# The two GPT Image 2.5 ids joined in 2.25.0 and are audited by section 1 only:
+# section 2 runs the pack's own generators, and those lock the model they render
+# on, so there is nothing local to assert a cap against for a model no script
+# here will send. Section 1 is the half that matters for them anyway, because the
+# claim this repo makes about them is a DOCUMENTED cap and that is what drifts.
+EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000'
 
 STATUS=0
 problem() {
@@ -194,6 +200,18 @@ check_prompt_cap "skills/clone-image-ad/scripts/validate_image.py" 4000 --model 
 # a bare "(max 4)"). A checker that only knows yesterday's wording reports
 # "docs agree" while the most-read file in the family says the opposite.
 # Add a pattern here whenever you find a new way to say it.
+#
+# Deployed spec 2.25.0 took the set from three image models to five, which gave
+# the claim a whole new vocabulary to hide in: every pattern below the "all
+# three" ones was keyed to a world with three models in it, so "the cap is 4 on
+# all five" would have walked straight past a guard that had just been re-greened.
+# The GPT-family phrasings are here for the same reason one step down. "4 on
+# every GPT model" is TRUE today and the guard fires on it anyway, deliberately:
+# it is a family-universal claim, it goes stale the day one GPT model carries a
+# different cap, and the remedy this guard asks for (name the models, or name the
+# cap per model) costs one edit and cannot rot. A scoped sentence that says
+# "each of the three GPT models takes 4" passes, which is the wording README.md
+# and reference.md use.
 RESIDUE="$(grep -rn -i \
   -e "caps at .* on every" \
   -e "cap is .* on every" \
@@ -201,10 +219,15 @@ RESIDUE="$(grep -rn -i \
   -e "cap is the same on every" \
   -e "cap is the same everywhere" \
   -e "all three cap" \
+  -e "all five cap" \
   -e "every image model here accepts" \
   -e "same on every image model" \
   -e "cap[s]* .* all three" \
+  -e "cap[s]* .* all five" \
   -e "all three .* at 4" \
+  -e "all five .* at 4" \
+  -e "on every GPT model" \
+  -e "4 on all" \
   --include="*.md" --include="*.py" "$ROOT/skills" "$ROOT/shared" "$ROOT/README.md" 2>/dev/null || true)"
 [[ -n "$RESIDUE" ]] && problem "universal-cap claim resurfaced:
 $RESIDUE"

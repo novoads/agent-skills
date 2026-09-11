@@ -1,6 +1,6 @@
 ---
 name: generate-youtube-thumbnail
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Generate high-CTR YouTube thumbnails using Nano Banana Pro via the Novoads API. Handles reference image upload, character likeness alignment, proven CTR-tested prompt formulas, and bounded batch generation. Use when the user asks to create a YouTube thumbnail, video thumbnail, A/B test thumbnail variations, or refers to thumbnail design with their face, brand assets, or product photos.
 ---

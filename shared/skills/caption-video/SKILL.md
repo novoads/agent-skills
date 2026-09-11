@@ -1,6 +1,6 @@
 ---
 name: caption-video
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Burn timed, styled captions into a finished video on the local machine, without
   re-rendering the source. This is the manual fallback to the API's captioning

@@ -1,6 +1,6 @@
 ---
 name: broll-overlay
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Overlays silent b-roll cutaway clips onto a finished base video — the base
   audio keeps running underneath while the picture cuts away and returns, and

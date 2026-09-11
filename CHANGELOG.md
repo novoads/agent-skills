@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.3.0 — 2026-09-11
+
 ### Changed
 
 **The repo is `novoads/agent-skills`.** It was `novoads/claude-code-ads`; the name described the

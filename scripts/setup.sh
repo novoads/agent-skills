@@ -321,12 +321,12 @@ print_agent_close() {
     echo "$KEYS_URL"
     echo "I've opened .env for you — paste the key on the NOVOADS_API_KEY line,"
     echo "save, and tell me. I'll verify it."
-    echo "(No account yet? The \$1 trial: $SIGNUP_URL)"
+    echo "(No account yet? Plans start at \$49/month: $SIGNUP_URL)"
   else
     echo "One step left, the only one I can't do: create an API key at"
     echo "$KEYS_URL"
     echo "paste it into .env, and tell me — I'll verify it."
-    echo "(No account yet? The \$1 trial: $SIGNUP_URL)"
+    echo "(No account yet? Plans start at \$49/month: $SIGNUP_URL)"
   fi
   echo ""
   echo "What you can ask for now:"
@@ -364,7 +364,7 @@ fi
 
 if [[ "$needs_key" == "1" && "$INTERACTIVE" == "1" ]]; then
   echo ""
-  echo "Need a Novoads account? Start your \$1 trial here:"
+  echo "Need a Novoads account? Plans start at \$49/month:"
   echo "  $SIGNUP_URL"
   echo ""
   echo "Then create an API key at:"
@@ -496,7 +496,7 @@ if grep -q "$KEY_PLACEHOLDER" "$ROOT/.env" 2>/dev/null; then
   fi
   echo "── What is left for a human ─────────────────────────────────────────"
   echo "  1. Create a key at $KEYS_URL"
-  echo "     No Novoads account yet? Start the \$1 trial: $SIGNUP_URL"
+  echo "     No Novoads account yet? Plans start at \$49/month: $SIGNUP_URL"
   echo "  2. Open $ROOT/.env and replace $KEY_PLACEHOLDER on the"
   echo "     NOVOADS_API_KEY= line with that key. Keys are novo_ plus 64 hex characters."
   echo "  3. Run ./scripts/check-novoads-env.sh to confirm it works."

@@ -15,7 +15,7 @@ template below are mirrors — change them together. One or two status lines, th
 > Setup's done — your key works.
 > *(or, when the key is missing:)* One step left, the only one I can't do: create an API
 > key at <https://novoads.ai/dashboard/settings?tab=api>, paste it into `.env`, and tell
-> me — I'll verify it. *(No account yet? The [$1 trial](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack).)*
+> me — I'll verify it. *(No account yet? Plans start at [$49/month](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack).)*
 > *(On macOS and on Linux with a desktop session, setup opens `.env` itself and the line
 > becomes "I've opened `.env` for you — paste the key on the `NOVOADS_API_KEY` line, save,
 > and tell me." It is skipped over SSH, in CI, and under `NOVOADS_SETUP_NO_OPEN=1`.)*

@@ -61,7 +61,8 @@ fine and the account has no live subscription. Different problems, different fix
 which one it is.
 
 No account yet? **<https://novoads.ai/?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack>**
-The entry offer is a **$1 trial**. Never call it free.
+There is no free tier and no trial: every plan is a paid monthly subscription,
+published at novoads.ai/pricing. Never call it free.
 
 **If this deployment does not offer voice changes yet.** The endpoint is behind a flag.
 With it off, `POST /v1/voice-changes` and a `kind: "voice-change"` estimate both answer

@@ -4,8 +4,8 @@
 #!
 ## Before anything: this runs on a Novoads account
 
-1. A Novoads account with credits. https://novoads.ai — the entry offer is a **$1
-   trial**, never call it free.
+1. A Novoads account with credits. https://novoads.ai. There is no free tier and no trial:
+   every plan is a paid monthly subscription, published at novoads.ai/pricing. Never call it free.
 2. **An API key in `.env` at the repo root**, as `NOVOADS_API_KEY=novo_…`. Check
    it with `./scripts/check-novoads-env.sh`; if it is missing, run
    `./scripts/setup.sh`. That is the whole setup: `curl` and `jq`, one key, no

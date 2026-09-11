@@ -65,8 +65,8 @@ https://github.com/novoads/agent-skills help me set this up
 The agent clones this repo, runs `./scripts/setup.sh`, and stops at the one step only you
 can do: pasting your Novoads API key.
 
-Need an account? The entry offer is a **$1 trial** — not a free tier, and it can generate through
-the API like any other live plan:
+Need an account? Novoads starts at **$49/month** — there is no free tier and no trial, and
+every plan can generate through the API:
 **[novoads.ai](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)**
 
 [See what it makes](#see-what-it-makes) · [Get started](#get-started-5-minutes) ·
@@ -414,8 +414,8 @@ through the Meta Marketing API. **Every ad is created PAUSED** — you launch it
 Manager. It can also pull your top-spending ads and competitor ads to inform copy. Auth via the
 `META_*` rows in `.env`.
 
-Need an account? The entry offer is a **$1 trial** — not a free tier, and it can generate through
-the API like any other live plan:
+Need an account? Novoads starts at **$49/month** — there is no free tier and no trial, and
+every plan can generate through the API:
 **[novoads.ai](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)**
 
 ## What it costs
@@ -681,8 +681,8 @@ ask for the API key instead, even in a session where the connector is already co
 Point your assistant at [AGENTS.md](AGENTS.md) — it carries the auth shape, the async-video /
 sync-image distinction, the cost policy, and the skill map.
 
-Need an account? The entry offer is a **$1 trial** — not a free tier, and it can generate through
-the API like any other live plan:
+Need an account? Novoads starts at **$49/month** — there is no free tier and no trial, and
+every plan can generate through the API:
 **[novoads.ai](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)**
 
 ## Support

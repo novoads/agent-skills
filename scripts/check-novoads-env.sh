@@ -20,7 +20,7 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 if [[ -z "${NOVOADS_API_KEY:-}" ]] || [[ "$NOVOADS_API_KEY" == "novo_your_key_here" ]]; then
   echo "No API key found in .env." >&2
   echo "" >&2
-  echo "Need a Novoads account? Start your \$1 trial:" >&2
+  echo "Need a Novoads account? Plans start at \$49/month:" >&2
   echo "  https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack" >&2
   echo "" >&2
   echo "Already have one? Create a key at:" >&2

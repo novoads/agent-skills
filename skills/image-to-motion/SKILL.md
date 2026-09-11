@@ -55,7 +55,8 @@ Vague prompts produce vague motion. Specific prompts produce the shot you pictur
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
 
 No account yet? **<https://novoads.ai/?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack>**
-The entry offer is a **$1 trial**. Never call it free.
+There is no free tier and no trial: every plan is a paid monthly subscription,
+published at novoads.ai/pricing. Never call it free.
 
 **Every HTTP mechanic here belongs to the pack, not to this skill.** Auth, strict bodies,
 status codes, the poll loop, concurrency and error envelopes are written out once in

@@ -156,7 +156,7 @@ a rhythm-preserving guess. Its absence never blocks.
 > Three claims carried into this clone — check them before it runs anywhere:
 > • "300 Natural AI Actors" → "1,000+ AI actors"
 > • "35 languages" → "5 languages"
-> • "30% off first month" → "$1 trial"
+> • "30% off first month" → "$49/month, cancel anytime"
 
 **Never carry a real named person through.** "Ashvin Melwani, CMO at Obvi" in a Novoads ad puts
 words in an identifiable person's mouth about a company he never mentioned. Replace him —

@@ -48,7 +48,7 @@ If the user does not have a Novoads account, give them this link at any point in
 
 **<https://novoads.ai/?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack>**
 
-The entry offer is a **$1 trial**. Never call it free.
+There is no free tier and no trial: every plan is a paid monthly subscription, published at novoads.ai/pricing. Never call it free.
 
 ### After the connectivity check passes
 

@@ -55,7 +55,8 @@ A `401` means the key is wrong, revoked, or from another account. A `403` with
 the account has no live subscription. Different problems, different fixes — say which one it is.
 
 No account yet? **<https://novoads.ai/?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack>**
-The entry offer is a **$1 trial**. Never call it free.
+There is no free tier and no trial: every plan is a paid monthly subscription,
+published at novoads.ai/pricing. Never call it free.
 
 **If this deployment does not offer sweeps yet.** The endpoint is behind a flag that is off by
 default. With it off, `POST /v1/competitor-ads` and a `kind: "competitor-ads"` estimate both

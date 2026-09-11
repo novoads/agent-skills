@@ -60,7 +60,7 @@ Authorization: Bearer novo_<64 hex>
 
 The key is shown once, at creation, and cannot be retrieved afterward. Create and revoke at <https://novoads.ai/dashboard/settings?tab=api>. Maximum 10 live keys per organization.
 
-API generations draw from the organization's plan credits at the same rate as the dashboard. There is no separate API wallet, no free API tier, and no separate API plan: any live subscription, the $1 trial included, can generate here.
+API generations draw from the organization's plan credits at the same rate as the dashboard. There is no separate API wallet, no free API tier, and no separate API plan: any live subscription can generate here.
 
 ### Use `curl`. A `403` with `error code: 1010` is Cloudflare, not your key
 

@@ -36,6 +36,9 @@ one host it started on, and the pack now installs into Claude Code, Cursor and C
 - `plugin.json`'s own `skills` array now reads `["./skills", "./shared/skills"]`, matching
   `marketplace.json`'s copy of the same field. `guard.yml` gained a non-strict `claude plugin
   validate .` step so the two manifests disagreeing again would be red instead of silent.
+- **Every mention of the retired $1 trial is gone.** The pack now says there is no free tier
+  and no trial, and the entry price lives only in README, AGENTS.md and the setup scripts —
+  a skill file an agent reads at spend time carries the fact, never the figure.
 
 ## v1.2.0 — 2026-08-13
 

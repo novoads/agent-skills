@@ -50,8 +50,8 @@ door: still per-beat renders, still ffmpeg, still an assembly.
 
 ## Before anything: this runs on a Novoads account
 
-1. A Novoads account with credits. https://novoads.ai — the entry offer is a **$1
-   trial**, never call it free.
+1. A Novoads account with credits. https://novoads.ai. There is no free tier and no trial:
+   every plan is a paid monthly subscription, published at novoads.ai/pricing. Never call it free.
 2. **An API key in `.env` at the repo root**, as `NOVOADS_API_KEY=novo_…`. Check
    it with `./scripts/check-novoads-env.sh`; if it is missing, run
    `./scripts/setup.sh`. That is the whole setup: `curl` and `jq`, one key, no
@@ -490,7 +490,7 @@ skill's own:
 - Never invent reviews, ratings, prices, or performance claims.
 - Use the real brand and the real packaging from the photo.
 - On-screen text is short words and numbers only, never sentences.
-- No em dashes in ad copy. Never say "free" — the entry offer is the $1 trial.
+- No em dashes in ad copy. Never say free: every Novoads plan is paid.
 - On entry B, recreate the format and never the script.
 - The end card is composited from the real photograph. Never rendered.
 - Transcribe the master before you call it finished, and read the burned captions

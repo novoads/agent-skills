@@ -1,6 +1,6 @@
 ---
 name: pixar-ad
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Builds a stylized 3D animated ad on the Novoads REST API as a STORYBOARD:
   four to six beats, each rendered from its own key frame, narration laid into

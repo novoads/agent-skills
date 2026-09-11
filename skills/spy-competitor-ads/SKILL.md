@@ -1,6 +1,6 @@
 ---
 name: spy-competitor-ads
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Downloads a competitor's live ad creatives — the actual MP4s and JPEGs — from the Meta Ad
   Library into a local swipe folder, through the Novoads API. One sweep per competitor,

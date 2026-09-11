@@ -1,6 +1,6 @@
 ---
 name: novoads-update
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Updates this skill pack from upstream, and owns the consent that decides whether it ever
   updates on its own. Checks whether the clone is behind, asks the user — update now, always

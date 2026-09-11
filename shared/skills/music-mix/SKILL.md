@@ -1,6 +1,6 @@
 ---
 name: music-mix
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >-
   Lays a music bed under a finished video — the music is trimmed and faded to the
   video's exact length and ducks beneath the voice, while the video stream is copied

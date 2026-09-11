@@ -1,6 +1,6 @@
 ---
 name: analyze-video
-metadata: {packVersion: 1.2.0}
+metadata: {packVersion: 1.3.0}
 description: >
   Analyze a reference video and reverse-engineer its style into a reusable Seedance 2.0
   prompting template for the Novoads API. The output is a new formula file — like

@@ -796,15 +796,16 @@ converted voice back over the source's picture. It is enabled per workspace; whe
 the call is a `400` whose message says to omit `output`, and nothing is charged.
 
 - **Response `202`:** `{ jobId, status, credits, output: "video" }`, where `status` is the
-  job's real lifecycle: `queued` for a new job; `running` when a retried POST finds the same
-  change already rendering (the same job, not a new one); `succeeded`, with the finished copy
+  job's current status; retrying the same request is safe and returns the same job (the same
+  jobId). `queued`: not rendering yet; `running`: already rendering; `succeeded`, with the finished copy
   and a zero `credits`, when the same change was already made. On `queued` or `running`, poll
   `GET /generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4,
   `voiceChange.videoId` names the copy) or `failed` (`voiceChange.reasonCode` names the
   cause). On `succeeded`, download; there is nothing to poll.
 - **Price:** the same as audio out for the same source, quoted by the same `voice-change`
   estimate arm. **When it is charged differs:** audio out at the request; video out only once
-  the job finds speech in the source, so a source with no speech ends `failed` with nothing charged,
+  the job finds speech in the source, so a source with no speech ends `failed`, or
+  is refused at the request (no job is created) when an earlier attempt already found none, neither charged,
   and a job that fails after that is refunded.
 - **A video source only.** An audio upload with `output: "video"` is a `400`, nothing
   charged.
@@ -846,7 +847,7 @@ Four assumptions callers arrive with, none of them true here:
   and answers `200`. That is a charged success, not an error, and there is nothing to refund.
   Check for speech locally before you call — the `change-voice` skill ships a free check that
   does it in about a second. That is audio out, the default. Video out is charged only once
-  its job finds speech, so a source with none ends `failed` with nothing charged ([Video out](#video-out));
+  its job finds speech, so a source with none ends `failed`, or is refused at the request (no job is created) when an earlier attempt already found none, neither charged ([Video out](#video-out));
   the local check still runs first.
 
 And by default it does not return **video** (`output: "video"` is the exception, above). Muxing the take back over the picture, and deciding which

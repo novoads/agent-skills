@@ -94,7 +94,7 @@ Four things it does not do, each one a real assumption callers arrive with:
 |---|---|
 | **translate** | the words that come back are the words that went in |
 | **fix pronunciation, or change an accent** | it reproduces the source's phonemes, mistakes included. A mispronounced brand name comes back mispronounced in a nicer voice. See Gate 3 and the failure modes |
-| **detect speech**, on audio out | the gate is "does this have an audio track". A music bed converts into vocal noise, **billed in full**, and answers `200`. Gate 1 is yours and it is free. Video out charges only once its job finds speech (a source with none ends `failed` with nothing charged), and Gate 1 still runs first; see [Video out](#video-out) |
+| **detect speech**, on audio out | the gate is "does this have an audio track". A music bed converts into vocal noise, **billed in full**, and answers `200`. Gate 1 is yours and it is free. Video out charges only once its job finds speech (a source with none ends `failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), and Gate 1 still runs first; see [Video out](#video-out) |
 | **return video, by default** | the default output is audio: muxing the take back over the picture, and choosing which spans to replace, is local work. Deliberately: those are creative decisions. `output: "video"` hands the mux to the server where the workspace has it on — see [Video out](#video-out) |
 
 ## The gates run in order. Do not skip to the conversion.
@@ -358,14 +358,14 @@ nobody checked.
 
 `POST /v1/voice-changes` takes an optional `output`: `"audio"`, the default and everything
 above, unchanged; or `"video"`, which answers `202 { jobId, status, credits, output: "video" }`.
-`status` is the job's real lifecycle: `queued` for a new job; `running` when a retried POST
-finds the same change already rendering (the same job, not a new one); `succeeded`, with the
+`status` is the job's current status; retrying the same request is safe and returns the same
+job (the same jobId). `queued`: not rendering yet; `running`: already rendering; `succeeded`, with the
 finished copy and nothing charged, when the same change was already made. On `queued` or `running`,
 poll `GET /v1/generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4) or `failed`
 (`voiceChange.reasonCode` names the cause); on `succeeded`, download. The same price as audio
 out, from the same `kind: "voice-change"` estimate, but charged differently: audio out at the
 request, video out only once the job finds speech in the source (a source with none ends
-`failed` with nothing charged), refunded if the job fails after that. It needs a video source and is
+`failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), refunded if the job fails after that. It needs a video source and is
 enabled per workspace; both refusals are a `400` with nothing charged. Only the voice
 changes. The mux becomes the server's; Gate 6's span choices are not made for you; Gate 7
 stays yours.
@@ -426,7 +426,8 @@ GET  /v1/generations?kind=audio   → the recovery path when a response never ar
 - **`400` saying to omit `output`.** Video out is not enabled for this workspace, and
   nothing was charged. Omit it and run Gate 6 yourself. Not a retry.
 - **A video-out job ends `failed`.** `voiceChange.reasonCode` names the cause. A source
-  with no speech fails with nothing charged; a job that fails after finding speech is refunded.
+  with no speech fails with nothing charged (or, if an earlier attempt already found none, it
+  is refused at the request, also free); a job that fails after finding speech is refunded.
   Report the cause and the balance before calling again.
 - **`404` on the voiceId.** The voice is not yours, or it went inactive upstream. **This
   endpoint never substitutes a near-enough voice** — that is deliberate, because you cast

@@ -15,7 +15,7 @@ curl -sS -X POST https://api.novoads.ai/v1/voice-changes -A novoads-skill/change
   -H "Authorization: Bearer $NOVOADS_API_KEY" -H 'Content-Type: application/json' \
   -d '{"assetId":"<assetId>","voiceId":"<the one the human picked>","output":"video"}'
 # → 202 { jobId, status, credits, output: "video" }
-#   status: "queued" (new job) | "running" (the same change, already rendering)
+#   status: "queued" (not rendering yet) | "running" (already rendering)
 #         | "succeeded" (already made: the finished copy, nothing charged)
 
 curl -sS https://api.novoads.ai/v1/generations/<jobId> -A novoads-skill/change-voice \
@@ -27,9 +27,9 @@ curl -sS https://api.novoads.ai/v1/generations/<jobId> -A novoads-skill/change-v
 - **It is a job, not an answer.** `202`, then poll `GET /v1/generations/{jobId}` the way
   [`novoads-api`](../../novoads-api/SKILL.md) polls any render. Write down `jobId` and `credits`
   the moment the `202` lands.
-- **The `202`'s `status` is the job's real lifecycle, so branch on it.** `queued`: a new
-  job; poll it. `running`: a retried POST found the same change already rendering; it is
-  the same job, not a new one; poll it. `succeeded`: the same change was already made; the
+- **The `202`'s `status` is the job's current status, so branch on it.** Retrying the same
+  request is safe and returns the same job (the same jobId), whatever its status. `queued`:
+  not rendering yet; poll it. `running`: already rendering; poll it. `succeeded`: the same change was already made; the
   `202` carries the finished copy and nothing is charged; download it, there is nothing to poll. The
   same rule as audio out's free repeat.
 - **`succeeded`:** `outputUrl` is the new mp4 and `voiceChange.videoId` names that copy.
@@ -37,7 +37,8 @@ curl -sS https://api.novoads.ai/v1/generations/<jobId> -A novoads-skill/change-v
 - **`failed`:** `voiceChange.reasonCode` names the cause.
 - **When the charge lands differs by output.** Audio out is charged at the request. Video
   out is charged only once the job finds speech in the source: a source with no speech ends
-  `failed` with nothing charged, and a job that fails after that is refunded. Gate 1 still runs
+  `failed`, or is refused at the request (no job is created) when an earlier attempt already found none;
+  neither is charged. A job that fails after that is refunded. Gate 1 still runs
   before the call: it is free, and it does not depend on what the job counts as speech.
 - **The price is the same as audio out for the same source.** Quote it at Gate 2 with the
   same `kind: "voice-change"` estimate. Never a typed number.

@@ -30,7 +30,9 @@ value) and document its reference images, reference video, first and last frames
 **`change-voice` can hand back the finished video.** `POST /v1/voice-changes` takes an optional
 `output`: `"audio"` stays the default and unchanged (a synchronous `200` with the mp3), and
 `"video"` answers `202` with a job to poll at `GET /v1/generations/{jobId}`, whose `outputUrl` is
-the new mp4. Same price as audio out, quoted by the same `voice-change` estimate. It needs a video
+the new mp4; the `202`'s `status` is the job's lifecycle (`queued`, `running`, or `succeeded` with nothing
+charged for a change already made). Same price as audio out, quoted by the same `voice-change`
+estimate, but charged only once the job finds speech and refunded if it fails after that. It needs a video
 source and is enabled per workspace; both refusals are a `400` with nothing charged. The skill
 gains a Video out section, `novoads-api/reference.md` stops calling the endpoint synchronous
 only, and new evals cover the job, the audio-source refusal and the unchanged default.

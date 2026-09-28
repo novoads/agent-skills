@@ -795,18 +795,20 @@ parts. A 15-second source converted in **7.1 seconds**.
 converted voice back over the source's picture. It is enabled per workspace; where it is off
 the call is a `400` whose message says to omit `output`, and nothing is charged.
 
-- **Response `202`:** `{ jobId, status: "queued", credits, output: "video" }`. Poll
+- **Response `202`:** `{ jobId, status, credits, output: "video" }`, where `status` is the
+  job's real lifecycle: `queued` for a new job; `running` when a retried POST finds the same
+  change already rendering (the same job, not a new one); `succeeded`, with the finished copy
+  and a zero `credits`, when the same change was already made. On `queued` or `running`, poll
   `GET /generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4,
-  `voiceChange.videoId` names the copy) or `failed` (`voiceChange.reasonCode`; the message
-  says whether anything was charged).
-- **Already made:** the same change asked for again answers `202` with
-  `status: "succeeded"` and the finished copy, and charges nothing.
+  `voiceChange.videoId` names the copy) or `failed` (`voiceChange.reasonCode` names the
+  cause). On `succeeded`, download; there is nothing to poll.
 - **Price:** the same as audio out for the same source, quoted by the same `voice-change`
-  estimate arm. Charged once the job finds speech; refunded if it fails after that.
+  estimate arm. **When it is charged differs:** audio out at the request; video out only once
+  the job finds speech in the source, so a source with no speech ends `failed` with nothing charged,
+  and a job that fails after that is refunded.
 - **A video source only.** An audio upload with `output: "video"` is a `400`, nothing
   charged.
-- **The picture is stream-copied**, never re-encoded. The words, the timing and the accent
-  are the source's; only the voice changes.
+- **Only the voice changes.** The words, the timing and the accent are the source's.
 
 ### Pricing
 
@@ -824,7 +826,7 @@ ad and an empty body quoted the same number on the acceptance run.
 | `400` | Validation, a source **past the 5-minute cap** (named), voice changes being off on this deployment, an **audio upload with `output: "video"`**, or `output` sent where video out is not enabled for the workspace (the message says to omit it). Nothing charged. |
 | `402` | Not enough credits; `details` carries `required` and `available`. |
 | `404` | No such job or asset for this organization, **or no such voice** — the voice cases are deliberately indistinguishable from "not yours". A voice that went inactive *after* the request started lands here too, with the credits refunded. |
-| `409` | The source job has not succeeded yet, it has **no audio to convert**, or **a conversion of this source in this voice is already in flight** — the message names that job id, so poll it or retry in a moment and the stored audio comes back without a second charge. Anything charged before a `409` is refunded. |
+| `409` | The source job has not succeeded yet, it has **no audio to convert**, or **a conversion of this source in this voice is already in flight** — the message names that job id, so poll it or retry in a moment and the stored audio comes back without a second charge. Anything charged before a `409` is refunded. On video out, a retry of a change still rendering is not a `409`: it answers `202` with `status: "running"`. |
 | `429` | `details.reason: voice_change_concurrency_limit` — **10** in flight, its own queue, counted apart from renders, captions, transcripts and narration. |
 | `500` | **Do not blindly retry**: this endpoint charges, and a failure can land after the debit. Call `GET /generations` first. |
 | `502` | The provider failed. Credits refunded automatically. |
@@ -843,7 +845,9 @@ Four assumptions callers arrive with, none of them true here:
   anyone talking": a music bed sent here converts into vocal noise, is **charged in full**,
   and answers `200`. That is a charged success, not an error, and there is nothing to refund.
   Check for speech locally before you call — the `change-voice` skill ships a free check that
-  does it in about a second.
+  does it in about a second. That is audio out, the default. Video out is charged only once
+  its job finds speech, so a source with none ends `failed` with nothing charged ([Video out](#video-out));
+  the local check still runs first.
 
 And by default it does not return **video** (`output: "video"` is the exception, above). Muxing the take back over the picture, and deciding which
 spans to swap so a sound effect or a music bed survives untouched, is yours to do locally,
@@ -948,7 +952,7 @@ queued -> running -> finalizing -> succeeded
 
 **Poll for terminal, not for `succeeded`.** A loop waiting only on `succeeded` never exits on a failed job.
 
-`queued` means charged and submitted but not yet rendering. It is normal, not a stall.
+`queued` means charged and submitted but not yet rendering. It is normal, not a stall. A video-out voice change is different: it is charged once the job finds speech in the source, not at `queued` ([Video out](#video-out)).
 
 Measured on production renders (all providers, succeeded only, p10 to p90):
 

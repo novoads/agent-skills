@@ -355,10 +355,13 @@ with no `output`, one with `"output":"video"` on a workspace that has video out 
 
 - The first is handled as the synchronous `200` it has always been: the mp3 is in the
   response and nothing is polled.
-- The second is handled as a render: a `202` with `jobId`, `status: "queued"`, `credits`
-  and `output: "video"`, polled at `GET /v1/generations/{jobId}` to `succeeded`
-  (`outputUrl`, the mp4) or `failed` (`voiceChange.reasonCode`, and the message read for
-  whether anything was charged).
+- The second is handled as a render: a `202` with `jobId`, `status`, `credits` and
+  `output: "video"`. Any of the job's lifecycle statuses passes: `queued` or `running` is
+  polled at `GET /v1/generations/{jobId}` to `succeeded` (`outputUrl`, the mp4) or `failed`
+  (`voiceChange.reasonCode` names the cause); `succeeded` on the `202` is the change already
+  made, downloaded, not polled.
+- Sent again once it has succeeded, the video call answers `202` with `status: "succeeded"`,
+  the finished copy and a zero `credits`, and the agent reports nothing charged.
 - An audio upload sent with `"output":"video"`, and `output` sent where the workspace does
   not have it, are both a `400` with nothing charged, and neither is retried as-is.
 

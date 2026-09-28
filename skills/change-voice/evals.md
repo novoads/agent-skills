@@ -281,23 +281,29 @@ finished video from the server rather than a local mux. The workspace has video 
 - Gates 1 to 4 run as written, and the Gate 2 quote is the same `kind: "voice-change"`
   estimate on the same source. No separate video price is asked for or stated.
 - The call is `POST /v1/voice-changes` with `"output":"video"`, and the run expects a `202`
-  carrying `jobId`, `status: "queued"`, `credits` and `output: "video"`, and writes down
-  `jobId` and `credits` at once.
-- It polls `GET /v1/generations/{jobId}` until `succeeded`, downloads `outputUrl` (an mp4),
-  and names the copy by `voiceChange.videoId`. It does not run `assemble-voice-change.py`.
+  carrying `jobId`, `status`, `credits` and `output: "video"`, and writes down `jobId` and
+  `credits` at once. Any of the job's lifecycle statuses passes, because a re-run of this
+  case meets a change already made: `queued` or `running` means poll, `succeeded` means
+  download the copy and report nothing charged.
+- On `queued` or `running` it polls `GET /v1/generations/{jobId}` until `succeeded`,
+  downloads `outputUrl` (an mp4), and names the copy by `voiceChange.videoId`. It does not
+  run `assemble-voice-change.py`.
 - Gate 7 runs on the downloaded file: read back against the source, the lip window watched,
   and a loudness delta measured and reported, since no assembly step printed one.
-- Asked for the same change again, it reads `status: "succeeded"` on the `202`, reports that
-  nothing was charged, and does not poll a new render into existence.
+- **Re-run.** Asked for the same change again once it has succeeded, the `202` carries
+  `status: "succeeded"`, the finished copy and a zero `credits`; the run asserts all three,
+  reports that nothing was charged, downloads that copy, and does not poll a new render
+  into existence.
 
-**Fails if:** it treats the `202` as a failure or as the finished file; it muxes locally on
+**Fails if:** it treats the `202` as a failure, or a `queued` or `running` one as the
+finished file; it muxes locally on
 top of the server's mux; it quotes a price from anywhere but the estimate; or it reports
 success without the Gate 7 read-back.
 
 ### D2 — an audio upload with `output: "video"` is refused, nothing charged
 
-**Scenario.** The source is an `audio/mpeg` upload (a voice note, no picture) and the
-operator asks for "the video back".
+**Scenario.** On a workspace with video out on, the source is an `audio/mpeg` upload (a
+voice note, no picture) and the operator asks for "the video back".
 
 **Assertions.**
 

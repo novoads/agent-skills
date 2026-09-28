@@ -26,7 +26,11 @@ headline capabilities below, and a prompt written against them wastes a paid ren
 | | |
 |---|---|
 | Text to video | yes — the primary mode |
-| Image to video | yes, via **`startImageAssetId`** (one image, becomes the first frame) |
+| Image to video | yes. **`startImageAssetId`** is sent as one reference image the model may place anywhere in the clip, not a first frame. For a true first frame, **`firstFrameAssetId`** (and **`lastFrameAssetId`**, which needs it), only where the server publishes them |
+| Reference images | **`referenceAssetIds`** (API 2.30.0 on): images only, up to the field's `maxItems` in the OpenAPI document, addressed `@Image1`…`@ImageN` in the order sent. Never beside `startImageAssetId` |
+| Reference video | **`referenceVideoAssetId`** (API 2.30.0 on): one video. Its length bounds `durationSeconds`, and it shares the reference slots with the images |
+| `seed` | an integer, 0 to 2147483647, only where the server publishes it |
+| `resolution` | read `resolutions` from `GET /v1/models`: `360p`, `720p`, `1080p`, or `720p` alone, depending on the server. Send the key only when the list has more than one value; otherwise it is a `400` |
 | `durationSeconds` | **enum: 4, 6, 8, 10 only.** Not the continuous 4–15 grid Seedance has. Out-of-grid values are rejected, never rounded. Defaults to 8 |
 | `aspectRatio` | **`9:16` (default) or `16:9`.** That is the whole grid — no `1:1`, no `4:3`, no `21:9`. Seedance's wider grid does not apply here |
 | Prompt ceiling | **20,000, by far the largest of any VIDEO model here**, where the rest sit at 4,000. This model is the one place the long, layered prompts below actually fit. It is not the largest on the API: since deployed spec 2.16.0 two image models are roomier still (`nano-banana-pro` 50,000, `gpt-image-2` 32,000), which is a fact about `POST /images` and changes nothing about a video call |
@@ -38,13 +42,15 @@ headline capabilities below, and a prompt written against them wastes a paid ren
   "Edit this keeping everything the same" has no antecedent — it renders a fresh video from that
   sentence alone. Every section framed as an *edit* is a section you have to re-express as a full
   scene description.
-- **No `referenceAssetIds` on `omni-flash`.** The two Seedance variants take up to 9 references;
-  `omni-flash`'s request schema omits the field entirely and the variants are strict, so sending it
-  is a `400`. Everything below about combining `<video>` / `<image>` / `<audio>` inputs, motion and
-  style transfer, storyboard input, and holding a character steady with a reference is **out of
-  reach on this model.** If a route genuinely needs multiple references, that route is Seedance.
-- **No video or audio input at all.** `POST /v1/uploads` accepts video, but a video `assetId` is an
-  error on a generation call, and there is no audio input anywhere on this API.
+- **References reach this model as `referenceAssetIds` (images) and `referenceVideoAssetId` (one
+  video)**, since API 2.30.0; on an older deployment either is a strict `400`, so read the OpenAPI
+  document the server serves. What stays out of reach is the inline `<video>` / `<image>` /
+  `<audio>` placeholder syntax the sections below use: name each image by its `@ImageN` token in
+  the prompt instead. Nothing in this pack has measured Omni's motion or style transfer from a
+  reference through this API, so treat the first render of such a route as a test.
+- **No audio input at all.** A video goes in `referenceVideoAssetId` and nowhere else; a video
+  `assetId` in `referenceAssetIds` or a frame field is a `400`, and there is no audio input
+  anywhere on this API.
 - **No SynthID/C2PA claim either way.** The watermarking note near the end of this file describes
   Google's own surfaces. Do not repeat it as a fact about output obtained through this API — it has
   not been verified here.
@@ -243,9 +249,10 @@ Prompt: Edit this keeping everything the same. Add animated motion effects comin
 
 ## Reference anything: combining inputs
 
-> **Not reachable through this API.** `omni-flash`'s request schema has no `referenceAssetIds`
-> field, and there is no video or audio input anywhere on this API. A route that needs multiple
-> references is a Seedance route (up to 9 images, addressed `@Image1`…`@ImageN`).
+> **Partly reachable through this API (2.30.0 on).** `omni-flash` takes images in
+> `referenceAssetIds`, addressed `@Image1`…`@ImageN`, and one video in `referenceVideoAssetId`.
+> The inline `<video>` / `<image>` / `<audio>` placeholders below are not how this API addresses
+> them, and there is no audio input: rewrite each image placeholder as its `@ImageN` token.
 
 Reference and combine any media — **images, videos, text, and audio** — inside a single prompt,
 using inline `<video>` / `<image>` / `<audio>` placeholders.
@@ -336,9 +343,9 @@ Prompt: When the person touches the mirror, the entire environment turns into 3d
 
 ## Storyboard-based generation
 
-> **Not reachable through this API.** `omni-flash`'s request schema has no `referenceAssetIds`
-> field, and there is no video or audio input anywhere on this API. A route that needs multiple
-> references is a Seedance route (up to 9 images, addressed `@Image1`…`@ImageN`).
+> **Reachable as a reference image (2.30.0 on).** Send the storyboard sheet in `omni-flash`'s
+> `referenceAssetIds` and name it `@Image1` in the prompt. Nothing in this pack has measured how
+> closely Omni follows a sheet through this API, so treat the first render as a test.
 
 Already know the narrative arc? Hand Omni a **visual storyboard** and it generates video following
 your key beats.
@@ -352,9 +359,9 @@ Prompt: Show me in this story. Follow the story exactly in order starting top le
 
 ## Keep your scene consistent
 
-> **Not reachable through this API.** `omni-flash`'s request schema has no `referenceAssetIds`
-> field, and there is no video or audio input anywhere on this API. A route that needs multiple
-> references is a Seedance route (up to 9 images, addressed `@Image1`…`@ImageN`).
+> **Reachable since API 2.30.0.** Send the character, object or setting in `omni-flash`'s
+> `referenceAssetIds` and name it by its `@ImageN` token. Nothing in this pack has measured how
+> well Omni holds a face across separate clips; the documented route for a series is Seedance's.
 
 To hold a character, object, or environment steady, **add a reference** — from real life or
 generated with Nano Banana — and Omni will carry it across the scene.
@@ -379,17 +386,17 @@ session or multi-modal inputs are marked, not silently dropped.
 - [ ] ~~Edit conversationally; ask for the delta.~~ **Write the complete scene every time** — the
       call is stateless and there is nothing to amend.
 - [ ] **Use real camera vocabulary** (`oner`, `locked off`, `dolly zoom`, `webcam style`).
-- [ ] ~~Combine input types — image + video + audio + text.~~ **One image, as `startImageAssetId`.**
-      No `referenceAssetIds` on this model, and no video or audio input on this API at all.
+- [ ] **Combine images and one video** (API 2.30.0 on): images in `referenceAssetIds`, addressed
+      `@Image1`…`@ImageN`, and one clip in `referenceVideoAssetId`. No audio input on this API.
 - [ ] **State exclusions explicitly** (`No music, just realistic sound`, `Don't add text`). Worth
       doing on every ad prompt: `no on-screen text, no captions, no subtitles` keeps the model from
       inventing burned-in captions you would then have to re-render to remove.
 - [ ] **Pin timing and framing in the prompt text** as well as in the fields — but the fields are
       what bind. `durationSeconds` is 4/6/8/10 and `aspectRatio` is `9:16` or `16:9`; a prompt
       asking for `12s` does not override the field, it just confuses the composition.
-- [ ] ~~Anchor consistency with a reference image.~~ For a character or product that must stay
-      identical across shots, use **Seedance** — it takes up to 9 references addressed `@Image1`…
-      `@ImageN`. `omni-flash` can only anchor the first frame.
+- [ ] **Anchor consistency with a reference image** in `referenceAssetIds`, named by its `@ImageN`
+      token. `startImageAssetId` is a reference on this model too, not a first frame; for a true
+      first frame use `firstFrameAssetId` where the server publishes it.
 - [ ] **Price it first.** `POST /v1/estimates` with `kind: "video"`, `model: "omni-flash"` and the
       duration is free, and it is the only place a credit number may come from.
 
@@ -398,8 +405,11 @@ session or multi-modal inputs are marked, not silently dropped.
 ## Capability and performance notes
 
 Modalities the model has: **Video Editing, Text to Video, Image to Video, Reference to Video.**
-Modalities reachable here: **Text to Video** and **Image to Video** (via `startImageAssetId`). The
-other two need inputs this API does not accept — see the scoping section at the top.
+Modalities reachable here: **Text to Video**, **Image to Video** (`startImageAssetId` as a
+reference, or `firstFrameAssetId` as a true first frame where the server publishes it) and, since
+API 2.30.0, **Reference to Video** (`referenceAssetIds`, `referenceVideoAssetId`). **Video Editing**
+is not documented here: every call is stateless, and nothing in this pack has tried editing a clip
+sent as `referenceVideoAssetId`. See the scoping section at the top.
 
 Per DeepMind's published evals:
 

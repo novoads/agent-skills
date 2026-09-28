@@ -12,6 +12,13 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**`omni-flash` on API 2.29.0 and 2.30.0.** `novoads-api` and the Omni Flash prompting guide read
+Omni's resolutions from `GET /v1/models` (send `resolution` only when that list has more than one
+value) and document its reference images, reference video, first and last frames and seed. On
+`omni-flash`, `startImageAssetId` is a reference image, not a first frame.
+
 ## v1.3.0 — 2026-09-11
 
 ### Changed

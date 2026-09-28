@@ -14,7 +14,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 | `prompt` | required | The video prompt. See *Length* below. |
 | `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
 | `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9`.** Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
-| `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. `seedance-2.0` only. |
+| `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. Not on `seedance-2.0-mini`. |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | The language the ad is rendered in. Write the prompt in it too. |
 | `startImageAssetId` | one `assetId` | Animates that image as the **first frame**. |
 | `referenceAssetIds` | up to **9** `assetId`s | **Composites** them as visual references. Addressed in the prompt as `@Image1`…`@ImageN`. |

@@ -478,10 +478,12 @@ asynchronous (`202` + `jobId`, poll to a terminal status); images come back in t
 `false` for a clip meant to run silent. The other three video models are strict and `400` on it, as
 does `POST /v1/estimates` for every model — it does not move the price.
 
-`resolution` is on **`seedance-2.0` and `seedance-2.5` only**, and it is the one output-shape field
+`resolution` is on **`seedance-2.0`, `seedance-2.5`, and `omni-flash` where `GET /v1/models` lists
+more than one tier for it**, and it is the one output-shape field
 that moves the price: each tier is its own credit schedule, not a surcharge on the one below it.
 Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, which makes it a real
-draft tier on both. `seedance-2.5` stops at `720p`.
+draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`
+up to `1080p`, and `4k` where the server publishes it: read the live list, never assume `4k`.
 
 **Kling 3 is not on this API and is not queued for it.** Its prompt library sits in
 `skills/novoads-api/prompting/prompt-library/` as craft only; the agent will say so plainly rather

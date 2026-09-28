@@ -42,7 +42,7 @@ Every one of these comes back `400 (root): Unrecognized keys: …` — verified 
 
 `duration` (it is `durationSeconds`) · `referenceImages` (it is `referenceAssetIds`) · `referenceVideos` · `referenceAudios` · `startFrame` / `endFrame` (it is `startImageAssetId`) · `nbGenerations` · `projectId` (the API has products, not projects).
 
-**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `seedance-2.0-mini`, `omni-flash`, `sora-2` and `veo-3.1`.
+**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `seedance-2.0-mini`, `sora-2` and `veo-3.1`, and on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
 
 **`audioEnabled` is the one exception, and it is a mute switch, not an audio track.** It arrived in spec `2.2.0` on `seedance-2.0` and `seedance-2.0-mini` only — the other three video models still `400` on it, and so does `POST /v1/estimates` for every model, because it does not move the price. It defaults to `true`. Send `false` for a clip that is meant to be silent (a pipeline laying its own VO in post, a cutaway built to run muted); otherwise leave it alone.
 

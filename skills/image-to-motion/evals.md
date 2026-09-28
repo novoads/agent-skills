@@ -126,7 +126,7 @@ reachable, so deleting both was over-correction — the port now names that rout
 that its grid differs (two aspect ratios, no audio toggle). The source's
 persistence warning is also gone, because the step it warned about has no analogue here.
 
-**Check:** ask for a restyle of existing footage. Confirm the skill says this API takes no
+**Check:** ask for a restyle of existing footage. Confirm the skill says it takes no
 video input and stops, rather than routing to `omni-flash` or to a "restyle" mode.
 
 ### P6 — the craft arrived intact

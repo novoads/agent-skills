@@ -17,7 +17,7 @@ Which field the `assetId` goes into depends on what you are generating:
 | | Field | How many | Notes |
 |---|---|---|---|
 | **Video** — animate this exact image | `startImageAssetId` | 1 | The image becomes the clip's literal first frame. Not addressed in the prompt. |
-| **Video** — composite these references | `referenceAssetIds` | up to **9** | Addressed positionally: `@Image1`, `@Image2`… `seedance-2.0` / `seedance-2.0-mini` only — `omni-flash` has no such field and rejects it. |
+| **Video** — composite these references | `referenceAssetIds` | up to **9** | Addressed positionally: `@Image1`, `@Image2`… The Seedance variants and, since API 2.30.0, `omni-flash` (up to its own limit); `veo-3.1` and `sora-2` reject it. |
 | **Image** | `referenceAssetIds` | per model: **4** `gpt-image-2` / **14** `nano-banana-pro` / **8** `reve-2.1` | Addressed positionally. No `startImageAssetId` — a still has no first frame. |
 
 The two video modes are **mutually exclusive**: sending `startImageAssetId` and `referenceAssetIds` in the same request is a 400, not a merge. References are **images only** — `POST /v1/uploads` also accepts video, but a video `assetId` used as a reference is an error.

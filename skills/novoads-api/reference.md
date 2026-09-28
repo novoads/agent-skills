@@ -287,7 +287,7 @@ The API adds nothing to the price for a video reference. Re-quote with `POST /v1
 
 ### `resolution` is a price field, and `GET /models` sets it per model
 
-Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row read off deployed spec **2.13.0**, 2026-08-07; `omni-flash`'s row read off the API 2.29.0 changelog, not yet verified live. The earlier note here — that no variant had the field and `GET /models` published no output size — described an older deployment and is superseded.
+Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row read off deployed spec **2.13.0**, 2026-08-07; `omni-flash`'s row read off the API 2.29.0 changelog and verified live 2026-09-28. The earlier note here — that no variant had the field and `GET /models` published no output size — described an older deployment and is superseded.
 
 | `model` | `resolution` accepted | Default |
 |---|---|---|

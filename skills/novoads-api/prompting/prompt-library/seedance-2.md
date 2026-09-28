@@ -24,7 +24,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 
 > `startImageAssetId and referenceAssetIds are separate modes and cannot be combined. Pass startImageAssetId to animate one image as the first frame, or referenceAssetIds to composite several references into a new scene.`
 
-References are **images only** (`image/jpeg`, `image/png`, `image/webp`), even though `POST /v1/uploads` also accepts video. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` has no `referenceAssetIds` field at all — offering references on that route is `Unrecognized key`.
+References are **images only** (`image/jpeg`, `image/png`, `image/webp`), even though `POST /v1/uploads` also accepts video. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` takes `referenceAssetIds` too since API 2.30.0 (images only as well, with one separate `referenceVideoAssetId`); read its guide before carrying a Seedance reference prompt across.
 
 **`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈half**, `1080p` is **≈2.5x**, `4k` is **≈5x**. The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: measured live 2026-08-12, exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5`, so a rehearsal render has an honest cheap tier to go to.
 

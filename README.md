@@ -482,8 +482,8 @@ does `POST /v1/estimates` for every model — it does not move the price.
 more than one tier for it**, and it is the one output-shape field
 that moves the price: each tier is its own credit schedule, not a surcharge on the one below it.
 Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, which makes it a real
-draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`
-up to `1080p`, and `4k` where the server publishes it: read the live list, never assume `4k`.
+draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`,
+`720p` and `1080p`, plus `4k` where the server publishes it: read the live list, never assume `4k`.
 
 **Kling 3 is not on this API and is not queued for it.** Its prompt library sits in
 `skills/novoads-api/prompting/prompt-library/` as craft only; the agent will say so plainly rather

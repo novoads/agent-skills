@@ -311,7 +311,7 @@ Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row r
 | `1080p` | ≈2.5x | **not accepted** |
 | `4k` | ≈5x | **not accepted** |
 
-**`480p` changed on 2026-08-07.** It used to cost the same as `720p`, so there was no reason to ask for it. The family-wide reprice that shipped alongside `seedance-2.5` put it at roughly half — a price *decrease* on live models, so nothing that rendered yesterday costs more today, but a workflow that skipped `480p` on the old advice should reconsider it. **It is only reachable on the two models that take the field**: `seedance-2.0-mini` still publishes no `resolution` property and still range-checks the estimate arm to `720p`, whatever the dashboard charges for a mini draft.
+**`480p` changed on 2026-08-07.** It used to cost the same as `720p`, so there was no reason to ask for it. The family-wide reprice that shipped alongside `seedance-2.5` put it at roughly half — a price *decrease* on live models, so nothing that rendered yesterday costs more today, but a workflow that skipped `480p` on the old advice should reconsider it. **It is only reachable on the two Seedance models that take the field (`omni-flash` lists no `480p`)**: `seedance-2.0-mini` still publishes no `resolution` property and still range-checks the estimate arm to `720p`, whatever the dashboard charges for a mini draft.
 
 Those are ratios, not a rate card — they exist so you can warn a user that `4k` is a five-fold decision before they ask for it. **The number they approve still comes from `POST /estimates`**, and this repo holds no rate table (see SKILL.md gate 2).
 

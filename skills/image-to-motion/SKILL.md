@@ -11,7 +11,7 @@ description: >-
   this move", "この画像動かして", "モーショングラフィックにして", "I want the cards to pop in",
   "I want the bars to slide up", or when they describe motion beats for a static image.
   Also use when asked to write a Seedance prompt for an existing image. Do NOT use for
-  text-to-video with no source image, restyling existing footage (this API takes no video
+  text-to-video with no source image, restyling existing footage (this skill takes no video
   input), cloning a reference video (use clone-video-ad), or a product photo that should
   seed a new scene rather than move as-is (use novoads-api).
 ---
@@ -261,8 +261,9 @@ when a still comes back with clipped text, invented emoji or in-feed UI in it, a
 passing `--allow-chrome` or `--no-safe-zone`** to turn one off. A start frame with a headline
 running off the edge animates into a video with a headline running off the edge.
 
-**This API takes no video input.** There is no restyle of existing footage and no
-multi-turn edit: `omni-flash` here is one stateless call, not the conversational editor its
+**This skill takes no video input.** Since API 2.30.0 `omni-flash` accepts one reference
+video (`referenceVideoAssetId`, see novoads-api) that guides a new render, but there is
+no in-place restyle of existing footage and no multi-turn edit: `omni-flash` here is one stateless call, not the conversational editor its
 vendor documentation describes. If the ask is to restyle a clip, say so and stop. A **timed
 multi-scene switch** is different and is still reachable — it needs no video input, only a
 prompt that describes each scene and when it changes. `omni-flash` is the model for it, and

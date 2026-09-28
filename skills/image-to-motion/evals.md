@@ -119,10 +119,11 @@ claim that the asset expires.
 
 **Why:** the source offered `omni-flash` for two jobs and **only one of them is
 unreachable here.** The restyle is gone: on `/v1` this is one stateless call with no
-multi-turn edit and no video input at all, so translating it burns a paid render on a fresh
+multi-turn edit, and its one video input (`referenceVideoAssetId`, API 2.30.0) guides a new
+render rather than editing the clip, so translating it burns a paid render on a fresh
 video nobody asked for. The timed multi-scene switch, though, needs no video input and IS
 reachable, so deleting both was over-correction — the port now names that route, and names
-that its grid differs (two aspect ratios, no audio toggle, no references). The source's
+that its grid differs (two aspect ratios, no audio toggle). The source's
 persistence warning is also gone, because the step it warned about has no analogue here.
 
 **Check:** ask for a restyle of existing footage. Confirm the skill says this API takes no

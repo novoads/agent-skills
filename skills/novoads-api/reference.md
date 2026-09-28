@@ -263,7 +263,7 @@ An `@ImageN` token pointing past the end of the array is refused **before the ch
 
 ### `omni-flash` inputs (API 2.30.0)
 
-Read from the API 2.30.0 changelog in the OpenAPI document, not yet verified live. Which of these fields a deployment takes is in the OpenAPI document it serves (`GET /v1/openapi.json`), not in the version number: through 2.29.0, `referenceAssetIds` on `omni-flash` is a strict `400` and the other four fields do not exist.
+Read from the API 2.30.0 changelog in the OpenAPI document and verified live on 2026-09-28 (REST renders, and the refusals below). Which of these fields a deployment takes is in the OpenAPI document it serves (`GET /v1/openapi.json`), not in the version number: through 2.29.0, `referenceAssetIds` on `omni-flash` is a strict `400` and the other four fields do not exist.
 
 | Field | What it is | Where |
 |---|---|---|

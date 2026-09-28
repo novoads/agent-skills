@@ -14,6 +14,14 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ### Changed
 
+**`omni-flash` `4k` on API 2.31.0.** `novoads-api`, the Omni Flash prompting guide and the README
+add `4k` to Omni's possible resolutions, only where `GET /v1/models` lists it: the server
+publishes that tier in some configurations and not others, so read the live list and never assume
+it. An Omni render at `4k` is a true 4K source, so its captions bill doubled; price it with the
+caption arm of `POST /v1/estimates`. Lines that still said only Seedance takes `resolution` (the
+README, `clone-video-ad` and its evals, `image-to-motion`, the Seedance library) now leave room
+for Omni.
+
 **`omni-flash` on API 2.29.0 and 2.30.0.** `novoads-api` and the Omni Flash prompting guide read
 Omni's resolutions from `GET /v1/models` (send `resolution` only when that list has more than one
 value) and document its reference images, reference video, first and last frames and seed. On

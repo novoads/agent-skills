@@ -235,7 +235,7 @@ cost gate did not price.
   deployment routes to, and the estimate is the only thing that knows.
 - `aspectRatio` — `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9`.
 - `resolution` — `480p` or `720p`. **720p is this model's ceiling**, not a floor: 1080p and
-  4k belong to `seedance-2.0` and are a `400` here.
+  4k belong to other models and are a `400` here.
 - `audioEnabled` — `false` unless sound is wanted.
 - **Four takes gives useful choice.** There is no variations-per-call field, so that is four
   submissions of the identical payload, and **four charges** — which is why it belongs

@@ -27,6 +27,14 @@ Omni's resolutions from `GET /v1/models` (send `resolution` only when that list 
 value) and document its reference images, reference video, first and last frames and seed. On
 `omni-flash`, `startImageAssetId` is a reference image, not a first frame.
 
+**`change-voice` can hand back the finished video.** `POST /v1/voice-changes` takes an optional
+`output`: `"audio"` stays the default and unchanged (a synchronous `200` with the mp3), and
+`"video"` answers `202` with a job to poll at `GET /v1/generations/{jobId}`, whose `outputUrl` is
+the new mp4. Same price as audio out, quoted by the same `voice-change` estimate. It needs a video
+source and is enabled per workspace; both refusals are a `400` with nothing charged. The skill
+gains a Video out section, `novoads-api/reference.md` stops calling the endpoint synchronous
+only, and new evals cover the job, the audio-source refusal and the unchanged default.
+
 ## v1.3.0 — 2026-09-11
 
 ### Changed

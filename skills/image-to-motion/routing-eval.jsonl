@@ -17,7 +17,7 @@
 // nothing is replaced with a placeholder, and no template comes out.
 {"intent":"take this ad image I saved and just make it move","expected_skill":"image-to-motion","ambiguous_with":["clone-image-ad"]}
 // Near-misses: two output formats this does not produce, and one input the API
-// refuses outright — it takes no video at all.
+// refuses outright: this skill takes no video.
 {"intent":"export that animation as a looping gif for the newsletter","expected_skill":null}
 {"intent":"build this as a lottie file so the web team can drop it in","expected_skill":null}
 {"intent":"take our existing footage and restyle it to look like anime","expected_skill":null}

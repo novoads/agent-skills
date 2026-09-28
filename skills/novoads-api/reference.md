@@ -17,7 +17,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [POST /uploads](#post-uploads)
 - [POST /estimates](#post-estimates)
 - [POST /videos](#post-videos)
-  - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`resolution` — on `seedance-2.0` and `seedance-2.5`, and it is a price field](#resolution--on-seedance-20-and-seedance-25-and-it-is-a-price-field)
+  - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`omni-flash` inputs (API 2.30.0)](#omni-flash-inputs-api-2300) · [`resolution` is a price field, and `GET /models` sets it per model](#resolution-is-a-price-field-and-get-models-sets-it-per-model)
 - [POST /images](#post-images)
   - [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
 - [POST /captions, POST /videos/{jobId}/captions](#post-captions-post-videosjobidcaptions)
@@ -127,7 +127,7 @@ Response `201`:
 
 | Field | Meaning |
 |---|---|
-| `assetId` | Use in `startImageAssetId` and `referenceAssetIds`. Scoped to your organization. |
+| `assetId` | Use in `startImageAssetId` and `referenceAssetIds`, and on `omni-flash` in `referenceVideoAssetId`, `firstFrameAssetId` and `lastFrameAssetId`. Scoped to your organization. |
 | `uploadUrl` | Presigned. PUT the raw bytes here. |
 | `method` | The verb the URL was signed for. |
 | `headers` | Send these on the PUT, byte for byte. |
@@ -154,7 +154,7 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `prompt` | required | required |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2` | `gpt-image-2.5-sunburst` (default), `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `reve-2.1` |
 | `durationSeconds` | 4 to 30 | n/a |
-| `resolution` | `480p` `720p` `1080p` `4k` — **range-checked per model** | n/a |
+| `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | n/a |
 | `numImages` | n/a | 1 to 4 |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | same |
 
@@ -202,7 +202,9 @@ Per-model request bodies, all `.strict()`.
 
 **Shared by all six video models:** `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
 
-- **`referenceAssetIds`** — the three Seedance variants only. `omni-flash`, `veo-3.1` and `sora-2` have no such field.
+- **`referenceAssetIds`**: the three Seedance variants and, since API 2.30.0, `omni-flash`. `veo-3.1` and `sora-2` have no such field.
+- **`referenceVideoAssetId`, `firstFrameAssetId`, `lastFrameAssetId`, `seed`**: `omni-flash` only, and the last three only where the server publishes them. See [`omni-flash` inputs](#omni-flash-inputs-api-2300).
+- **`resolution`**: only on a model whose `resolutions` in `GET /models` lists more than one value. See [`resolution`](#resolution-is-a-price-field-and-get-models-sets-it-per-model).
 - **`audioEnabled`** — the three Seedance variants only. See below.
 
 There is **no `styleFamily`** on any variant. It was deleted from the API in spec `2.0.0` along with the blocking prompt rules it scoped, and the variants are strict, so sending it is a `400`.
@@ -212,7 +214,7 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 | `seedance-2.0` | 4–15, any integer (**5**) | `16:9` (default) `9:16` `1:1` `4:3` `3:4` `21:9` | ≤9 | yes | 4,000 |
 | `seedance-2.5` | **4–30, any integer** (**5**) | same | ≤9 | yes | 4,000 |
 | `seedance-2.0-mini` | 4–15, any integer (**10**) | same | ≤9 | yes | 4,000 |
-| `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | — | — | 20,000 |
+| `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
 | `veo-3.1` | 4, 6, 8 (**8**) | `9:16` (default) `16:9` | — | — | 4,000 |
 | `sora-2` | 4, 8, 12 (**4**) | `9:16` (default) `16:9` | — | — | 4,000 |
 
@@ -248,27 +250,52 @@ Confirmed against the deployed spec `2.0.0` on 2026-08-02 (the `1.2.0`-era note 
 
 | | `startImageAssetId` | `referenceAssetIds` |
 |---|---|---|
-| What the model does with it | Animates the image as the **first frame** | **Composites** the images as visual references — a character, a product, a wardrobe, a setting |
-| How many | 1 | Up to **9** |
-| Which models | all six | the three Seedance variants only — `seedance-2.0`, `seedance-2.5`, `seedance-2.0-mini`. The `omni-flash`, `veo-3.1` and `sora-2` variants omit the field, and all three are strict (`400 Unrecognized key`, verified live 2026-08-02) |
+| What the model does with it | Animates the image as the **first frame**; on `omni-flash`, a reference the model may place anywhere | **Composites** the images as visual references — a character, a product, a wardrobe, a setting |
+| How many | 1 | Up to **9** on Seedance; on `omni-flash`, the field's `maxItems` in the OpenAPI document |
+| Which models | all six | the three Seedance variants and, since API 2.30.0, `omni-flash`. The `veo-3.1` and `sora-2` variants omit the field, and both are strict (`400 Unrecognized key`, verified live 2026-08-02) |
 | Addressed in the prompt | no | yes: `@Image1`, `@Image2` … in the order you send them |
 
 **Sending both is a 400**, not a merge: they select different modes on the provider.
 
-**Images only** — `image/jpeg`, `image/png`, `image/webp`. `POST /uploads` also accepts video, and a video `assetId` here is an error rather than a reference: the providers price video-input renders differently while the credit cost here is a function of duration alone, so accepting one would make the quote disagree with the invoice.
+**Images only** — `image/jpeg`, `image/png`, `image/webp`. `POST /uploads` also accepts video, and a video `assetId` here is an error rather than a reference (the one place a video goes is `omni-flash`'s `referenceVideoAssetId`, below): the providers price video-input renders differently while the credit cost here is a function of duration alone, so accepting one would make the quote disagree with the invoice.
 
 An `@ImageN` token pointing past the end of the array is refused **before the charge** — an unresolvable reference is a content failure at the provider, and a 400 is a better answer than a refunded render.
 
-### `resolution` — on `seedance-2.0` and `seedance-2.5`, and it is a price field
+### `omni-flash` inputs (API 2.30.0)
 
-Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row read off deployed spec **2.13.0**, 2026-08-07. The earlier note here — that no variant had the field and `GET /models` published no output size — described an older deployment and is superseded.
+Read from the API 2.30.0 changelog in the OpenAPI document and verified live on 2026-09-28 (REST renders, and the refusals below). Which of these fields a deployment takes is in the OpenAPI document it serves (`GET /v1/openapi.json`), not in the version number: through 2.29.0, `referenceAssetIds` on `omni-flash` is a strict `400` and the other four fields do not exist.
+
+| Field | What it is | Where |
+|---|---|---|
+| `startImageAssetId` | Sent as **one reference image**; the model may place it anywhere in the clip. It is **not a first frame** on this model, and never was: only its description changed | every deployment |
+| `referenceAssetIds` | Images, in order, addressed `@Image1`…`@ImageN` in the prompt. The limit is the field's `maxItems` in the OpenAPI document (`GET /models` does not publish it), and a `400` names it | 2.30.0 on |
+| `referenceVideoAssetId` | One video `assetId` from `POST /uploads`. Where the server also publishes `firstFrameAssetId`, the clip's length bounds `durationSeconds` | 2.30.0 on |
+| `firstFrameAssetId` | An image, the true first frame | only where the server publishes it |
+| `lastFrameAssetId` | An image, the last frame. Needs `firstFrameAssetId` | only where the server publishes it |
+| `seed` | An integer, 0 to 2147483647 | only where the server publishes it |
+
+Refusals, every one `invalid_input` or `not_found` and every one before anything is charged:
+
+- An unknown key (strict schema), including a frame field or `seed` where the server does not publish it.
+- `startImageAssetId` beside `referenceAssetIds`, as on every model with references, and `startImageAssetId` beside `firstFrameAssetId`: pick the one you mean.
+- An asset that is not yours (`not_found`), a frame that is not an image, or a video reference that is not a video (the error names the `assetId`).
+- An `@ImageN` token that names no reference you sent.
+- The planner's codes, returned as `code`: `end_frame_needs_start_frame` (a last frame without a first), `start_frame_excludes_references` (a first frame beside references), `invalid_seed`, and `reference_quota` (the images plus the video exceed the model's slots).
+- Where the server probes a video reference: a `durationSeconds` longer than the clip is `duration_exceeds_source`, with `sourceSeconds`. After the charge the clip is cut to the render's length.
+
+The API adds nothing to the price for a video reference. Re-quote with `POST /v1/estimates` all the same: it is the only place a credit number comes from.
+
+### `resolution` is a price field, and `GET /models` sets it per model
+
+Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row read off deployed spec **2.13.0**, 2026-08-07; `omni-flash`'s row read off the API 2.29.0 changelog and verified live 2026-09-28. The earlier note here — that no variant had the field and `GET /models` published no output size — described an older deployment and is superseded.
 
 | `model` | `resolution` accepted | Default |
 |---|---|---|
 | `seedance-2.0` | `480p`, `720p`, `1080p`, `4k` | `720p` |
 | `seedance-2.5` | **`480p`, `720p` — and nothing above** | `720p` |
 | `seedance-2.0-mini` | **none — the variant has no such property** | 720p, fixed |
-| `omni-flash`, `sora-2` | **none** | 720p, fixed |
+| `omni-flash` | depends on the server: `360p`, `720p`, `1080p` where `GET /models` lists them (API 2.29.0), else **none** | `720p` |
+| `sora-2` | **none** | 720p, fixed |
 | `veo-3.1` | **none** | 1080p, fixed |
 
 **`seedance-2.5` does not inherit 2.0's high tiers, and that is a provider fact rather than a rollout gap.** Neither provider serves the model above 720p at all, so `1080p` and `4k` are a `400` on it and always will be. Do not carry a resolution across a model switch: a workflow that renders `seedance-2.0` at `1080p` and then swaps the model id to `seedance-2.5` is a rejected request, not a downgrade.
@@ -881,7 +908,7 @@ curl -sS -X POST https://api.novoads.ai/v1/products \
 
 The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`** (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
 
-**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `seedance-2.0-mini`, `omni-flash` and `sora-2` return `["720p"]`; `veo-3.1` returns `["1080p"]`. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. Note that only `seedance-2.0` and `seedance-2.5` expose `resolution` as a *request* field: for the fixed-tier models, `resolutions[]` reports what they render, not something you may send.
+**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `seedance-2.0-mini` and `sora-2` return `["720p"]`; `veo-3.1` returns `["1080p"]`; **`omni-flash` depends on the server** (API 2.29.0): `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
 
 **`durationsSeconds` is the same kind of authority for length**, and since 2.13.0 the entries no longer agree with each other: `seedance-2.5` publishes 4 … 30, every other model stops at or below 15. Read the model's own array rather than assuming a family shares a grid.
 

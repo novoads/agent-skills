@@ -24,7 +24,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 
 > `startImageAssetId and referenceAssetIds are separate modes and cannot be combined. Pass startImageAssetId to animate one image as the first frame, or referenceAssetIds to composite several references into a new scene.`
 
-References are **images only** (`image/jpeg`, `image/png`, `image/webp`), even though `POST /v1/uploads` also accepts video. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` has no `referenceAssetIds` field at all — offering references on that route is `Unrecognized key`.
+References are **images only** (`image/jpeg`, `image/png`, `image/webp`), even though `POST /v1/uploads` also accepts video. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` takes `referenceAssetIds` too since API 2.30.0 (images only as well, with one separate `referenceVideoAssetId`); read its guide before carrying a Seedance reference prompt across.
 
 **`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈half**, `1080p` is **≈2.5x**, `4k` is **≈5x**. The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: measured live 2026-08-12, exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5`, so a rehearsal render has an honest cheap tier to go to.
 
@@ -42,7 +42,7 @@ Every one of these comes back `400 (root): Unrecognized keys: …` — verified 
 
 `duration` (it is `durationSeconds`) · `referenceImages` (it is `referenceAssetIds`) · `referenceVideos` · `referenceAudios` · `startFrame` / `endFrame` (it is `startImageAssetId`) · `nbGenerations` · `projectId` (the API has products, not projects).
 
-**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `seedance-2.0-mini`, `omni-flash`, `sora-2` and `veo-3.1`.
+**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `seedance-2.0-mini`, `sora-2` and `veo-3.1`, and on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
 
 **`audioEnabled` is the one exception, and it is a mute switch, not an audio track.** It arrived in spec `2.2.0` on `seedance-2.0` and `seedance-2.0-mini` only — the other three video models still `400` on it, and so does `POST /v1/estimates` for every model, because it does not move the price. It defaults to `true`. Send `false` for a clip that is meant to be silent (a pipeline laying its own VO in post, a cutaway built to run muted); otherwise leave it alone.
 
@@ -209,7 +209,7 @@ Pick the formula that matches the goal, then read its file before composing:
 
 If none fits, compose a custom prompt directly from the platform rules above, following Subject + Action + Camera + Style + Constraints.
 
-Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in this folder is a **cross-model** UGC guide whose formulas target Veo 3.1, Sora 2 and Kling 3.0. Two of those are now live — see [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md) — but Kling is not, and neither Veo nor Sora takes `referenceAssetIds`, so for Seedance UGC use [seedance-2-ugc.md](seedance-2-ugc.md) rather than porting a cross-model formula across. The other video model here is `omni-flash`: narrower grids, no references, but a 20,000-character prompt ceiling, guide at `shared/skills/gemini-omni-flash/prompting/guide.md`.
+Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in this folder is a **cross-model** UGC guide whose formulas target Veo 3.1, Sora 2 and Kling 3.0. Two of those are now live — see [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md) — but Kling is not, and neither Veo nor Sora takes `referenceAssetIds`, so for Seedance UGC use [seedance-2-ugc.md](seedance-2-ugc.md) rather than porting a cross-model formula across. The other video model here is `omni-flash`: narrower grids, references since API 2.30.0, and a 20,000-character prompt ceiling, guide at `shared/skills/gemini-omni-flash/prompting/guide.md`.
 
 ## Adaptation checklist (all styles)
 

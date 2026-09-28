@@ -28,7 +28,7 @@ headline capabilities below, and a prompt written against them wastes a paid ren
 | Text to video | yes — the primary mode |
 | Image to video | yes. **`startImageAssetId`** is sent as one reference image the model may place anywhere in the clip, not a first frame. For a true first frame, **`firstFrameAssetId`** (and **`lastFrameAssetId`**, which needs it), only where the server publishes them |
 | Reference images | **`referenceAssetIds`** (API 2.30.0 on): images only, up to the field's `maxItems` in the OpenAPI document, addressed `@Image1`…`@ImageN` in the order sent. Never beside `startImageAssetId` |
-| Reference video | **`referenceVideoAssetId`** (API 2.30.0 on): one video. Its length bounds `durationSeconds`, and it shares the reference slots with the images |
+| Reference video | **`referenceVideoAssetId`** (API 2.30.0 on): one video. Where the server also publishes `firstFrameAssetId`, its length bounds `durationSeconds`. It shares the reference slots with the images |
 | `seed` | an integer, 0 to 2147483647, only where the server publishes it |
 | `resolution` | read `resolutions` from `GET /v1/models`: `360p`, `720p`, `1080p`, or `720p` alone, depending on the server. Send the key only when the list has more than one value; otherwise it is a `400` |
 | `durationSeconds` | **enum: 4, 6, 8, 10 only.** Not the continuous 4–15 grid Seedance has. Out-of-grid values are rejected, never rounded. Defaults to 8 |

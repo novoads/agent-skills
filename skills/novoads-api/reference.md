@@ -269,7 +269,7 @@ Read from the API 2.30.0 changelog in the OpenAPI document, not yet verified liv
 |---|---|---|
 | `startImageAssetId` | Sent as **one reference image**; the model may place it anywhere in the clip. It is **not a first frame** on this model, and never was: only its description changed | every deployment |
 | `referenceAssetIds` | Images, in order, addressed `@Image1`…`@ImageN` in the prompt. The limit is the field's `maxItems` in the OpenAPI document (`GET /models` does not publish it), and a `400` names it | 2.30.0 on |
-| `referenceVideoAssetId` | One video `assetId` from `POST /uploads`. The clip's length bounds `durationSeconds` | 2.30.0 on |
+| `referenceVideoAssetId` | One video `assetId` from `POST /uploads`. Where the server also publishes `firstFrameAssetId`, the clip's length bounds `durationSeconds` | 2.30.0 on |
 | `firstFrameAssetId` | An image, the true first frame | only where the server publishes it |
 | `lastFrameAssetId` | An image, the last frame. Needs `firstFrameAssetId` | only where the server publishes it |
 | `seed` | An integer, 0 to 2147483647 | only where the server publishes it |

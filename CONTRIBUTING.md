@@ -93,6 +93,7 @@ python3 scripts/build-skill-md.py --check
 ./scripts/test-sweep.sh
 ./scripts/test-placeholder-lint.sh
 ./scripts/test-parity-i2m.sh
+python3 skills/clone-video-ad/scripts/test_shot_clone.py    # needs ffmpeg
 ```
 
 `build-skill-md.py --check` is the one to run after touching either storyboard skill. It is a

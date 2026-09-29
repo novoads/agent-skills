@@ -19,6 +19,13 @@ E1, E2 and E3 are text assertions against the plan and the request bodies — ch
 before a credit is spent. E4 is the same, plus one local behaviour that was run. E5 and E6
 are backed by a live probe whose every charged call is named in the PR description.
 
+**E7–E10 were written 2026-09-29 against the spec deployed that day, BEFORE the shot-by-shot
+route was implemented,** from measurements on one test ad (the eye-mask ad), 2026-09-29. Where those measurements overturned the earlier design text (30 fps, two takes per
+shot, prompted whips, Omni ruled out, a words-per-second cap, captions copied from the
+source), these cases assert the measured decision. E7 is a live-session case that spends
+credits. E8 and E9 are checkable against the plan and the request bodies before a credit is
+spent. E10 needs takes in flight, so it rides on a credit-spending run like E7's.
+
 ---
 
 ## E1 — Three scripts, three estimates, one yes
@@ -38,7 +45,8 @@ submit time.
 - The agent asks once, at the variation ask that already exists: *same script rendered N
   times, or N script variants?* The default stays 1 render.
 - N variants means N distinct dialogue adaptations — same beat structure, same silent-beat
-  placement, per-line word counts within about ±3 of the source.
+  placement, per-line word counts within ±1 of the source's (the pace rule, step 7), and each
+  line under the single render's fit ceiling of `2.0 × (D − 0.5)` words.
 - All N are presented in **one** gate-1 block (step 7), not one gate per variant.
 - One `POST /v1/estimates` **per variant prompt**, fired concurrently, before any render.
 - Each variant's `warnings` array is read and judged out loud. Overriding one is also said
@@ -244,6 +252,204 @@ from the expiring URL.
 
 ---
 
+## E7 — The eye-mask ADAPT clone, shot by shot
+
+**Live-session case: it spends credits.** Every charged call is named in the PR description,
+never in this file. Its pass is **measured** only after a full run of the shipped route; until
+that run exists, these are the assertions it will be held to, not results.
+
+**Scenario.** The first 5 s of the eye-mask ad (a competitor's heated eye mask; the full ad
+is 48.76 s in 27 shots of 0.93–3.13 s) plus a pink product photo, and the customer's ask,
+paraphrased: they sell the same product and want only the actors, the backgrounds and the
+script changed. Same product, new people, new rooms, new lines, same cuts: an
+ADAPT, not a remix.
+
+**Measured on one test ad, 2026-09-29.** ffmpeg scene detection at
+`scene>0.25` and `scene>0.12` over the whole ad puts the first 5 s cuts at 1.77, about 2.75
+(a hit seen only at the 0.12 threshold) and 4.87. The take-level pass rate there was 2/4,
+and take 1 alone would have failed S1. Its prompted whips landed late (2.71 s and 3.25 s) and
+broke the opening lock. The aligned SSIM check scored the locked takes 0.975–0.981 at a
+centre-crop scale of 1.020, against 0.555 for the nearest wrong case. On the openings against
+a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 and NONE 16/16.
+
+**Assertions.**
+
+- The cuts come from `shot_table.py`, not from evenly spaced frames: 1.77, about 2.75 and
+  4.87 in the first 5 s. The ~2.75 cut is a 0.12-only hit written with `confirm_cut: true`,
+  and it stands only after the vision read of its cut strip confirms it.
+- The table shown to the user gives every in, out and dur at **0.1 s**. No beat is
+  whole-second.
+- The new lines pass the **pace rule per shot** (`pace.py check` exits 0): words per shot
+  within ±1 of the source, the total within ±5%, syllables as the tie-break when a brand
+  name splits, phrase breaks on the same cuts, and speech start and end within 0.15 s of the
+  source's (`pace.py align`). The old 2.0 words-per-second cap is not applied.
+- One casting still per original person (or pair of hands) and one empty room plate per
+  `room_id`, each reused. Then **one still per shot** from `POST /v1/images`, its references
+  exactly `[product photo, casting still, room plate]`, its prompt carrying the row's framing
+  numbers plus the **preservation clause**: *"The eye mask must be exactly the eye mask in
+  image 1: <the features read off the photo>"*.
+- **No source-derived asset in any request body.** No source frame, crop, strip or upload of
+  the source appears in any `POST /v1/images` or `POST /v1/videos` body or reference list.
+  The source is uploaded for reading (transcript, analysis) and never for rendering.
+- Every motion prompt is camera plus ONE hand or body action, timed to finish before the
+  shot's duration and then hold. It carries **no product words** and **no whip**.
+- Every take is sent with `durationSeconds = max(4, ceil(dur + 0.2))`, an integer, and
+  trimmed locally to [window_start, window_start + dur] (window_start is 0 unless an audio-on
+  talker's measured onset set it, before that take's check, reel and gate E).
+- **Adaptive take 2:** a second take fires only for a shot whose take 1 failed the QC read, or
+  failed `assemble.py check` in a way the QC read or its contact sheet confirms. A failed
+  opening lock alone is a flag that sends the take to that read, never the trigger for take 2.
+  Two takes per shot is not the default.
+- The picks are shown to the user shot by shot, each with **the sensor that made it named**
+  (the slowed-reel `POST /v1/analyses` read, or the contact-sheet fallback) and recorded as
+  `sensor` in `shots.json`.
+- Every picked take passes the **opening lock** in `assemble.py check`: the aligned SSIM of its
+  frame 0 (an offset talker window: the frame at its `window_start`) against the still, under a
+  centre crop at 1.00–1.05 or a horizontal-only squeeze at sx 0.97–0.995 (re-read shifted by
+  up to 2 % when still under 0.90), is ≥ 0.90, and the transform is reported. A pick under
+  0.90 carries in its `qc` the QC read or contact-sheet comparison of the still with frame 0
+  that found the same picture.
+- The source's whip is rebuilt as a local **slide** (`xfade` in the whip's direction plus a
+  horizontal blur) centred on the source's cut time, never prompted into a take.
+- `assemble.py build` writes the graded `master.mp4` (LIGHT by default, NONE offered) **and**
+  the ungraded twin `master_ungraded.mp4` with identical timing, size and fps, and the
+  **hue gate PASSes** over the shot windows (chroma kept ≥ 0.80 overall and in every window,
+  hue drift ≤ 6°), recorded in `assembly.json`. NO_PRODUCT is printed as a WARNING and never
+  counted as a pass, and `build --grade light` without the product photo refuses (exit 2).
+- **One voice throughout:** one `POST /v1/voiceovers` track for the whole ad, with any
+  on-camera talker brought to that same voice (E8).
+- The caption **text** comes from the new voiceover's transcript; only the **style** (size,
+  weight, case, position, words per card) comes from the source. The transcript is taken from
+  the voiceover muxed into an mp4: `POST /v1/transcripts` on a silent render answers **409
+  "No speech was detected"**, so a silent take or master is never the thing transcribed.
+  Captions are offered at hand-over, not burned by default: on a yes to that offer, the cards
+  are burned with `caption-video` at the master's fps into `master_captioned.mp4`, and
+  `master.mp4` stays uncaptioned.
+- **Gate E is a stop.** The turn that shows every pick with its sensor ends there. No S8 step
+  (the voiceover, its fit or transcripts, a talker's voice change, `build`) runs before the
+  user answers gate E.
+- **No competitor token.** `<the competitor's brand token>`, matched case-insensitively,
+  appears nowhere in the picture (stills, on-screen text, cards), in the voice (the transcript
+  of the delivered master) or in the captions. The source's own captions repeat its voiceover word for word, brand included,
+  which is why they are never copied. **The same holds for its offer text**: the source's
+  offers, discounts, prices, guarantees, retailer names and call-to-action words appear in no
+  voiceover line, still or end card unless the user supplied those exact words at gate C, and
+  no still carries readable text the user did not supply.
+- `assemble.py verify` exits 0: the output's duration is the source's within one frame, its hard
+  cuts land **within 0.05 s** of the source's, and its whip and zoom cuts land inside their
+  transition window (`in_transition`, as `verify` defines it, with the raw error reported).
+- The takes' native 24 fps is kept; no 30 fps is asserted, because 24 was not worse than 30 in
+  the pairwise read on the test ad and frame duplication judders.
+
+**Fails if:** the first frame of any shot is not its approved still (a lock under 0.90 that no
+QC read or contact sheet cleared); a take 2 is ordered on a failed lock alone; a beat is
+whole-second; any request body carries a source-derived asset; a motion prompt names the
+product or asks for a whip; a second take fires on a shot whose take 1 passed; a pick is shown
+without its sensor; the hue gate does not PASS and the graded master is delivered anyway; two
+voices are heard; a caption is copied from the source's cards; `<the competitor's brand
+token>` is seen, spoken or captioned anywhere in the deliverable; or the source's offer or CTA
+text (a discount, a price, a guarantee, a retailer, a button's words) is spoken or shown
+without the user having supplied it; captions are burned unasked or into `master.mp4`; or any
+S8 step (the voiceover, its transcripts, a talker's voice change, `build`) runs before gate E's
+answer.
+
+---
+
+## E8 — Per-shot render rules
+
+**Scenario.** Any shot-route run, read at the moment its takes are built: the request bodies
+and the ledger before anything is submitted.
+
+**Observed gap.** Three facts the single-render route never had to face. The minimum duration
+is 4 s on every video model, while the test ad's shots run 0.93–3.13 s. The earlier design
+text ruled Omni out because its `startImageAssetId` is only a reference; that is still true,
+but where the full surface is enabled the spec publishes `firstFrameAssetId` on
+`omni-flash`, which is a real first frame. And a shot-by-shot ad fires many renders into a
+five-slot cap.
+
+**Assertions.**
+
+- The model comes from `GET /v1/models`, never from memory: `seedance-2.0`, with
+  `seedance-2.0-mini` as the draft tier.
+- Every still and take request sends `shots.json` `aspect`, and the still prompt's first words
+  follow it (vertical, horizontal or square). `build` meets a take or still more than 2% off the
+  source's aspect with exit 2, unless `--allow-crop` was chosen and is recorded in `assembly.json`.
+- `omni-flash` is allowed **only with `firstFrameAssetId`**, and only where
+  `GET /v1/openapi.json`, fetched in this session, publishes that field. Its durations are
+  4/6/8/10, so the formula's value rounds up to the next one it accepts.
+- `durationSeconds = max(4, ceil(dur + 0.2))`, sent as an integer; the take is trimmed locally.
+- The still's `assetId` goes in as `startImageAssetId`, and `startImageAssetId` is **never**
+  sent together with `referenceAssetIds`.
+- A silent shot carries `audioEnabled: false` **and** silence in its prose (E4).
+- **Talkers:** an on-camera speaker's shot under about 2 s renders as a silent reaction (mouth
+  closed: a smile or a nod) under the voiceover. One long enough for its line renders with audio
+  on and its new words quoted, then goes through `POST /v1/voice-changes` to the voiceover's
+  voice where the spec publishes that route, with the pick's `window_start` at the measured
+  speech onset minus 0.05 s; the fallback is a silent reaction shot under the voiceover.
+- A shot the table marks `hold` (static, under about 1 s) is not rendered: its still is held
+  with a slight zoompan.
+- Every take is priced with `POST /v1/estimates` before the one yes, as in E1, and that yes
+  covers the batch.
+- At most **5 in flight**. Each `jobId` is written to `shots.json` before it is polled, and a
+  429 is answered by waiting, not by resubmitting.
+
+**Fails if:** Omni's `startImageAssetId` (a reference) is promised as a locked first frame;
+`firstFrameAssetId` is sent where the live spec does not publish it; a duration under 4 s, or a
+non-integer one, reaches the API and the `400` becomes the discovery; `startImageAssetId` is
+sent with `referenceAssetIds`; or a 6th render is fired into the 5-in-flight cap.
+
+---
+
+## E9 — The route gate: two routes, priced live, never a silent default
+
+**Scenario.** Two sources. (a) A multi-cut ad such as the eye-mask ad, with the ask "make it
+like the original". (b) A one-take talking-head source.
+
+**Observed gap.** Until this route, step 5 had one answer: a single render that carries the
+beats inside one take. It cannot put cuts at the source's times, and on a 27-shot ad "like the
+original" is mostly the cuts. The single render stays, as the cheap draft; the risk is that
+either route gets picked for the user.
+
+**Assertions.**
+
+- On (a), both routes are shown at step 5, **each priced by a live `POST /v1/estimates` in
+  this session**: the single render and the shot route (its stills, its takes, and the QC
+  read).
+- On (a), the shot route is recommended, and the single render is labelled **the draft**:
+  cheaper, cuts not at the source's times.
+- On (b), the single render is recommended; a one-take source has no cuts for the shot route
+  to keep.
+- A ratio between the two may orient; the quotes come from the estimates.
+- The user chooses. The agent waits.
+
+**Fails if:** either route is picked without both being shown (a silent default); a rate or
+price is printed that did not come from a live estimate in this session; the single render is
+presented as equal to the shot route on (a); or the shot route is recommended on (b).
+
+---
+
+## E10 — Resume reads the ledger and never resubmits
+
+**Scenario.** A shot-route run is killed after its takes are submitted: every `jobId` is in
+`outputs/<job>/shots.json`, none polled to completion. A new session opens on the same job.
+
+**Assertions.**
+
+- The resumed session reads `outputs/<job>/shots.json` before any call.
+- It polls the `jobId`s recorded under `new.takes[]` and fills in their `status` and `path`.
+- Re-running `shot_table.py` on that job keeps the segmentation: every row's `id`, `in` and
+  `out`, a hand merge from S2 included, `new` and every field Claude filled survive; only the
+  measured stats, frames and strips refresh. `--resegment` is refused (exit 2) while any row has
+  a take.
+- Stills whose `still_assetId` is recorded are reused, not generated again.
+- A take that comes back failed goes through the adaptive take-2 rule, with its own estimate
+  and yes, like any other new spend.
+
+**Fails if:** any recorded take is submitted again; any still with a recorded `assetId` is
+generated again; or a re-run of `shot_table.py` wipes the ledger or undoes a hand merge.
+
+---
+
 ## Open question for the next acceptance run — the 100–260 word ceiling
 
 **Not an assertion. A measurement to take.** Step 6 and the UGC formula's checklist both
@@ -284,6 +490,11 @@ exists, the ceiling stands as written.
   measured (#13), but the conclusion drawn here is deliberately narrow — viability, not
   superiority — because the two arms anchored their clips differently. Treat E2 as a strong
   default with its reasoning attached rather than a law, until a same-mechanism A/B is run.
+- **E7–E10 were written before their implementation.** Their numbers (the cut times, the
+  0.90 lock bar, the 2/4 take pass rate, the grade scores, the hue-gate bands) come from the
+  measurements on one test ad (2026-09-29), not from a run of the shipped route. E7 counts as
+  **measured** only after a full run of the shipped route; E8 and E9 are spec and design assertions; E10 is a design
+  assertion until a real kill-and-resume is run.
 - **No credit figures appear in this file by design.** Ratios and multipliers orient; the
   live estimate quotes. Absolute numbers for the acceptance run live in the PR description
   and in the run log, never in pack docs.

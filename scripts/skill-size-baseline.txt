@@ -32,6 +32,6 @@
 # comments, and the ratchet only goes down, so recording the smaller number by
 # hand is the whole point rather than a shortcut around it.
 1123 skills/pixar-ad/SKILL.md
-839 skills/clone-video-ad/SKILL.md
+834 skills/clone-video-ad/SKILL.md
 759 skills/novoads-api/SKILL.md
 510 skills/analyze-video/SKILL.md

@@ -252,13 +252,19 @@ else
     || media_bad="music-mix"
   python3 shared/skills/broll-overlay/scripts/test_broll_overlay.py >"$WORK/media-broll.out" 2>&1 \
     || media_bad="${media_bad:+$media_bad }broll-overlay"
+  python3 skills/clone-video-ad/scripts/test_shot_clone.py >"$WORK/media-shot.out" 2>&1 \
+    || media_bad="${media_bad:+$media_bad }clone-video-ad-shot-route"
   if [ -z "$media_bad" ]; then
-    badge_row EARNED "media suites" "music-mix and broll-overlay both pass"
+    badge_row EARNED "media suites" "music-mix, broll-overlay and the clone-video-ad shot route all pass"
     badges_earned=$((badges_earned + 1))
   else
     badge_row FAIL "media suites" "failing: $media_bad"
+    case "${media_bad%% *}" in
+      clone-video-ad-shot-route) media_fix="python3 skills/clone-video-ad/scripts/test_shot_clone.py" ;;
+      *) media_fix="python3 shared/skills/${media_bad%% *}/scripts/test_${media_bad%% *}.py" ;;
+    esac
     [ "$QUIET" -eq 1 ] || printf '           fix: %s\n' \
-      "python3 shared/skills/${media_bad%% *}/scripts/test_${media_bad%% *}.py    # measured with ffprobe, read the case"
+      "$media_fix    # measured with ffprobe, read the case"
     blocked=1; badge_fail=$((badge_fail + 1))
   fi
 fi

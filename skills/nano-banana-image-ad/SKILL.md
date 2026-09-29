@@ -71,7 +71,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 
 - **Base URL:** `https://api.novoads.ai` (or `NOVOADS_BASE_URL`). That is the **host only** — callers append `/v1/...`.
 - **Auth:** `Authorization: Bearer $NOVOADS_API_KEY`.
-- **Endpoint:** `POST /v1/images` — **synchronous**. The call blocks for the render (typically 60–90 seconds) and returns the finished images. There is no job to poll and no asset endpoint to wait on.
+- **Endpoint:** `POST /v1/images` : the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 - **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` is **durable and reusable**: upload a character or product shot once and pass the same id on every later call. That is what makes cross-run identity consistency cheap here.
 
 ## What this model takes

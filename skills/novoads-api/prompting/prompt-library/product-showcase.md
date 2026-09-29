@@ -16,7 +16,7 @@ POST /v1/uploads  ->  durable assetId
 (product photo, uploaded once)
         |
         v
-POST /v1/images  (SYNCHRONOUS)
+POST /v1/images  (poll it if it answers `running`)
 model nano-banana-pro
 referenceAssetIds [product assetId]
         |
@@ -70,7 +70,7 @@ Follow the template below. The prompt should describe:
    - `aspectRatio` — match the video intent (`9:16` for reels, `16:9` for landscape, `1:1` for square). **It defaults to `1:1`**, so set it explicitly.
    - `referenceAssetIds` — `[product_assetId]` (+ the character hero if you have one), max **14** on `nano-banana-pro`
    - `productId` (optional — organizational only; it does not influence what is generated)
-5. **The call is synchronous** — it blocks for the render (typically 60–90 seconds) and returns the finished still in `images[]`. Nothing to poll.
+5. **The call usually returns the image**: it blocks for the render (typically 60–90 seconds) and returns the finished still in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 6. **Post-generation QA:** Inspect the still per [nano-banana.md](nano-banana.md) (hands, product edges, merged geometry). **Regenerate** with a refined prompt if needed — up to **2** retries after the first attempt, each billed. **Only then** treat the still as ready to show.
 7. Show the **QA-passed** (or best-effort after max retries) image to the user, and report the cumulative `creditsCharged`.
 

@@ -1,13 +1,10 @@
-# Kling 3.0 — prompt craft (PARKED)
+# Kling 3.0: prompt craft
 
-> **PARKED — Kling 3.0 is not on this API, and there is no plan for it to be.** There is no
-> Kling route here, and no b-roll or scene endpoint either. **This is the last parked library:**
-> `veo-3.1` and `sora-2` shipped with spec `2.1.0` and are live, but Kling did not ship with them
-> and is not queued behind them — the provider path we would call is canvas-only and does not
-> return a stored asset, so there is nothing to build a `POST /v1/videos` variant on.
-> This file is kept as **prompt craft only**. Its physics-first phrasing transfers usefully to
-> Seedance; its formula has nothing to call.
-> Any route, DTO or field named below belongs to the **upstream fork's API, not this one** —
+> **Kling 3.0 is on this API as `kling-v3-pro` since API 2.38.0**, where `GET /v1/models` lists it:
+> any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, one resolution, `audioEnabled`, and a text
+> prompt or a `startImageAssetId` as the first frame. The request body is in
+> [reference.md](../../reference.md#kling-v3-pro-api-2380); this file is **prompt craft only**.
+> Any route, DTO or field named below belongs to the **upstream fork's API, not this one**:
 > do not send them to `api.novoads.ai`. For what you can generate today, use the decision
 > tree in [SKILL.md](../../SKILL.md).
 
@@ -33,6 +30,6 @@ Coffee pours in slow motion into a ceramic mug on a wooden counter, steam rising
 
 ## Request body
 
-None — see the PARKED note at the top. The upstream fork reached Kling-style output through
+See the note at the top: call `kling-v3-pro` with the body in reference.md, never with the fork's fields. The upstream fork reached Kling-style output through
 b-roll and scene DTOs; neither those DTOs nor those endpoints exist on this API, so there is
 nothing to document here until the model lands.

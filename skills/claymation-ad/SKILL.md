@@ -147,7 +147,7 @@ reader — it covers the whole runtime, which is what a 60-second arc needs.
 
 **There is a hosted alternative, and it is not the default.**
 `POST /v1/analyses` returns the structured hook/beat/casting breakdown in one
-synchronous call, priced through `POST /v1/estimates` with
+call (poll it if it answers `running`), priced through `POST /v1/estimates` with
 `{"kind":"analysis"}`. Reach for it only when ffmpeg is missing or the local
 read has already failed: the local path costs nothing, ffmpeg is a hard
 dependency of the assembly anyway, and `/analyses` defaults to reading the

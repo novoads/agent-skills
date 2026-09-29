@@ -7,9 +7,9 @@
 **Image generation:** `POST /v1/images`. One endpoint serves every image model; you pick
 with `model`.
 
-It is **synchronous** — the call blocks for the render (typically 60–90 seconds) and comes back
+It usually answers with the images: the call blocks for the render (typically 60–90 seconds) and comes back
 with the finished images in `images[]`, along with `creditsCharged` and the `model` that ran.
-There is no job to poll and no asset endpoint to wait on.
+A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 Use it for:
 - Influencer recreation stills (see [influencer-recreation.md](influencer-recreation.md))

@@ -14,8 +14,8 @@
 
 **Image route:** `POST /v1/images` with `model: "nano-banana-pro"`. The original photo is
 uploaded via `POST /v1/uploads` and cited in `referenceAssetIds` — there is no base64 field on
-this API. The call is **synchronous**: it blocks for the render (typically 60–90 seconds) and
-returns the finished image. Nothing to poll.
+this API. The call usually returns the images: it blocks for the render (typically 60–90 seconds) and
+returns the finished image. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 **Video route (after approval):** upload the approved still → pass its `assetId` as
 `startImageAssetId` on a Seedance video. See the `novoads-api` skill's SKILL.md for the call.

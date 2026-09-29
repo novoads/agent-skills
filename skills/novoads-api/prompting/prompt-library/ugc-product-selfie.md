@@ -162,7 +162,7 @@ Default to **3 variations** so the user can compare. `numImages` does this in **
 do not fire three separate requests. Same price, one third of the calls, and it leaves your
 concurrency slots free.
 
-The call is **synchronous**: it blocks for the render (typically 60–90 seconds) and returns all
+The call usually returns the images: it blocks for the render (typically 60–90 seconds) and returns all
 three images in `images[]`, with `creditsCharged` for the whole call.
 
 ### Step 5: Present and iterate

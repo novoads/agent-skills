@@ -153,7 +153,7 @@ a product shot, so an empty listing means "ask", not "there is nothing to use".
 **No photo? Three routes, in this order — and the last one is the expensive one.**
 
 1. **A real photo of the real product.** Always the best clone. Ask for it first.
-2. **Generate a still with `POST /v1/images`** — one synchronous call, priced through
+2. **Generate a still with `POST /v1/images`**: one call (a slow render answers `running`: poll `GET /v1/generations/{jobId}` for its `images[]`), priced through
    `POST /v1/estimates` and consented to like any other spend. Its response carries an
    **`assetId`** that goes straight into `referenceAssetIds` (step 10). This is the right
    answer for a concept product, a product that does not exist yet, or a user who simply

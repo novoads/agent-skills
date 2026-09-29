@@ -144,8 +144,7 @@ a markdown file**, including this one, which carries none.
 
 ## One endpoint, three models
 
-Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which is
-**synchronous** — the response already carries the finished images. There is no job to poll
+Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which usually answers with the finished images already in the response. There is no job to poll
 and no asset to wait on. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
 the `novoads-api` skill's `reference.md`; this table is only what differs *between the models*.
 
@@ -316,7 +315,7 @@ This is the workflow inside any chat session where the user wants to make an ad:
    does not run moderation — so a prompt the estimate blessed can still come back `422`.
 
 5. **Generate.** Run the matching `scripts/generate_image.py` with `--prompt`,
-   `--aspect-ratio`, `--n`, and reference images. The response is synchronous: finished images,
+   `--aspect-ratio`, `--n`, and reference images. The script polls a render that answers `running`, then hands back finished images,
    with `creditsCharged` telling you what it actually cost.
 
 6. **Visual QA.** Read each output image. Check for: garbled small text (most common

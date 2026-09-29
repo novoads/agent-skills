@@ -21,7 +21,7 @@ POST /v1/estimates    { kind: "image" | "video" | "voiceover" | "music" | "capti
 POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16",
                         referenceAssetIds: [castSheet, previousStill, product?] }
                       → 200 { jobId, images: [{ url, expiresInSeconds, assetId }] }
-                        SYNCHRONOUS — the finished image is in the response, and
+                        the finished image is in the response (or `running`: poll the job), and
                         the call blocks ~60-90s. `assetId` chains straight into
                         the next call. Max 4 references on gpt-image-2. Its own
                         concurrency budget of 12.

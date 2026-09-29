@@ -320,9 +320,11 @@ which is Google DeepMind's own guide with the parts this API cannot reach marked
 
 ### 🖼️ Stills — people, products, characters
 
-`POST /v1/images` is **synchronous**: the finished images come back in the response body, so there
-is nothing to poll. Up to 4 images per call; reference images are capped per model: 4 on each of
-the three GPT models, 14 on `nano-banana-pro`, 8 on `reve-2.1`.
+`POST /v1/images` usually hands the finished images back in the response body. A render still
+going after about 105 seconds answers `running` with no images instead (API 2.39.0): the skills
+poll `GET /v1/generations/{jobId}` for it and never resubmit. Up to 4 images per call; reference
+images are capped per model: 4 on each of the three GPT models, 14 on `nano-banana-pro`, 8 on
+`reve-2.1`, 10 on each Seedream 5 model (`seedream-5-lite`, `seedream-5-pro`, API 2.39.0).
 
 - **`gpt-image-2.5-sunburst`**: the API default when `model` is omitted. Slower than Flare, and
   it keeps fine detail and labels exact.
@@ -459,9 +461,9 @@ is the current answer, this table is a map.
 | **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | `4` `8` `12` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Measured with **no leading silence** where Seedance front-loads 3–5s, and ~123s to render. Coarse grid: no 6s, no 10s. |
-| **`gpt-image-2.5-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default**: omit `model` and this renders. Slower, keeps fine detail and labels exact. Synchronous. |
-| **`gpt-image-2.5-flare`** | Image | — | same six | **32,000 chars** | Fast, for most images. Synchronous. |
-| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 arrivals. Synchronous. |
+| **`gpt-image-2.5-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default**: omit `model` and this renders. Slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
+| **`gpt-image-2.5-flare`** | Image | — | same six | **32,000 chars** | Fast, for most images. Can answer `running`: poll it. |
+| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 arrivals. Can answer `running`: poll it. |
 | **`nano-banana-pro`** | Image | — | 10 ratios incl. `3:2` `4:3` `5:4` | **50,000 chars** | Photoreal people and products; strongest identity lock across references. The most prompt room on the API. |
 | **`reve-2.1`** | Image | — | same 10 ratios | **4,000 chars** | Third look / second opinion on a still. The one image model still on the old tight budget. |
 
@@ -472,11 +474,12 @@ that same order, split apart by deployed spec 2.16.0 from what used to be 4,000 
 prompt written for one image model may be too long for another, and switching to `reve-2.1` for a
 second opinion is the case that hits it. The three GPT models are the case that does not, because
 they share one grid. Images have no start-frame concept. Videos are
-asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body.
+asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body,
+or answer `running` and are polled the same way.
 
-`audioEnabled` is a Seedance-only boolean (default `true`) — all three variants take it; send
-`false` for a clip meant to run silent. The other three video models are strict and `400` on it, as
-does `POST /v1/estimates` for every model — it does not move the price.
+`audioEnabled` (default `true`) is on the three Seedance variants and, since API 2.38.0,
+`kling-v3-pro`; send `false` for a clip meant to run silent. `omni-flash`, `veo-3.1` and `sora-2` are
+strict and `400` on it, as does `POST /v1/estimates` for every model: it does not move the price.
 
 `resolution` is on **`seedance-2.0`, `seedance-2.5`, and `omni-flash` where `GET /v1/models` lists
 more than one tier for it**, and it is the one output-shape field
@@ -485,10 +488,16 @@ Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, w
 draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`,
 `720p` and `1080p`, plus `4k` where the server publishes it: read the live list, never assume `4k`.
 
-**Kling 3 is not on this API and is not queued for it.** Its prompt library sits in
-`skills/novoads-api/prompting/prompt-library/` as craft only; the agent will say so plainly rather
-than routing you somewhere else. There is likewise no b-roll or scene endpoint — a silent
-`omni-flash` or Seedance clip is the b-roll path.
+**Kling 3.0 is on this API as `kling-v3-pro` since API 2.38.0**, where `GET /v1/models` lists it:
+any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, audio on or off, text or a start frame. Its
+prompt library in `skills/novoads-api/prompting/prompt-library/` is vendor craft; the request body
+comes from the skill's `reference.md`. There is no b-roll or scene endpoint: a silent `omni-flash`
+or Seedance clip is the b-roll path.
+
+**Also on the API since 2.41.0 to 2.43.0:** background removal on a video up to 30 seconds
+(`POST /v1/background-removals`), your product in a library actor's hands on the Seedance family
+(`productSwap`), and a library actor moved by a clip you upload (`POST /v1/videos/animate-actor`).
+Each is quoted by `POST /v1/estimates` before anything is spent.
 
 ## What's in the box
 

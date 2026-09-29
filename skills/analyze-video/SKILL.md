@@ -503,7 +503,7 @@ skills/novoads-api/
         ├── character-sheet-gpt-image-2.md    ← the same on gpt-image-2
         ├── nano-banana.md                    ← image formulas (Nano Banana Pro)
         ├── sora-2.md · veo-3-1.md            ← the other two LIVE video models' grids
-        └── kling-3.md · ugc-selfie-style.md  ← Kling is not on this API; the selfie guide is cross-model
+        └── kling-3.md · ugc-selfie-style.md  ← Kling 3.0 is on the API as `kling-v3-pro` (2.38.0); the selfie guide is cross-model
 ```
 
 New formulas you write land in `prompt-library/` beside the Seedance files, and get a row

@@ -17,9 +17,9 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [POST /uploads](#post-uploads)
 - [POST /estimates](#post-estimates)
 - [POST /videos](#post-videos)
-  - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`omni-flash` inputs (API 2.30.0)](#omni-flash-inputs-api-2300) · [`resolution` is a price field, and `GET /models` sets it per model](#resolution-is-a-price-field-and-get-models-sets-it-per-model)
+  - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`omni-flash` inputs (API 2.30.0)](#omni-flash-inputs-api-2300) · [`resolution` is a price field, and `GET /models` sets it per model](#resolution-is-a-price-field-and-get-models-sets-it-per-model) · [`kling-v3-pro` (API 2.38.0)](#kling-v3-pro-api-2380) · [`productSwap`: an actor holds your product (API 2.42.0)](#productswap-an-actor-holds-your-product-api-2420)
 - [POST /images](#post-images)
-  - [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
+  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
 - [POST /captions, POST /videos/{jobId}/captions](#post-captions-post-videosjobidcaptions)
   - [Presets and pricing](#presets-and-pricing) · [Failure modes](#failure-modes)
 - [POST /transcripts](#post-transcripts)
@@ -32,6 +32,8 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
   - [Pricing](#pricing-2) · [Failure modes](#failure-modes-4) · [What it does not do](#what-it-does-not-do-2)
 - [POST /voice-changes](#post-voice-changes)
   - [Pricing](#pricing-3) · [Failure modes](#failure-modes-5) · [What it does not do](#what-it-does-not-do-3)
+- [POST /background-removals](#post-background-removals)
+- [POST /videos/animate-actor](#post-videosanimate-actor)
 - [GET /generations](#get-generations)
 - [GET /generations/{jobId}](#get-generationsjobid)
 - [GET /generations/{jobId}/watch](#get-generationsjobidwatch)
@@ -88,7 +90,10 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `POST` | `/uploads` | Mint a presigned PUT for a reference image or video. |
 | `POST` | `/estimates` | Price a generation. Spends nothing. The only source of a credit number. |
 | `POST` | `/videos` | Submit a video. `202`, charged, asynchronous. |
-| `POST` | `/images` | Generate images. Synchronous, images in the response. |
+| `POST` | `/videos/animate-actor` | Motion control: a library actor moved by a clip you upload. `202`, charged, asynchronous (API 2.43.0). Where the deployment offers it. |
+| `POST` | `/background-removals` | Remove the background of a video up to 30 s, by `jobId` or uploaded `assetId`. `202`, charged, asynchronous (API 2.41.0). |
+| `POST` | `/videos/{jobId}/background-removal` | Same operation, the job in the path. |
+| `POST` | `/images` | Generate images. `200` with the images, or, for a render still going after about 105 s, `200` with `status: "running"` and no images: poll the job (API 2.39.0). |
 | `POST` | `/music` | Generate a music bed from a prompt. `202`, charged, asynchronous. Returns **two** tracks. |
 | `POST` | `/captions` | Burn subtitles into a generated or uploaded video. `202`, charged, asynchronous. |
 | `POST` | `/transcripts` | The words of a video with their timings. **`200`, charged, SYNCHRONOUS — the transcript is in the response.** |
@@ -103,6 +108,7 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `GET` | `/generations/{jobId}` | One job, with `outputUrl` once it has succeeded. |
 | `GET` | `/generations/{jobId}/watch` | `302` to a freshly signed download URL. |
 | `GET` | `/models` | The model catalog, with each model's grid and price. |
+| `GET` | `/actors` | The library actors that `productSwap` and `/videos/animate-actor` cast. Reads only. Where the deployment offers it. |
 | `GET` `POST` | `/products` | List and create products. |
 | `GET` `PATCH` `DELETE` | `/products/{productId}` | One product. |
 | `GET` | `/products/{productId}/folders` | Folders under a product. Read-only. |
@@ -153,7 +159,7 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `kind` | required, `"video"` | required, `"image"` |
 | `prompt` | required | required |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2` | `gpt-image-2.5-sunburst` (default), `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `reve-2.1` |
-| `durationSeconds` | 4 to 30 | n/a |
+| `durationSeconds` | 3 to 30 (3 since API 2.38.0) | n/a |
 | `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K` spelled exactly (`4k` is a `400`), `nano-banana-pro` only at 2.36.0, default `2K`; **moves the price** (API 2.36.0) |
 | `numImages` | n/a | 1 to 4 |
 | `quality` | n/a | `high` `medium` `low`, GPT Image models only, default `medium`; **moves the price** (API 2.36.0) |
@@ -170,7 +176,7 @@ There is **no `styleFamily`** on either arm. The field was deleted from the whol
 
 There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, and this endpoint takes only fields that do. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
 
-**`durationSeconds` is validated against the *named model's* grid here, not against the 4–30 span in the table.** Same behavior as the prompt ceiling: `{"model":"sora-2","durationSeconds":11}` comes back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` prices cleanly (verified live, 2026-08-02). So the free call catches an out-of-grid duration before the paid one does — one more reason to run it every time.
+**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: `{"model":"sora-2","durationSeconds":11}` comes back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` prices cleanly (verified live, 2026-08-02). So the free call catches an out-of-grid duration before the paid one does — one more reason to run it every time.
 
 Response:
 
@@ -202,13 +208,14 @@ This endpoint refuses a churned organization with a 403, on purpose. `sufficient
 
 Per-model request bodies, all `.strict()`.
 
-**Shared by all six video models:** `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
+**Shared by the six models before `kling-v3-pro` in the table below** (Kling's body: [its own section](#kling-v3-pro-api-2380)): `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
 
-- **`referenceAssetIds`**: the three Seedance variants and, since API 2.30.0, `omni-flash`. `veo-3.1` and `sora-2` have no such field.
+- **`referenceAssetIds`**: the three Seedance variants and, since API 2.30.0, `omni-flash`. `veo-3.1`, `sora-2` and `kling-v3-pro` have no such field.
 - **`referenceVideoAssetIds`, `referenceAudioAssetIds`**: the three Seedance variants, since API 2.35.0. See [Seedance video and audio references](#seedance-video-and-audio-references-api-2350).
 - **`referenceVideoAssetId`, `firstFrameAssetId`, `lastFrameAssetId`, `seed`**: `omni-flash` only, and the last three only where the server publishes them. See [`omni-flash` inputs](#omni-flash-inputs-api-2300).
 - **`resolution`**: only on a model whose `resolutions` in `GET /models` lists more than one value. See [`resolution`](#resolution-is-a-price-field-and-get-models-sets-it-per-model).
-- **`audioEnabled`** — the three Seedance variants only. See below.
+- **`audioEnabled`**: the three Seedance variants and `kling-v3-pro` (API 2.38.0). See below.
+- **`productSwap`**: the Seedance family, since API 2.42.0. See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420).
 
 There is **no `styleFamily`** on any variant. It was deleted from the API in spec `2.0.0` along with the blocking prompt rules it scoped, and the variants are strict, so sending it is a `400`.
 
@@ -220,14 +227,15 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 | `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
 | `veo-3.1` | 4, 6, 8 (**8**) | `9:16` (default) `16:9` | — | — | 4,000 |
 | `sora-2` | 4, 8, 12 (**4**) | `9:16` (default) `16:9` | — | — | 4,000 |
+| `kling-v3-pro` (2.38.0) | 3–15, any integer | `16:9` `9:16` `1:1` | start frame only | yes | read `GET /models` |
 
-Defaults that bite: **the three Seedance variants default to `16:9`**, alone among the six — every other model already defaults to `9:16`. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `sora-2` to 4, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
+Defaults that bite: **the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `sora-2` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `sora-2` to 4, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
 
 **`seedance-2.5` is the only model here that renders past 15 seconds**, and its grid is the same continuous integer range Seedance has always had — 4, 5, 6 … 29, 30, with no gaps. It is otherwise shaped exactly like `seedance-2.0`: same six aspect ratios, same `16:9` default, same 9 reference images, same `audioEnabled` toggle, same 4,000-character prompt ceiling. **The one place it is narrower is `resolution`** — see that section.
 
 ### `audioEnabled`
 
-A boolean on **the three Seedance variants only** — `seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini` — default `true`, so omitting it renders exactly what the endpoint rendered before the field existed. It controls the synchronized sound effects, ambient sound and lip-synced speech the model generates from the prompt.
+A boolean on **the three Seedance variants** (`seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini`, default `true`) and, since API 2.38.0, **`kling-v3-pro`**, so omitting it renders exactly what the endpoint rendered before the field existed. It controls the synchronized sound effects, ambient sound and lip-synced speech the model generates from the prompt.
 
 Send `false` for a clip that is meant to be silent: a pipeline laying its own voice-over in post otherwise pays for a voice track it throws away, and a product cutaway built to run muted comes back with sound effects nobody hears.
 
@@ -342,6 +350,23 @@ There are **no idempotency keys.** See the 500 note below.
 
 ---
 
+### `kling-v3-pro` (API 2.38.0)
+
+Kling 3.0, where `GET /models` lists it: the server publishes the model only where it can finish the job, so read the catalog before offering it. Its grid: `durationSeconds` any integer **3 to 15**, `aspectRatio` `16:9`, `9:16` or `1:1`, **one resolution** (so no `resolution` field), `audioEnabled` on or off, and a text prompt or a `startImageAssetId` that becomes **the first frame**. There is no `referenceAssetIds`. Read the durations, aspect ratios and prompt ceiling from `GET /models` at run time rather than from this paragraph. Duration moves the price; audio and aspect ratio do not. Quote the exact cell with `POST /estimates`, and the charge equals the quote.
+
+**The shortest `durationSeconds` any model publishes is now 3.** Kling's 3-second cell moved the outer bound on `POST /estimates` and in the OpenAPI document from 4 to 3. Every other model still refuses 3 with a `400` before anything is charged, because each body is validated against its own model's grid.
+
+### `productSwap`: an actor holds your product (API 2.42.0)
+
+On the Seedance family (the models whose body in the OpenAPI document lists the field), `productSwap: { actorId, productAssetId }` puts your product into the hands of a library actor and renders the clip from that still.
+
+- `actorId` is an actor from `GET /actors`, **never an uploaded face**. Another organization's actor, or an unknown id, is a `404` before anything is charged.
+- `productAssetId` is your product photo from `POST /uploads`.
+- The swapped still becomes the first reference image, so the field **cannot be combined with `startImageAssetId`**, and it counts two images (the still and the product) against the reference budget.
+- One `jobId` comes back at once. It reads `queued` while the still is made, then follows the ordinary lifecycle.
+- Every other model answers the field with a `400`, and so does any extra key inside it.
+- The swap adds to the price: quote it with `POST /estimates` and `productSwap: true` beside the render's own fields. A deployment that does not offer the swap refuses it (`product_swap_unavailable`) before anything is charged.
+
 ## POST /images
 
 | `model` | `aspectRatio` | `referenceAssetIds` | `numImages` | Prompt max |
@@ -351,6 +376,8 @@ There are **no idempotency keys.** See the 500 note below.
 | `gpt-image-2` | same six | up to **4** | 1 to 4 | **32,000** |
 | `nano-banana-pro` | `1:1` `2:3` `3:2` `3:4` `4:3` `4:5` `5:4` `9:16` `16:9` `21:9` | up to **14** | 1 to 4 | **50,000** |
 | `reve-2.1` | same as Nano Banana Pro | up to **8** | 1 to 4 | **4,000** |
+| `seedream-5-lite` (2.39.0) | read `GET /models` | up to **10** | 1 to 4 | read `GET /models` |
+| `seedream-5-pro` (2.39.0) | read `GET /models` | up to **10** | 1 to 4 | read `GET /models` |
 
 **The default moved to `gpt-image-2.5-sunburst` in deployed spec 2.25.0** (2026-09-10), from `gpt-image-2`. A call that omits `model` renders on Sunburst and the response's `model` field says so, and reading it rather than assuming is the habit that survives the next move. `gpt-image-2` is untouched: still live, still offered, still the same grid and the same price. Nothing about an existing call changed except what an unqualified one lands on.
 
@@ -360,15 +387,24 @@ There are **no idempotency keys.** See the 500 note below.
 
 **One thing this does not cover: `POST /estimates` does not share these numbers.** Its own request schema caps `prompt` at 50,000 for every image model, so a 20,000-character `reve-2.1` prompt prices cleanly and is then refused by `POST /images`. A clean estimate is proof of the price, not of the length.
 
-**The reference cap is per model and is not uniform.** Each of the three GPT models takes 4, `nano-banana-pro` 14, `reve-2.1` 8. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0. Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
+**The reference cap is per model and is not uniform.** Each of the three GPT models takes 4, `nano-banana-pro` 14, `reve-2.1` 8, and each Seedream 5 model 10 (API 2.39.0; read `maxItems` in the OpenAPI document). Seedream takes no `quality`, `resolution` or `outputFormat`. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0. Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
 
-Synchronous. The response carries `images[]` (`url`, `expiresInSeconds` 3600, `assetId`, `width`, `height`), `jobId`, `status`, `creditsCharged`, and `model`. **No `warnings`**, for the same reason as video: the prompt rules run on `POST /estimates` only — where an image prompt *does* get read. `banned_polish` and `blank_label` observed on a `kind: "image"` estimate against deployed spec 2.19.0 (verified live 2026-08-12); the older note here, that images returned no `warnings` key at all, described the 2026-08-04 deployment. Nothing to poll. `numImages` multiplies the price.
+The response carries `images[]` (`url`, `expiresInSeconds` 3600, `assetId`, `width`, `height`), `jobId`, `status`, `creditsCharged`, and `model`. **No `warnings`**, for the same reason as video: the prompt rules run on `POST /estimates` only — where an image prompt *does* get read. `banned_polish` and `blank_label` observed on a `kind: "image"` estimate against deployed spec 2.19.0 (verified live 2026-08-12); the older note here, that images returned no `warnings` key at all, described the 2026-08-04 deployment. A render still going after about 105 seconds answers `running` instead: see [below](#a-slow-render-answers-running-poll-it-api-2390). `numImages` multiplies the price.
 
 Reference order is preserved and can be addressed positionally by the prompt. There is no base64 field: upload first, pass ids.
 
 **`quality`, `outputFormat` and `resolution` (API 2.36.0).** `quality` (`high`, `medium`, `low`; default `medium`) and `outputFormat` (`png`, `jpeg`, `webp`; default `png`) are GPT Image models only; `resolution` (`1K`, `2K`, `4K`; default `2K`) is `nano-banana-pro` only. Each is a `400` on a model that does not offer it. `quality` and `resolution` change the price, `outputFormat` does not; quote the exact cell with `POST /estimates`, sending the same fields. Read the model's lists from `GET /v1/models` rather than this line; image `resolution` is matched exactly, so `4k` is a `400`.
 
 Images accept **no `startImageAssetId`** — there is no first-frame concept on a still — and **no `styleFamily`**, which no longer exists anywhere on this API.
+
+### A slow render answers `running`: poll it (API 2.39.0)
+
+Most image renders still come back finished in the `200`. Since API 2.39.0 the server waits about 105 seconds for a render; one still going at that point answers **`200` with `status: "running"`, the same `jobId` and `images: []`**.
+
+- That is a paid render in progress, not a failure, and **never a reason to resubmit**: a resubmit renders and charges again. `creditsCharged` is in that first response; log it there.
+- Poll `GET /generations/{jobId}` every 15 seconds to a **terminal** status (see [Status lifecycle](#status-lifecycle)). On `succeeded` the job carries `images[]` in order, the same entries the response would have carried. On `failed` or `blocked` the credits are refunded.
+- A job with several images is one job, one entry in `GET /generations`, and one slot against the image budget.
+- **Any script that reads `images[]` from the response must branch on `status` first.** A script that does not reports a paid, still-rendering job as an empty result. The pack's own image scripts poll; a hand-rolled `curl` has to do the same.
 
 ### Chain from `images[].assetId`, never from `images[].url`
 
@@ -401,6 +437,8 @@ refused like a typo. So `GET /v1/openapi.json` is the honest capability check: i
 property is absent, this deployment cannot edit, and no retry will change that.
 
 ### The response is the only copy of images 2..N
+
+**Except a job that answered `running` (API 2.39.0).** Its images are delivered by `GET /generations/{jobId}` as `images[]`, in order, once it has succeeded, so that read is where they are. Everything below is about a response that came back `succeeded` with its images.
 
 A `numImages > 1` call charges for every image, but only the **first** is recoverable
 afterwards. `GET /generations/{jobId}` returns a single `outputUrl` — image 1 — and images
@@ -867,6 +905,41 @@ deliberately: those are creative decisions a server should not make on your beha
 
 ---
 
+## POST /background-removals
+
+Removes the background of a video (API 2.41.0). **Asynchronous and charged**, like `POST /captions`: `202` + `jobId`, then poll `GET /generations/{jobId}` to a terminal status and download from `outputUrl` or `/watch`. `POST /videos/{jobId}/background-removal` is the same operation with the job in the path.
+
+| Field | |
+|---|---|
+| `jobId` | A video this API generated: the `jobId` from `POST /videos`. |
+| `assetId` | A video you uploaded with `POST /uploads`. A video, not a still. |
+
+Send **exactly one** of the two.
+
+- **The source is 30 seconds at most.** A longer one is refused as `invalid_input` (code `source_duration`) and charged nothing; a source whose length cannot be measured in time is refused as `source_unreadable`. Trim it first.
+- A background-removal job's own id is not a source (code `unsupported_source`), refused before anything is charged.
+- A removal already running for the same source is returned rather than charged a second time.
+- The result is a `.webm` file.
+- The price is flat per call: quote it with `POST /estimates` and `kind: "background-removal"`, and the charge equals the quote.
+
+## POST /videos/animate-actor
+
+Motion control (API 2.43.0): a library actor performs the movement of a driving clip you upload. `202` + `jobId`, **asynchronous and charged**, polled like any video. Offered where the deployment publishes this path in the OpenAPI document; elsewhere it is refused before anything is charged.
+
+| Field | |
+|---|---|
+| `actorId` | **Required.** An actor from `GET /actors`: the only face this endpoint animates. An uploaded face is not accepted. |
+| `drivingVideoAssetId` | **Required.** The driving clip from `POST /uploads`, MP4 or MOV. Its measured length is the output's length and the price. |
+| `characterOrientation` | `video` (default) takes a driving clip up to 30 seconds, `image` up to 10. Does not move the price. |
+| `resolution` | `1080p` (default) or `720p`. Moves the per-second price. |
+| `keepOriginalSound` | The driving clip's audio is kept. `false` is refused in this version. |
+| `prompt` | Optional scene direction; its ceiling is in the OpenAPI document. Does not move the price. |
+| `idempotencyKey` | Optional. Replaying the same key returns the same job with no second charge. |
+| `productId` | Optional. Files the result under a product. |
+
+- **The server measures the clip; a duration you send is never read.** Quote with `POST /estimates` and `kind: "motion-control"` with the same inputs, and the charge equals the quote.
+- Every refusal (an actor you cannot use, a WebM, M4V or AVI clip, size, the length bounds per orientation, aspect ratio, prompt length, `keepOriginalSound: false`) happens before the charge.
+
 ## GET /generations
 
 | Param | Values |
@@ -888,6 +961,8 @@ This is also the recovery path when a call times out: the work may have run and 
 `jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`, and once succeeded, `outputUrl` plus `outputUrlExpiresInSeconds` (3600). On failure, `error` carries our own wording, never a provider's raw text, and the credits are already refunded.
 
 **The echoed `prompt` can carry raw newlines, and a strict JSON parser will reject the whole response.** Observed live 2026-08-12 on a multi-line video prompt: the control characters arrive unescaped inside the string, so `json.loads()` raises and a poll loop that treats a parse error as "not ready yet" spins until it times out on a job that finished. Parse the poll response tolerantly — `json.loads(body, strict=False)` in Python, or the equivalent lenient mode elsewhere. It is a server-side escaping bug, not a signal about the job; nothing about the render or the charge is affected.
+
+**On a `kind: "image"` job that answered `running`, there is `images[]` once it has succeeded (API 2.39.0)**: every image of the job in order, the same entries the `POST /images` response carries, and `creditsCharged` for the whole job.
 
 **On a `kind: "audio"` job that has succeeded, there is also `audio[]`** — the two tracks a music request delivered, each `{ url, expiresInSeconds, durationSeconds, title }`. `audio[0]` is the canonical one and is what `outputUrl` points at; `audio[1]` is a second take of the same prompt, and **`audio[]` is the only place it is published** — it is not a separate library asset and it will not turn up in a listing. Both URLs are presigned and minted **when you read the job**, so re-poll for fresh ones instead of storing them.
 
@@ -1014,7 +1089,7 @@ Concurrency detail worth knowing: the count covers the organization's **API surf
 
 The video and image budgets are counted by two queries that cannot see each other's rows, and that separation runs **both ways**: a batch of images in flight never refuses a `POST /videos`, and five videos rendering never refuse a `POST /images`. Before `2.12.0` images spent video slots and both halves of that were false. So do not treat a `429` on one as a reason to stop calling the other — branch on `details.reason`, which is exactly what it is for.
 
-Cloudflare's edge timeout of roughly 100 seconds is the real ceiling on any single request, which is why video generation is asynchronous and image generation is not (it fits).
+Cloudflare's edge timeout of roughly 100 seconds is the real ceiling on any single request, which is why video generation is asynchronous, and why since API 2.39.0 an image render still going after about 105 seconds answers `running` and is collected by polling instead of holding the request open.
 
 ---
 

@@ -182,8 +182,7 @@ shell-quoting hell. Name the directory: `prompts/` is gitignored and is where co
 belong, so the six or so drafts Phase 5 goes through stay out of the user's `git status`. This
 line used to say "a temp file" and nothing more, and a session that took it at its word invented
 a top-level `prompts/` of its own — correct instinct, untracked directory, a diff the user had to
-explain.) The call is synchronous and
-blocks for the render, typically 60–90 seconds — there is nothing to poll. Read the generated
+explain.) The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Read the generated
 image when it returns.
 
 The reference cap is per model — 4 on `gpt-image-2`, 14 on `nano-banana-pro`, 8 on `reve-2.1`

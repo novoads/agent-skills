@@ -191,7 +191,7 @@ and modify:
 The script handles:
 - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 - **Upload once, reuse the assetIds for every prompt in the batch**
-- Synchronous generation — no polling; each call blocks ~60–90s and returns the image
+- Each call blocks ~60–90s and returns the image; one still going after about 105 s answers `running` and the script polls it (API 2.39.0)
 - Bounded parallelism (4 in flight, under the API's concurrency ceiling of 5)
 - Per-run credit total from each response's `creditsCharged`
 

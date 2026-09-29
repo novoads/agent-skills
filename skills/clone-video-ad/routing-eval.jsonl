@@ -27,3 +27,10 @@
 {"intent":"restyle our existing footage so it looks hand drawn","expected_skill":null}
 {"intent":"ask our lawyer whether copying a competitor's ad this closely is allowed","expected_skill":null}
 {"intent":"plan the media buy and budget split for running this across Meta and TikTok","expected_skill":null}
+// The shot route's own ask: same product, new people, rooms and lines, and the
+// source's cuts kept. Neither names a clone verb the description carries.
+{"intent":"he sells the very same gadget, I just need other hands, other rooms and fresh lines over this video","expected_skill":"clone-video-ad"}
+{"intent":"rebuild this competitor clip cut for cut, but with my pink version of the product","expected_skill":"clone-video-ad"}
+// A photo plus a video could be one still animated (image-to-motion) or the
+// whole ad rebuilt around the product; "like this video" leans to the clone.
+{"intent":"make my product photo move the way this video does","expected_skill":"clone-video-ad","ambiguous_with":["image-to-motion"]}

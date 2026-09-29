@@ -74,7 +74,9 @@ a retry.
 ## What the endpoint does, and the four things it does not
 
 It takes a source you already have, converts **the speech in it** to the voice you name,
-and returns **audio**. `200`, not `202` — there is no job to poll.
+and by default returns **audio**. `200`, not `202` — there is no job to poll. With
+`output: "video"` it returns the finished video instead, as a job you poll: see
+[Video out](#video-out).
 
 **It preserves timing frame-accurately.** That is the whole reason this exists rather
 than a text-to-speech call: the take drops back onto the original picture and the lips
@@ -92,8 +94,8 @@ Four things it does not do, each one a real assumption callers arrive with:
 |---|---|
 | **translate** | the words that come back are the words that went in |
 | **fix pronunciation, or change an accent** | it reproduces the source's phonemes, mistakes included. A mispronounced brand name comes back mispronounced in a nicer voice. See Gate 3 and the failure modes |
-| **detect speech** | the gate is "does this have an audio track". A music bed converts into vocal noise, **billed in full**, and answers `200`. Gate 1 is yours and it is free |
-| **return video** | muxing the take back over the picture, and choosing which spans to replace, is local work. Deliberately: those are creative decisions |
+| **detect speech**, on audio out | the gate is "does this have an audio track". A music bed converts into vocal noise, **billed in full**, and answers `200`. Gate 1 is yours and it is free. Video out charges only once its job finds speech (a source with none ends `failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), and Gate 1 still runs first; see [Video out](#video-out) |
+| **return video, by default** | the default output is audio: muxing the take back over the picture, and choosing which spans to replace, is local work. Deliberately: those are creative decisions. `output: "video"` hands the mux to the server where the workspace has it on — see [Video out](#video-out) |
 
 ## The gates run in order. Do not skip to the conversion.
 
@@ -153,9 +155,10 @@ curl -sS -X POST https://api.novoads.ai/v1/estimates -A novoads-skill/change-voi
 `assetId`, in both the estimate and the conversion. At most one of the two, in either
 body.
 
-**Name the source in the estimate.** The price is per minute of source audio, so a quote
-with no source is the one-minute minimum and says nothing about a four-minute file. The
-transcript arm bills per minute the same way, so the same rule applies to it.
+**Name the source in the estimate.** The voice-change price follows the length of the source
+audio, by the second above a minimum charge (since API 2.32.0), so a quote with no source is
+that minimum and says nothing about a four-minute file. The transcript arm bills per minute of
+source, so the same rule applies to it. Never carry a number from here into a message: quote.
 
 **Announce the whole run, not just the conversion.** The conversion is the large charge
 and it is not the only one: **the verification in Gate 7 is a charged call too**, and
@@ -262,7 +265,8 @@ that band the choice is listening.
 curl -sS -X POST https://api.novoads.ai/v1/voice-changes -A novoads-skill/change-voice \
   -H "Authorization: Bearer $NOVOADS_API_KEY" -H 'Content-Type: application/json' \
   -d '{"assetId":"<assetId>","voiceId":"<the one the human picked>"}'
-# → 200 { jobId, assetId, url, expiresInSeconds, creditsCharged, billedMinutes, voiceId }
+# → 200 { jobId, assetId, url, expiresInSeconds, creditsCharged, billedSeconds, billedMinutes, voiceId }
+#   billedSeconds is the probed length the price read; billedMinutes is deprecated (API 2.32.0).
 ```
 
 Fifteen seconds of source came back in about seven on the acceptance run. **Download
@@ -278,6 +282,11 @@ reaches you, do **not** call again: the audio was probably rendered and charged.
 after a timeout is not a second charge — verified on the acceptance run, in the response
 and in the balance. **A different voice is a different conversion and a new charge**, so
 auditioning by conversion is the expensive way to do Gate 4.
+
+**Want the finished video rather than the take?** Add `"output":"video"` to the same
+body. It is a job to poll instead of an answer and it needs a video source. The mux
+becomes the server's; Gate 6's span choices are not made for you; Gate 7 stays yours.
+Read [Video out](#video-out) before sending it.
 
 ### Gate 6 — assembly, which is where the ad is won or lost
 
@@ -347,6 +356,23 @@ the mouth still owns them.
 Report the loudness delta the assembly step printed. A number nobody states is a number
 nobody checked.
 
+## Video out
+
+`POST /v1/voice-changes` takes an optional `output`: `"audio"`, the default and everything
+above, unchanged; or `"video"`, which answers `202 { jobId, status, credits, output: "video" }`.
+`status` is the job's current status; retrying the same request is safe and returns the same
+job (the same jobId). `queued`: not rendering yet; `running`: already rendering; `succeeded`, with the
+finished copy and nothing charged, when the same change was already made. On `queued` or `running`,
+poll `GET /v1/generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4) or `failed`
+(`voiceChange.reasonCode` names the cause); on `succeeded`, download. The same price as audio
+out, from the same `kind: "voice-change"` estimate, but charged differently: audio out at the
+request, video out only once the job finds speech in the source (a source with none ends
+`failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), refunded if the job fails after that. It needs a video source and is
+enabled per workspace; both refusals are a `400` with nothing charged. Only the voice
+changes. The mux becomes the server's; Gate 6's span choices are not made for you; Gate 7
+stays yours.
+**Read [references/video-out.md](references/video-out.md) before sending it.**
+
 ## The calls
 
 ```
@@ -360,16 +386,28 @@ POST /v1/estimates      { kind: "voice-change" | "transcript", assetId | jobId }
                         Both arms are used here, and both are free. Price the
                         conversion and the read-backs, not just the conversion.
                         → { credits, balance, sufficient, shortBy?, topUpUrl? }
-                          Strict. At most one source. No source = the one-minute minimum.
+                          Strict. At most one source. No source = the arm's minimum charge.
 
 GET  /v1/voices         ?gender=&age=&accent=&language=&limit=
                         → { voices: [{ id, name, source, previewUrl?, languages?,
                             category?, labels? }] }  Reads only, spends nothing.
 
-POST /v1/voice-changes  { assetId | jobId, voiceId (REQUIRED), productId? }
-                        → 200 { jobId, assetId, url, expiresInSeconds, creditsCharged,
-                            billedMinutes, voiceId }
+POST /v1/voice-changes  { assetId | jobId, voiceId (REQUIRED), productId?,
+                          output?: "audio" (default) | "video" }
+                        output "audio" → 200 { jobId, assetId, url, expiresInSeconds,
+                            creditsCharged, billedSeconds, billedMinutes (deprecated),
+                            voiceId }
                           ALREADY DONE — nothing to poll. Audio out; you mux.
+                        output "video" → 202 { jobId, status, credits,
+                            output: "video" }
+                          A JOB. status: queued (new) | running (the same change,
+                          already rendering) | succeeded (already made, nothing charged).
+                          VIDEO source only, enabled per workspace. See Video out.
+
+GET  /v1/generations/{jobId}
+                        Video out only, on queued/running: poll until "succeeded"
+                        (outputUrl = the new mp4, voiceChange.videoId = the copy) or
+                        "failed" (voiceChange.reasonCode names the cause).
 
 POST /v1/transcripts    { assetId | jobId }
                         → 200 { text, words[], segments[], srt, creditsCharged }
@@ -386,6 +424,14 @@ GET  /v1/generations?kind=audio   → the recovery path when a response never ar
   Split it and convert the parts; do not retry the whole file.
 - **`400 invalid_input` naming what the deployment renders.** Voice changes are off on
   this deployment. Not a retry, not a `404`. Say so and stop.
+- **`400` on `output: "video"` with an audio upload.** Video out needs a picture, and
+  nothing was charged. Send the video source, or omit `output` and mux locally.
+- **`400` saying to omit `output`.** Video out is not enabled for this workspace, and
+  nothing was charged. Omit it and run Gate 6 yourself. Not a retry.
+- **A video-out job ends `failed`.** `voiceChange.reasonCode` names the cause. A source
+  with no speech fails with nothing charged (or, if an earlier attempt already found none, it
+  is refused at the request, also free); a job that fails after finding speech is refunded.
+  Report the cause and the balance before calling again.
 - **`404` on the voiceId.** The voice is not yours, or it went inactive upstream. **This
   endpoint never substitutes a near-enough voice** — that is deliberate, because you cast
   a specific performance. Re-list, re-audition, re-pick. If it went inactive mid-request
@@ -449,6 +495,6 @@ GET  /v1/generations?kind=audio   → the recovery path when a response never ar
    one of three charges is not the cost of the run.
 4. **SHORTLIST** — two or three candidates with their measurements and their preview
    files. Then **stop** and wait for the pick.
-5. Then convert, assemble, and verify.
+5. Then convert, assemble (on video out: poll), and verify.
 6. **DELIVERY** — the output path, the loudness delta, the transcript read against the
    source, and what you looked at in the lip window.

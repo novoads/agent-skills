@@ -48,9 +48,9 @@ headline capabilities below, and a prompt written against them wastes a paid ren
   `<audio>` placeholder syntax the sections below use: name each image by its `@ImageN` token in
   the prompt instead. Nothing in this pack has measured Omni's motion or style transfer from a
   reference through this API, so treat the first render of such a route as a test.
-- **No audio input at all.** A video goes in `referenceVideoAssetId` and nowhere else; a video
-  `assetId` in `referenceAssetIds` or a frame field is a `400`, and there is no audio input
-  anywhere on this API.
+- **No audio input on this model.** A video goes in `referenceVideoAssetId` and nowhere else; a
+  video `assetId` in `referenceAssetIds` or a frame field is a `400`, and Omni Flash takes no
+  audio. (From API 2.35.0 the three Seedance models take mp3 in `referenceAudioAssetIds`.)
 - **No SynthID/C2PA claim either way.** The watermarking note near the end of this file describes
   Google's own surfaces. Do not repeat it as a fact about output obtained through this API — it has
   not been verified here.
@@ -387,7 +387,7 @@ session or multi-modal inputs are marked, not silently dropped.
       call is stateless and there is nothing to amend.
 - [ ] **Use real camera vocabulary** (`oner`, `locked off`, `dolly zoom`, `webcam style`).
 - [ ] **Combine images and one video** (API 2.30.0 on): images in `referenceAssetIds`, addressed
-      `@Image1`…`@ImageN`, and one clip in `referenceVideoAssetId`. No audio input on this API.
+      `@Image1`…`@ImageN`, and one clip in `referenceVideoAssetId`. No audio input on this model (Seedance takes it in `referenceAudioAssetIds`).
 - [ ] **State exclusions explicitly** (`No music, just realistic sound`, `Don't add text`). Worth
       doing on every ad prompt: `no on-screen text, no captions, no subtitles` keeps the model from
       inventing burned-in captions you would then have to re-render to remove.

@@ -96,7 +96,7 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `POST` | `/competitor-ads` | Sweep a brand's live ads out of Meta's Ad Library. **`200`, charged, SYNCHRONOUS.** Behind a per-deployment flag. |
 | `GET` | `/voices` | The voices you may speak in. Filterable, reads only, spends nothing. |
 | `POST` | `/voiceovers` | Render a line of text as speech. **`200`, charged, SYNCHRONOUS — the mp3 is in the response.** Behind a per-deployment flag. |
-| `POST` | `/voice-changes` | Re-perform the speech in a source in another voice. **`200`, charged, SYNCHRONOUS — the mp3 is in the response.** Behind a per-deployment flag. |
+| `POST` | `/voice-changes` | Re-perform the speech in a source in another voice. **Default `output: "audio"`: `200`, charged, SYNCHRONOUS — the mp3 is in the response.** `output: "video"` (a video source, enabled per workspace): `202` and a job to poll at `GET /generations/{jobId}`, whose `outputUrl` is the new mp4. Behind a per-deployment flag. |
 | `POST` | `/videos/{jobId}/captions` | Same operation, source in the path. Generated videos only. |
 | `GET` | `/caption-presets` | The 30 caption styles, with tier and per-minute rate. |
 | `GET` | `/generations` | List jobs, filterable and paginated. |
@@ -154,15 +154,17 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `prompt` | required | required |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2` | `gpt-image-2.5-sunburst` (default), `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `reve-2.1` |
 | `durationSeconds` | 4 to 30 | n/a |
-| `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | n/a |
+| `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K` spelled exactly (`4k` is a `400`), `nano-banana-pro` only at 2.36.0, default `2K`; **moves the price** (API 2.36.0) |
 | `numImages` | n/a | 1 to 4 |
+| `quality` | n/a | `high` `medium` `low`, GPT Image models only, default `medium`; **moves the price** (API 2.36.0) |
+| `outputFormat` | n/a | `png` `jpeg` `webp`, GPT Image models only; does not move the price, accepted so the quote carries the body you will send (API 2.36.0) |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | same |
 
 All eleven models price here, `veo-3.1` and `sora-2` included (verified live, 2026-08-02; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07).
 
 **The `4 to 30` span is the OUTER bound across the whole set, and no model renders all of it.** Only `seedance-2.5` goes past 15 seconds; asking `seedance-2.0` for 20 is a `400` here rather than a quote for something it cannot render. The spec says so in the field's own description — read `GET /v1/models` for the per-model grid.
 
-**`resolution` is accepted here because it moves the price** — on `seedance-2.0`, `480p` is ≈half the `720p` base, `1080p` is ≈2.5x it and `4k` ≈5x (the 480p arm re-priced 2026-08-07; the rest verified live 2026-08-04). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so `{"model":"seedance-2.0-mini","resolution":"1080p"}` comes back `400 resolution must be one of 720p for seedance-2.0-mini` while `720p` prices cleanly (verified live 2026-08-04). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
+**`resolution` is accepted here because it moves the price** (not on `veo-3.1`, one flat price at every tier, so its `720p` is never a saving) — on `seedance-2.0`, `480p` is ≈half the `720p` base, `1080p` is ≈2.5x it and `4k` ≈5x (the 480p arm re-priced 2026-08-07; the rest verified live 2026-08-04). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
 
 There is **no `styleFamily`** on either arm. The field was deleted from the whole API in spec `2.0.0`, and both arms are strict, so a body carrying it comes back `400 (root): Unrecognized key: "styleFamily"` (verified live, 2026-08-02).
 
@@ -203,6 +205,7 @@ Per-model request bodies, all `.strict()`.
 **Shared by all six video models:** `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
 
 - **`referenceAssetIds`**: the three Seedance variants and, since API 2.30.0, `omni-flash`. `veo-3.1` and `sora-2` have no such field.
+- **`referenceVideoAssetIds`, `referenceAudioAssetIds`**: the three Seedance variants, since API 2.35.0. See [Seedance video and audio references](#seedance-video-and-audio-references-api-2350).
 - **`referenceVideoAssetId`, `firstFrameAssetId`, `lastFrameAssetId`, `seed`**: `omni-flash` only, and the last three only where the server publishes them. See [`omni-flash` inputs](#omni-flash-inputs-api-2300).
 - **`resolution`**: only on a model whose `resolutions` in `GET /models` lists more than one value. See [`resolution`](#resolution-is-a-price-field-and-get-models-sets-it-per-model).
 - **`audioEnabled`** — the three Seedance variants only. See below.
@@ -211,9 +214,9 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 
 | `model` | `durationSeconds` (default) | `aspectRatio` | `refs` | `audio` | Prompt max |
 |---|---|---|---|---|---|
-| `seedance-2.0` | 4–15, any integer (**5**) | `16:9` (default) `9:16` `1:1` `4:3` `3:4` `21:9` | ≤9 | yes | 4,000 |
-| `seedance-2.5` | **4–30, any integer** (**5**) | same | ≤9 | yes | 4,000 |
-| `seedance-2.0-mini` | 4–15, any integer (**10**) | same | ≤9 | yes | 4,000 |
+| `seedance-2.0` | 4–15, any integer (**5**) | `16:9` (default) `9:16` `1:1` `4:3` `3:4` `21:9` | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
+| `seedance-2.5` | **4–30, any integer** (**5**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
+| `seedance-2.0-mini` | 4–15, any integer (**10**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
 | `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
 | `veo-3.1` | 4, 6, 8 (**8**) | `9:16` (default) `16:9` | — | — | 4,000 |
 | `sora-2` | 4, 8, 12 (**4**) | `9:16` (default) `16:9` | — | — | 4,000 |
@@ -257,9 +260,13 @@ Confirmed against the deployed spec `2.0.0` on 2026-08-02 (the `1.2.0`-era note 
 
 **Sending both is a 400**, not a merge: they select different modes on the provider.
 
-**Images only** — `image/jpeg`, `image/png`, `image/webp`. `POST /uploads` also accepts video, and a video `assetId` here is an error rather than a reference (the one place a video goes is `omni-flash`'s `referenceVideoAssetId`, below): the providers price video-input renders differently while the credit cost here is a function of duration alone, so accepting one would make the quote disagree with the invoice.
+**Images only in this field** — `image/jpeg`, `image/png`, `image/webp`. `POST /uploads` also accepts video, and a video `assetId` here is an error rather than a reference. A video goes in `omni-flash`'s `referenceVideoAssetId`, or, on the three Seedance variants since API 2.35.0, in `referenceVideoAssetIds` (audio in `referenceAudioAssetIds`); see the next section.
 
 An `@ImageN` token pointing past the end of the array is refused **before the charge** — an unresolvable reference is a content failure at the provider, and a 400 is a better answer than a refunded render.
+
+### Seedance video and audio references (API 2.35.0)
+
+**Video and audio references on Seedance (API 2.35.0).** `seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini` take `referenceVideoAssetIds` (mp4 only) and `referenceAudioAssetIds` (mp3 only) beside `referenceAssetIds` (images). Read the per-kind maxima and the total-file cap from the OpenAPI document (`GET /v1/openapi.json`: each field's `maxItems` and description, which also state the summed-seconds and total-file caps; `GET /v1/models` does not publish them) rather than typing them; over a per-kind maximum is a request validation error, and over the total is `reference_count`. The summed video seconds and the summed audio seconds are each capped, and measured server side before any charge (`reference_duration`); the other refusals are `reference_kind`, `reference_mode` and `reference_unreadable`. They cannot be combined with `startImageAssetId`, and an audio reference needs at least one image or video reference beside it (from API 2.37.0 audio alone is `reference_mode`, refused before any charge). References do not change the price: quote it with `POST /v1/estimates` all the same, WITHOUT the reference fields (the estimate arm does not take them). A measurement that runs past the server's deadline is `reference_unreadable` (try again in a few minutes; a 400 with no retry field and no `Retry-After` header); a field the model does not publish is `reference_field`. A busy organization gets `429 rate_limited` with `Retry-After`. `omni-flash` keeps its own single `referenceVideoAssetId`.
 
 ### `omni-flash` inputs (API 2.30.0)
 
@@ -293,10 +300,12 @@ Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row r
 |---|---|---|
 | `seedance-2.0` | `480p`, `720p`, `1080p`, `4k` | `720p` |
 | `seedance-2.5` | **`480p`, `720p` — and nothing above** | `720p` |
-| `seedance-2.0-mini` | **none — the variant has no such property** | 720p, fixed |
+| `seedance-2.0-mini` | `480p`, `720p` since API 2.34.0 (before it, **none**: the variant had no such property) | `720p` |
 | `omni-flash` | depends on the server: `360p`, `720p`, `1080p` where `GET /models` lists them (API 2.29.0), plus `4k` only where it lists that too (API 2.31.0), else **none** | `720p` |
 | `sora-2` | **none** | 720p, fixed |
-| `veo-3.1` | **none** | 1080p, fixed |
+| `veo-3.1` | `720p`, `1080p` since API 2.34.0 (before it, **none**, 1080p fixed) | read `defaultResolution` |
+
+For mini the tiers are their own schedule: quote the tier with `POST /estimates`, never with the Seedance ratios. On `veo-3.1` the tier does not move the quote at 2.34.0 (one flat price), so never offer `720p` as a cheaper option; quote it all the same.
 
 **`seedance-2.5` does not inherit 2.0's high tiers, and that is a provider fact rather than a rollout gap.** Neither provider serves the model above 720p at all, so `1080p` and `4k` are a `400` on it and always will be. Do not carry a resolution across a model switch: a workflow that renders `seedance-2.0` at `1080p` and then swaps the model id to `seedance-2.5` is a rejected request, not a downgrade.
 
@@ -317,7 +326,7 @@ Those are ratios, not a rate card — they exist so you can warn a user that `4k
 
 **`POST /estimates` takes `resolution`** on the video arm and prices it, so the quote can track the tier you actually intend to render.
 
-**The `seedance-2.0-mini` split-brain, verified live 2026-08-04.** The estimate arm's `resolution` enum is shared across all six models, but the server range-checks it per model:
+**The `seedance-2.0-mini` split-brain, verified live 2026-08-04, is history from API 2.34.0**, where mini lists `480p` and `720p` and its variant takes the key. Before it: The estimate arm's `resolution` enum is shared across all six models, but the server range-checks it per model:
 
 | Call | Result |
 |---|---|
@@ -325,7 +334,7 @@ Those are ratios, not a rate card — they exist so you can warn a user that `4k
 | `POST /estimates`, mini, `480p` / `1080p` / `4k` | `400 invalid_input` — *"resolution must be one of 720p for seedance-2.0-mini"* |
 | `POST /videos`, mini, any `resolution` | `400 Unrecognized key: "resolution"` — the variant has no such property (**observed 2026-08-04, not re-verified**: confirming it again means a paid render) |
 
-**So an estimate that accepted `resolution` is not a licence to send it to `POST /videos`.** On mini, never send the key at all.
+**So an estimate that accepted `resolution` is not a licence to send it to `POST /videos`.** Against a server older than 2.34.0, never send the key on mini; from 2.34.0 the general rule applies: send it only when `GET /models` lists more than one tier.
 
 Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
 
@@ -356,6 +365,8 @@ There are **no idempotency keys.** See the 500 note below.
 Synchronous. The response carries `images[]` (`url`, `expiresInSeconds` 3600, `assetId`, `width`, `height`), `jobId`, `status`, `creditsCharged`, and `model`. **No `warnings`**, for the same reason as video: the prompt rules run on `POST /estimates` only — where an image prompt *does* get read. `banned_polish` and `blank_label` observed on a `kind: "image"` estimate against deployed spec 2.19.0 (verified live 2026-08-12); the older note here, that images returned no `warnings` key at all, described the 2026-08-04 deployment. Nothing to poll. `numImages` multiplies the price.
 
 Reference order is preserved and can be addressed positionally by the prompt. There is no base64 field: upload first, pass ids.
+
+**`quality`, `outputFormat` and `resolution` (API 2.36.0).** `quality` (`high`, `medium`, `low`; default `medium`) and `outputFormat` (`png`, `jpeg`, `webp`; default `png`) are GPT Image models only; `resolution` (`1K`, `2K`, `4K`; default `2K`) is `nano-banana-pro` only. Each is a `400` on a model that does not offer it. `quality` and `resolution` change the price, `outputFormat` does not; quote the exact cell with `POST /estimates`, sending the same fields. Read the model's lists from `GET /v1/models` rather than this line; image `resolution` is matched exactly, so `4k` is a `400`.
 
 Images accept **no `startImageAssetId`** — there is no first-frame concept on a still — and **no `styleFamily`**, which no longer exists anywhere on this API.
 
@@ -749,7 +760,8 @@ it is off the path and the `voice-change` estimate arm are both absent from
 
 Takes a video this API rendered, or a video **or audio file** you uploaded, and returns
 **the finished audio** with the speech re-performed by a voice you choose. `200`, not `202`:
-the provider returns bytes rather than a job id.
+the provider returns bytes rather than a job id. That is the default; `output: "video"`
+returns the finished video as a polled job instead — [Video out](#video-out), below.
 
 | Field | Required | Notes |
 |---|---|---|
@@ -757,8 +769,9 @@ the provider returns bytes rather than a job id.
 | `assetId` | one of the two | a file you uploaded. **Video or audio** (`audio/mpeg`, `audio/wav`) — the only endpoint here that takes audio-only uploads |
 | `voiceId` | **yes** | no default, and **no substitution, ever**. From `GET /voices` |
 | `productId` | no | organizational only |
+| `output` | no | `"audio"` (default, the `200` below) or `"video"` (a `202` job; a video source only, enabled per workspace). See [Video out](#video-out) |
 
-Body is strict; exactly one source. Response `200`: `jobId`, `assetId`, `url`,
+Body is strict; exactly one source. Response with audio out, `200`: `jobId`, `assetId`, `url`,
 `expiresInSeconds`, `creditsCharged`, `billedMinutes`, `voiceId`.
 
 **What it preserves: timing, pacing and delivery, frame-accurately.** The take drops back
@@ -787,6 +800,28 @@ the same `assetId` is not a hit either.
 A longer one answers `400` naming the limit and charges nothing. Split it and convert the
 parts. A 15-second source converted in **7.1 seconds**.
 
+### Video out
+
+`output: "video"` returns the finished video instead of the take: the server puts the
+converted voice back over the source's picture. It is enabled per workspace; where it is off
+the call is a `400` whose message says to omit `output`, and nothing is charged.
+
+- **Response `202`:** `{ jobId, status, credits, output: "video" }`, where `status` is the
+  job's current status; retrying the same request is safe and returns the same job (the same
+  jobId). `queued`: not rendering yet; `running`: already rendering; `succeeded`, with the finished copy
+  and a zero `credits`, when the same change was already made. On `queued` or `running`, poll
+  `GET /generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4,
+  `voiceChange.videoId` names the copy) or `failed` (`voiceChange.reasonCode` names the
+  cause). On `succeeded`, download; there is nothing to poll.
+- **Price:** the same as audio out for the same source, quoted by the same `voice-change`
+  estimate arm. **When it is charged differs:** audio out at the request; video out only once
+  the job finds speech in the source, so a source with no speech ends `failed`, or
+  is refused at the request (no job is created) when an earlier attempt already found none, neither charged,
+  and a job that fails after that is refunded.
+- **A video source only.** An audio upload with `output: "video"` is a `400`, nothing
+  charged.
+- **Only the voice changes.** The words, the timing and the accent are the source's.
+
 ### Pricing
 
 **Per minute of source audio: whole minutes, rounded UP, one-minute minimum**, with no
@@ -800,10 +835,10 @@ ad and an empty body quoted the same number on the acceptance run.
 
 | Code | Cause |
 |---|---|
-| `400` | Validation, a source **past the 5-minute cap** (named), or voice changes being off on this deployment. Nothing charged. |
+| `400` | Validation, a source **past the 5-minute cap** (named), voice changes being off on this deployment, an **audio upload with `output: "video"`**, or `output` sent where video out is not enabled for the workspace (the message says to omit it). Nothing charged. |
 | `402` | Not enough credits; `details` carries `required` and `available`. |
 | `404` | No such job or asset for this organization, **or no such voice** — the voice cases are deliberately indistinguishable from "not yours". A voice that went inactive *after* the request started lands here too, with the credits refunded. |
-| `409` | The source job has not succeeded yet, it has **no audio to convert**, or **a conversion of this source in this voice is already in flight** — the message names that job id, so poll it or retry in a moment and the stored audio comes back without a second charge. Anything charged before a `409` is refunded. |
+| `409` | The source job has not succeeded yet, it has **no audio to convert**, or **a conversion of this source in this voice is already in flight** — the message names that job id, so poll it or retry in a moment and the stored audio comes back without a second charge. Anything charged before a `409` is refunded. On video out, a retry of a change still rendering is not a `409`: it answers `202` with `status: "running"`. |
 | `429` | `details.reason: voice_change_concurrency_limit` — **10** in flight, its own queue, counted apart from renders, captions, transcripts and narration. |
 | `500` | **Do not blindly retry**: this endpoint charges, and a failure can land after the debit. Call `GET /generations` first. |
 | `502` | The provider failed. Credits refunded automatically. |
@@ -822,9 +857,11 @@ Four assumptions callers arrive with, none of them true here:
   anyone talking": a music bed sent here converts into vocal noise, is **charged in full**,
   and answers `200`. That is a charged success, not an error, and there is nothing to refund.
   Check for speech locally before you call — the `change-voice` skill ships a free check that
-  does it in about a second.
+  does it in about a second. That is audio out, the default. Video out is charged only once
+  its job finds speech, so a source with none ends `failed`, or is refused at the request (no job is created) when an earlier attempt already found none, neither charged ([Video out](#video-out));
+  the local check still runs first.
 
-And it does not return **video**. Muxing the take back over the picture, and deciding which
+And by default it does not return **video** (`output: "video"` is the exception, above). Muxing the take back over the picture, and deciding which
 spans to swap so a sound effect or a music bed survives untouched, is yours to do locally,
 deliberately: those are creative decisions a server should not make on your behalf.
 
@@ -906,9 +943,9 @@ curl -sS -X POST https://api.novoads.ai/v1/products \
 
 ## GET /models
 
-The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`** (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
+The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`**, and on image models that offer them, `qualities`, `outputFormats` and `resolutions`, each with its `default*` (API 2.36.0) (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
 
-**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `seedance-2.0-mini` and `sora-2` return `["720p"]`; `veo-3.1` returns `["1080p"]`; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
+**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `sora-2` returns `["720p"]`; `seedance-2.0-mini` returned `["720p"]` and `veo-3.1` `["1080p"]` until API 2.34.0, which lists `480p` and `720p` for mini and `720p` and `1080p` for Veo; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
 
 **`durationsSeconds` is the same kind of authority for length**, and since 2.13.0 the entries no longer agree with each other: `seedance-2.5` publishes 4 … 30, every other model stops at or below 15. Read the model's own array rather than assuming a family shares a grid.
 
@@ -927,7 +964,7 @@ queued -> running -> finalizing -> succeeded
 
 **Poll for terminal, not for `succeeded`.** A loop waiting only on `succeeded` never exits on a failed job.
 
-`queued` means charged and submitted but not yet rendering. It is normal, not a stall.
+`queued` means charged and submitted but not yet rendering. It is normal, not a stall. A video-out voice change is different: it is charged once the job finds speech in the source, not at `queued` ([Video out](#video-out)).
 
 Measured on production renders (all providers, succeeded only, p10 to p90):
 
@@ -1038,7 +1075,7 @@ description if you meet one that is not here — this table is a working set, no
 | `caption_concurrency_limit` | **10 caption jobs already in flight** for the organization (verified in spec 2.6.0, 2026-08-04) | Same shape as above: wait, do not slow down. Counted **separately** from `concurrency_limit`, deliberately — a batch of captions can never block your next render, and vice versa. |
 | `transcript_concurrency_limit` | **10 transcripts already in flight** for the organization, where `POST /transcripts` is offered (verified against the deployed spec `2.12.0`, 2026-08-06) | Wait. A transcript is synchronous, so this bounds how many you can hold open at once and is often the first ceiling a batch meets. |
 | `voiceover_concurrency_limit` | **10 voice-overs already in flight** for the organization, where `POST /voiceovers` is offered (verified against the deployed spec `2.12.0`, 2026-08-06) | Wait — but on a two-second TTS call, not on your renders. Easy to misread as "stop generating video" when renders are legitimately in flight; they are unrelated queues. |
-| `voice_change_concurrency_limit` | **10 voice changes already in flight** for the organization, where `POST /voice-changes` is offered (verified against the deployed spec `2.21.0`, 2026-08-12) | Wait. Synchronous like transcripts, so this bounds how many conversions you can hold open at once rather than how fast you may ask. Its own queue: a batch of conversions never blocks a render, a caption or a narration line. |
+| `voice_change_concurrency_limit` | **10 voice changes already in flight** for the organization, where `POST /voice-changes` is offered (verified against the deployed spec `2.21.0`, 2026-08-12) | Wait. Audio out is synchronous like transcripts, so this bounds how many conversions you can hold open at once rather than how fast you may ask. Its own queue: a batch of conversions never blocks a render, a caption or a narration line. |
 | `key_limit` | 60 requests per minute on this key | Honor `Retry-After`. The `X-RateLimit-*` trio tracks this ceiling and only this one. |
 | `organization_limit` | 180 requests per minute across every key the organization holds | Honor `Retry-After`. `X-RateLimit-*` will still show room on your key — correct, not a broken limiter. Minting another key does not raise it. |
 | `client_limit` | 1,200 requests per minute from one address, **pre-authentication** | Honor `Retry-After`. Carries no `X-RateLimit-*` trio. |

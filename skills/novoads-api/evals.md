@@ -178,7 +178,8 @@ is the general lesson: a summary that restates a number owns that number forever
   charged, which is the good outcome: a silently dropped reference would be a paid render
   missing the product.
 - Video references are understood as a **different** number and a narrower set: up to 9,
-  on the three Seedance variants only.
+  on the three Seedance variants only. (Here "video references" means image references
+  on a video model; Seedance mp4 and mp3 references since API 2.35.0 have their own caps.)
 - A guardrail bullet that restates a limit is checked against the section it summarises
   before it is quoted to a user.
 
@@ -303,7 +304,8 @@ submission cost them something; or one queue's refusal stops the others.
 
 ## NA8 — An estimate that accepted a field is not a licence to send it
 
-**Scenario.** A draft on `seedance-2.0-mini`. The estimate is priced with
+**Scenario.** A draft on `seedance-2.0-mini`, against a server older than API 2.34.0
+(from 2.34.0 mini lists `480p` and `720p` and its variant takes `resolution`). The estimate is priced with
 `resolution: "720p"` and it comes back clean.
 
 **Observed split-brain (verified live 2026-08-04).** `POST /v1/estimates` **accepts**
@@ -343,6 +345,30 @@ there — while some of them are perfectly valid on the generation call.
 
 **Fails if:** `resolution` reaches a mini generation; or an estimate's acceptance is
 quoted as proof; or a resolution survives a model switch.
+
+---
+
+## NA9 — A voice change asked for video is a job, and the default still is not
+
+**Scenario.** Two calls to `POST /v1/voice-changes` on the same video source and voice: one
+with no `output`, one with `"output":"video"` on a workspace that has video out on.
+
+**Assertions.**
+
+- The first is handled as the synchronous `200` it has always been: the mp3 is in the
+  response and nothing is polled.
+- The second is handled as a render: a `202` with `jobId`, `status`, `credits` and
+  `output: "video"`. Any of the job's lifecycle statuses passes: `queued` or `running` is
+  polled at `GET /v1/generations/{jobId}` to `succeeded` (`outputUrl`, the mp4) or `failed`
+  (`voiceChange.reasonCode` names the cause); `succeeded` on the `202` is the change already
+  made, downloaded, not polled.
+- Sent again once it has succeeded, the video call answers `202` with `status: "succeeded"`,
+  the finished copy and a zero `credits`, and the agent reports nothing charged.
+- An audio upload sent with `"output":"video"`, and `output` sent where the workspace does
+  not have it, are both a `400` with nothing charged, and neither is retried as-is.
+
+**Fails if:** the agent reads `reference.md` as "voice changes are always synchronous" and
+treats the `202` as an error, or polls a `200`.
 
 ---
 

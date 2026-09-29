@@ -30,8 +30,9 @@ Read this before composing a Veo prompt. Every HTTP detail comes from [SKILL.md]
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi`. Defaults to `en` |
 | `startImageAssetId` | one `assetId`, animated as the first frame |
 | `productId` | files the job under a product. Organizational only |
+| `resolution` | from API 2.34.0, the tiers `GET /v1/models` lists for `veo-3.1` (`720p`, `1080p`); default is its `defaultResolution` (`1080p`). One flat price at every tier, so `720p` is never a saving; quote with `POST /v1/estimates` all the same. Before 2.34.0 the key is a `400` |
 
-**Not on this model:** `referenceAssetIds`, `audioEnabled`, `resolution`, `styleFamily`. All are `400` (verified live 2026-08-02).
+**Not on this model:** `referenceAssetIds`, `audioEnabled`, `styleFamily`. All are `400` (verified live 2026-08-02). `resolution` was on this list until API 2.34.0.
 
 ```bash
 curl -sS -X POST https://api.novoads.ai/v1/videos \

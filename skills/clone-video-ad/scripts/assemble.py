@@ -4,26 +4,34 @@
   python3 skills/clone-video-ad/scripts/assemble.py check    TAKE.mp4 --still STILL.png --dur D
   python3 skills/clone-video-ad/scripts/assemble.py hue-gate GRADED.mp4 --ungraded TWIN.mp4 --photo PRODUCT [--windows a-b,c-d]
   python3 skills/clone-video-ad/scripts/assemble.py build    outputs/<job>/shots.json [--grade light|none] [--fps 24|30] [--vo VO.mp3 --vo-start S] [--bed BED.audio]
-                                                      [--photo PRODUCT] [--talker SH07=voice_changed.mp3 ...]
+                                                      [--photo PRODUCT] [--allow-crop] [--talker SH07=voice_changed.mp3 ...]
   python3 skills/clone-video-ad/scripts/assemble.py verify   outputs/<job>/master.mp4 outputs/<job>/shots.json
 
 check     opening lock (max SSIM of take frame 0 vs the still centre-cropped at 1.00-1.05,
-          both 180x320 grey, PASS >= 0.90), no scene > 0.25 cut inside [0, D], motion present.
-          Exit 0 when all pass.
+          both 180x320 grey, PASS >= 0.90), no scene > 0.25 cut inside [0, D], motion present
+          (the largest mean frame difference over any 0.5 s window inside [0, D] above the
+          floor, so a take that moves and then holds passes). Exit 0 when all pass.
 hue-gate  product mask from the photo's hue band, built on the ungraded twin (4 fps, 180x320);
           PASS when chroma kept >= 0.80 overall and per window and hue drift <= 6 deg.
-          Exit 0 PASS, 1 FAIL, 2 NO_PRODUCT.
+          Exit 0 PASS, 1 FAIL, 2 NO_PRODUCT (also when the photo is not a packshot on a
+          white or neutral background: product share > 0.5 or band half-width > 30 deg).
 build     per shot: the picked take trimmed to its slot, or a held still with a slight zoompan;
           transitions from cut_in.type (whip-left|whip-right -> xfade slide + horizontal blur
           centred on the cut, zoom-in -> xfade zoomin, flash_s -> a white blend, else hard);
           LIGHT grade = eq brightness to the source shot's YAVG (contrast 1.0, iterated to
           +/-2) then the hue-protected chroma scale toward its SATAVG; NONE = no grade.
           Writes master_ungraded.mp4 (twin), master.mp4, assembly.json (with every command).
+          Refuses (exit 2, nothing rendered): LIGHT without a product photo, a photo that is
+          not a packshot, and a take or still whose aspect is off the source's by > 2 %
+          unless --allow-crop (then the crop is recorded). A NO_PRODUCT or SKIPPED hue gate
+          exits 0 with a WARNING line on stderr and is never reported as PASS.
           --talker ID=AUDIO (repeatable) puts that audio (a voice-changed talker take, timed
           from the take's frame 0) in shot ID's window instead of the voiceover, with short
           crossfades, level-matched to the voiceover before the shared loudnorm. Needs --vo.
 verify    duration within one frame, measured cuts (both thresholds) within 0.05 s of the
-          table's, per-shot Y and SAT against the source. Exit 0 on a pass.
+          table's (a whip or zoom cut: inside its transition window), each measured hit
+          claimed by one table cut at most, per-shot Y and SAT against the source. Exit 0 on
+          a pass.
 
 Colour units are ffmpeg YUV: chroma = hypot(U-128, V-128), hue = atan2(V-128, U-128) deg.
 Stdlib Python 3.9+ plus ffmpeg/ffprobe; no network.
@@ -43,9 +51,14 @@ sys.dont_write_bytecode = True  # importing the sibling scripts leaves no __pyca
 sys.path.insert(0, str(HERE))
 import shot_table as st  # noqa: E402
 
-# ---- product-hue gate (calibrated in the Phase 0 harness) ----
+# ---- product-hue gate (measured on one test ad, 2026-09-29) ----
 PHOTO_FLOOR = 8.0            # photo chroma above which a pixel is product (white bg ~1.4)
 PHOTO_MIN_SHARE = 0.002      # fewer product pixels than this share -> band = none
+PACKSHOT_MAX_SHARE = 0.50    # more "product" than this share of the photo -> the backdrop is coloured
+PACKSHOT_MAX_HALF = 30.0     # a band wider than +/- this many degrees is not one product colour
+PACKSHOT_MSG = ("the product photo is not a packshot on a white or neutral background (or a cut-out); "
+                "use one, or --grade none")
+LIGHT_NO_PHOTO_MSG = "LIGHT grade needs the product photo (--photo); use --grade none to skip the grade"
 FLOOR_FRAC = 0.35            # clip chroma floor = 0.35 x the photo product's median chroma
 BAND_MARGIN = 6.0            # degrees added to the photo's 2-98 % hue spread
 GATE_FPS = 4
@@ -61,7 +74,13 @@ LOCK_MIN = 0.90
 LOCK_SCALES = [round(1.0 + 0.005 * i, 3) for i in range(11)]
 LOCK_WARN_SCALE = 1.04
 LOCK_W, LOCK_H = 180, 320
-MOTION_FLOOR = 1.0           # mean |frame diff| (180x320 luma); a frozen clip reads ~0
+# Motion = the largest mean |frame diff| (180x320 luma) over any MOTION_WINDOW_S window
+# inside [0, D]: a take that moves, then holds still, still reads as moving. A frozen clip
+# reads 0.0, a slow push-in on a static detailed frame 0.8-1.0, real takes 4.6-6.9
+# (measured on one test ad, 2026-09-29). A frozen frame under heavy grain can read ~0.8,
+# so the floor catches a stuck take, not a grainy one.
+MOTION_WINDOW_S = 0.5
+MOTION_FLOOR = 0.5
 # ---- build ----
 TRANS_S = 0.25
 HOLD_ZOOM_PER_S = 0.0135
@@ -74,12 +93,17 @@ FLASH_ALPHA = 0.85
 TALKER_FADE_S = 0.04        # crossfade between the voiceover and a talker window
 TALKER_GAIN_MAX_DB = 12.0   # level-match clamp for a talker window against the voiceover
 CUT_TOL_S = 0.05
+ASPECT_TOL = 0.02            # a take or still whose aspect is off the source's by more is refused
 XFADE = {"whip-right": "slideleft", "whip-left": "slideright", "zoom-in": "zoomin"}
 SEG_ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p"]
 FINAL_ENC = ["-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p"]
 EPS = 1e-6
 
 _LUT = {}
+
+
+class Refusal(Exception):
+    """A request build will not run as given (exit 2, nothing rendered)."""
 
 
 def _luts():
@@ -150,6 +174,12 @@ def product_band(photo):
                photo_chroma=round(chroma, 2), photo_luma=round(_median([Y[i] for i in prod]), 1),
                photo_rel=round(_median([ch[idx[i]] / max(Y[i], 1) for i in prod]), 4),
                chroma_floor=round(FLOOR_FRAC * chroma, 2))
+    if res["photo_product_share"] > PACKSHOT_MAX_SHARE or half > PACKSHOT_MAX_HALF:
+        # a coloured backdrop reads as "product": the band would protect (and the gate
+        # would measure) the backdrop, so there is no product band to trust
+        res.update(band=None, not_packshot=True,
+                   reason="%s (product share %.2f > %.2f or band half-width %.1f deg > %.0f)" % (
+                       PACKSHOT_MSG, res["photo_product_share"], PACKSHOT_MAX_SHARE, half, PACKSHOT_MAX_HALF))
     return res
 
 
@@ -372,12 +402,27 @@ def opening_lock(take, still):
     return res
 
 
-def motion_mean(path, dur):
+def motion(path, dur, fps=None):
+    """|frame diff| over [0, dur]: the mean, the single largest diff, and the largest mean
+    over any MOTION_WINDOW_S window (the whole span when it is shorter)."""
     out = st.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-t", "%.3f" % dur, "-an", "-vf",
                   "scale=%d:%d:flags=area,format=yuv420p,tblend=all_mode=difference,signalstats,"
                   "metadata=print:file=-" % (LOCK_W, LOCK_H), "-f", "null", "-"]).stdout
-    ys = [f["YAVG"] for f in st._parse_metadata(out) if "YAVG" in f]
-    return (sum(ys) / len(ys) if ys else 0.0), (max(ys) if ys else 0.0), len(ys)
+    fr = [f for f in st._parse_metadata(out) if "YAVG" in f]
+    ys = [f["YAVG"] for f in fr]
+    if not ys:
+        return {"mean_absdiff": 0.0, "max_absdiff": 0.0, "window_max": 0.0, "window_start": None, "diffs": 0}
+    k = max(1, int(round(MOTION_WINDOW_S * (fps or 24.0))))
+    k = min(k, len(ys))
+    run_sum = sum(ys[:k])
+    best, at = run_sum, 0
+    for j in range(k, len(ys)):
+        run_sum += ys[j] - ys[j - k]
+        if run_sum > best:
+            best, at = run_sum, j - k + 1
+    t0 = fr[0]["pts_time"]
+    return {"mean_absdiff": sum(ys) / len(ys), "max_absdiff": max(ys), "window_max": best / k,
+            "window_start": round(fr[at]["pts_time"] - t0, 3), "window_diffs": k, "diffs": len(ys)}
 
 
 def check(take, still, dur):
@@ -396,11 +441,14 @@ def check(take, still, dur):
     res["invented_cuts"] = inv
     if inv:
         reasons.append("scene > %.2f inside [0, %.2f] at %s" % (st.SCENE_HI, dur, [c["t"] for c in inv]))
-    mm, mx, nd = motion_mean(take, dur)
-    res["motion"] = {"mean_absdiff": round(mm, 3), "max_absdiff": round(mx, 3), "diffs": nd,
-                     "floor": MOTION_FLOOR, "pass": mm > MOTION_FLOOR}
-    if mm <= MOTION_FLOOR:
-        reasons.append("motion %.2f <= floor %.1f (frozen)" % (mm, MOTION_FLOOR))
+    mo = motion(take, dur, info["fps"])
+    res["motion"] = {"window_max": round(mo["window_max"], 3), "window_start": mo["window_start"],
+                     "window_s": MOTION_WINDOW_S, "mean_absdiff": round(mo["mean_absdiff"], 3),
+                     "max_absdiff": round(mo["max_absdiff"], 3), "diffs": mo["diffs"],
+                     "floor": MOTION_FLOOR, "pass": mo["window_max"] > MOTION_FLOOR}
+    if not res["motion"]["pass"]:
+        reasons.append("motion %.2f (largest %.1f s window) <= floor %.2f (frozen)" % (
+            mo["window_max"], MOTION_WINDOW_S, MOTION_FLOOR))
     res["pass"] = not reasons
     res["reasons"] = reasons
     return res
@@ -523,7 +571,48 @@ def talker_plan(shots, K, segs, F, talkers, job):
     return sorted(plan, key=lambda t: t["a"])
 
 
-def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, photo=None, talkers=None):
+def _media_size(mode, path):
+    if mode == "take":
+        info = st.probe(str(path))
+        return info["width"], info["height"]
+    return _image_size(path)
+
+
+def preflight(doc, job, grade, photo, allow_crop):
+    """Every refusal before a frame is rendered: LIGHT without a photo, a photo that is not
+    a packshot, a take or still whose aspect is off the source's. Returns (band, sources,
+    crops)."""
+    photo = photo or doc.get("product_photo")
+    if grade == "light" and not photo:
+        raise Refusal(LIGHT_NO_PHOTO_MSG)
+    if photo and not _resolve(photo, job).is_file():
+        raise Refusal("the product photo was not found: %s" % photo)
+    band = product_band(_resolve(photo, job)) if photo else None
+    if grade == "light" and band.get("not_packshot"):
+        raise Refusal(band["reason"])
+    sources = [_shot_source(r, job) for r in doc["shots"]]
+    W, H = [int(x) for x in doc["size"]]
+    R = W / float(H)
+    off = []
+    for r, (mode, src) in zip(doc["shots"], sources):
+        w, h = _media_size(mode, src)
+        a = w / float(h)
+        if abs(a / R - 1.0) > ASPECT_TOL:
+            off.append({"id": r["id"], "mode": mode, "src": str(src), "size": [w, h], "aspect": round(a, 4),
+                        "source_aspect": round(R, 4), "off_pct": round(100.0 * abs(a / R - 1.0), 1),
+                        "kept_pct": round(100.0 * min(a / R, R / a), 1)})
+    if off and not allow_crop:
+        raise Refusal("%s: the %s aspect differs from the source's %dx%d (%.4f) by more than %d%%, and build "
+                      "would centre-crop it to fit (keeping %s%% of the frame); make the stills and takes at "
+                      "shots.json aspect (%s), or pass --allow-crop to crop on purpose" % (
+                          ", ".join("%s %dx%d" % (o["id"], o["size"][0], o["size"][1]) for o in off),
+                          "/".join(sorted({o["mode"] for o in off})), W, H, R, int(ASPECT_TOL * 100),
+                          "/".join(str(o["kept_pct"]) for o in off), doc.get("aspect", "the nearest to the source")))
+    return photo, band, sources, off
+
+
+def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, photo=None, talkers=None,
+          allow_crop=False):
     shots_path = Path(shots_path).resolve()
     job = shots_path.parent
     with open(shots_path, encoding="utf-8") as fh:
@@ -533,6 +622,7 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
     D = float(doc["duration"])
     N = int(round(D * F))
     shots = doc["shots"]
+    photo, band, sources, crops = preflight(doc, job, grade, photo, allow_crop)
     bdir = job / "build"
     bdir.mkdir(exist_ok=True)
     cmds = []
@@ -542,15 +632,14 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
         return st.run(cmd)
 
     K, cuts, segs = plan_timeline(shots, F, N)
-    photo = photo or doc.get("product_photo")
-    band = product_band(_resolve(photo, job)) if photo else None
     rec = {"version": 1, "shots_json": str(shots_path), "grade": grade, "fps": F, "size": [W, H],
            "frames": N, "duration_target": D, "photo": str(photo) if photo else None,
            "band": {k: band.get(k) for k in ("center", "half_width", "chroma_floor", "reason") if k in band} if band else None,
-           "cuts": cuts[1:], "shots": []}
+           "allow_crop": bool(allow_crop), "crops": crops, "cuts": cuts[1:], "shots": []}
+    warnings = ["%s (%s) centre-cropped from %dx%d: keeps %s%% of its frame (--allow-crop)" % (
+        c["id"], c["mode"], c["size"][0], c["size"][1], c["kept_pct"]) for c in crops]
     ung, grd = [], []
-    for s, r in zip(segs, shots):
-        mode, src = _shot_source(r, job)
+    for s, r, (mode, src) in zip(segs, shots, sources):
         T = s["frames"]
         out_u = bdir / ("%s_ungraded.mp4" % r["id"])
         if mode == "take":
@@ -687,7 +776,11 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
     if band:
         rec["hue_gate"] = hue_gate(graded_video, ungraded=twin, windows=windows, band=band)
     else:
-        rec["hue_gate"] = {"verdict": "SKIPPED", "reasons": ["no product photo (--photo or shots.json product_photo)"]}
+        rec["hue_gate"] = {"verdict": "SKIPPED", "reasons": ["--grade none and no product photo"]}
+    if rec["hue_gate"]["verdict"] in ("NO_PRODUCT", "SKIPPED"):
+        warnings.append("hue gate %s (%s): nothing checked the product's colour, so this build is not a "
+                        "hue-gate PASS" % (rec["hue_gate"]["verdict"], "; ".join(rec["hue_gate"].get("reasons") or [])))
+    rec["warnings"] = warnings
     mi, ti = st.probe(str(master)), st.probe(str(twin))
     rec["master"] = {"path": str(master), "frames": mi["nb_frames"], "duration": round(mi["duration"], 4)}
     rec["twin"] = {"path": str(twin), "frames": ti["nb_frames"], "duration": round(ti["duration"], 4)}
@@ -722,30 +815,47 @@ def verify(master, shots_path):
     series = st.frame_series(str(master), signalstats=False)
     hits = [(f["t"], f["scene"]) for f in series if f["t"] >= st.STARTUP_S and f["scene"] > st.SCENE_LO]
     plan = {c["i"]: c for c in asm.get("cuts", []) if isinstance(c, dict)} if asm.get("fps") == round(F) else {}
-    rows, used = [], set()
+    # Each measured hit is claimed by at most one table cut: pairs are taken best first
+    # (an acceptable hit before any other, then the smaller error), so two table cuts can
+    # never both pass on the same hit.
+    tab = []
     for i, r in enumerate(doc["shots"][1:], 1):
-        c = float(r["in"])
+        p = plan.get(i)
+        win = None
+        if p and p.get("kind") == "xfade":
+            win = ((p["K"] - p["before"]) / F - 0.5 / F, (p["K"] + p["after"]) / F + 0.5 / F)
+        tab.append((i, r, float(r["in"]), win))
+
+    def acceptable(c, win, t):
+        return abs(t - c) <= CUT_TOL_S or bool(win and win[0] <= t <= win[1])
+    pairs = sorted((0 if acceptable(c, win, t) else 1, abs(t - c), i, h)
+                   for i, _, c, win in tab for h, (t, _) in enumerate(hits))
+    claim, owner = {}, {}
+    for _, _, i, h in pairs:
+        if i not in claim and h not in owner:
+            claim[i], owner[h] = h, i
+    ids = {i: r["id"] for i, r, _, _ in tab}
+    rows = []
+    for i, r, c, win in tab:
         typ = ((r.get("cut_in") or {}).get("type") or "hard").lower()
-        near = min(hits, key=lambda h: abs(h[0] - c)) if hits else None
         row = {"id": r["id"], "table": c, "type": typ}
-        if near is None:
+        h = claim.get(i)
+        if h is None:
             row.update(measured=None, ok=False)
+            if hits:
+                nh = min(range(len(hits)), key=lambda j: abs(hits[j][0] - c))
+                row["note"] = "the nearest measured hit (%.3f) is claimed by %s" % (hits[nh][0], ids.get(owner.get(nh)))
         else:
-            err = near[0] - c
-            row.update(measured=round(near[0], 3), score=round(near[1], 3), err=round(err, 3),
-                       seen_at="0.25" if near[1] > st.SCENE_HI else "0.12", ok=abs(err) <= CUT_TOL_S)
-            p = plan.get(i)
-            if not row["ok"] and p and p.get("kind") == "xfade":
-                a0 = (p["K"] - p["before"]) / F - 0.5 / F
-                a1 = (p["K"] + p["after"]) / F + 0.5 / F
-                win = [h for h in hits if a0 <= h[0] <= a1]
-                if win:
-                    row.update(ok=True, in_transition=[round(a0, 3), round(a1, 3)],
-                               note="detector fires at the slide's onset; a hit inside the transition window counts")
-            used.add(near[0])
+            t, sc = hits[h]
+            err = t - c
+            row.update(measured=round(t, 3), score=round(sc, 3), err=round(err, 3),
+                       seen_at="0.25" if sc > st.SCENE_HI else "0.12", ok=acceptable(c, win, t))
+            if row["ok"] and abs(err) > CUT_TOL_S:
+                row.update(in_transition=[round(win[0], 3), round(win[1], 3)],
+                           note="detector fires at the slide's onset; a hit inside the transition window counts")
         rows.append(row)
         if not row["ok"]:
-            reasons.append("%s cut %.2f: nearest measured %s" % (r["id"], c, row.get("measured")))
+            reasons.append("%s cut %.2f: %s" % (r["id"], c, row.get("note") or "nearest free measured hit %s" % row.get("measured")))
     res["cuts"] = rows
     res["cuts_ok"] = all(x["ok"] for x in rows)
     tcuts = [float(r["in"]) for r in doc["shots"][1:]]
@@ -756,7 +866,8 @@ def verify(master, shots_path):
     stats = st.stats_series(str(master))
     per = []
     for r in doc["shots"]:
-        a = float(r["in"]) + float((r.get("cut_in") or {}).get("flash_s") or 0)
+        ci = r.get("cut_in") or {}
+        a = min(float(r["out"]), float(r["in"]) + float(ci.get("flash_s") or 0) + float(ci.get("whip_s") or 0))
         m = st.window_stats(stats, a, float(r["out"]))
         g = r.get("grade") or {}
         per.append({"id": r["id"], "y": m["YAVG"], "y_source": g.get("YAVG"), "sat": m["SATAVG"],
@@ -794,6 +905,9 @@ def main(argv=None):
     b.add_argument("--vo-start", type=float, default=0.0)
     b.add_argument("--bed")
     b.add_argument("--photo", help="product photo (default: shots.json product_photo)")
+    b.add_argument("--allow-crop", action="store_true",
+                   help="centre-crop takes or stills whose aspect is off the source's by more than 2%% "
+                        "(recorded in assembly.json) instead of refusing")
     b.add_argument("--talker", action="append", default=[], metavar="ID=AUDIO",
                    help="repeatable: a voice-changed talker take's audio for shot ID, replacing the voiceover "
                         "inside that shot's window (needs --vo)")
@@ -816,9 +930,16 @@ def main(argv=None):
             if not sep or not sid or not path:
                 ap.error("--talker takes ID=AUDIO, e.g. --talker SH07=outputs/job/talk/SH07_vc.mp3")
             talkers[sid.strip()] = path.strip()
-        rec = build(a.shots, a.grade, a.fps, a.vo, a.vo_start, a.bed, a.photo, talkers)
-        out = {k: rec[k] for k in ("grade", "fps", "frames", "master", "twin", "duration_ok")}
+        try:
+            rec = build(a.shots, a.grade, a.fps, a.vo, a.vo_start, a.bed, a.photo, talkers, a.allow_crop)
+        except (Refusal, ValueError, OSError) as e:
+            print(json.dumps({"pass": False, "error": str(e)}, indent=1))
+            print("ERROR: %s" % e, file=sys.stderr)
+            return 2
+        out = {k: rec[k] for k in ("grade", "fps", "frames", "master", "twin", "duration_ok", "warnings")}
         out["hue_gate"] = {k: rec["hue_gate"].get(k) for k in ("verdict", "chroma_retained", "hue_drift", "reasons")}
+        for w in rec["warnings"]:
+            print("WARNING: %s" % w, file=sys.stderr)
         out["shots"] = [{"id": s["id"], "mode": s["mode"], "frames": s["frames"],
                          "y_after": (s.get("grade") or {}).get("y_after"), "y_target": (s.get("grade") or {}).get("y_target"),
                          "k": (s.get("grade") or {}).get("k")} for s in rec["shots"]]

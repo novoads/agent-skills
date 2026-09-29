@@ -6,8 +6,10 @@
   python3 skills/clone-video-ad/scripts/pace.py align outputs/<job>/shots.json VO_TRANSCRIPT.json [--vo-start S] [--script SCRIPT.json]
 
 SCRIPT.json = {"lines": [{"shot": "SH01", "text": "..."}, ...]}.
-check  passes when words per shot are within +/-1 of the source (syllables reported), the
-       total is within +/-5 %, and every shot the source speaks in is spoken in. Exit 0/1.
+plan   per-shot word targets: a spoken shot takes its source count +/-1 (at least 1), a
+       silent shot takes 0. A source with no speech says so (no_speech): skip the pace step.
+check  passes when every shot is inside plan's targets (syllables reported), the total is
+       within +/-5 %, and every shot the source speaks in is spoken in. Exit 0/1.
 align  reads the new voiceover's transcript words[] (times in the VO file, placed at
        --vo-start in the master) and reports speech start/end against the source (+/-0.15 s),
        per-shot phrase offsets, a suggested atempo (clamped 0.85-1.15) with the vo-start that
@@ -15,7 +17,8 @@ align  reads the new voiceover's transcript words[] (times in the VO file, place
        before and shift). Phrases are cut from the words by the script's per-shot counts
        (--script) or else by the source's counts scaled to the new total. Exit 0 when start
        and end are within tolerance at the given --vo-start.
-Stdlib only.
+Any error (a missing or unreadable file, a source with no speech for align) prints
+{"pass": false, "error": "..."} and exits 2. Stdlib only.
 """
 
 import argparse
@@ -51,16 +54,30 @@ def _src(doc):
     return rows, lang
 
 
+def _bounds(n_words):
+    """(min, max) words for a shot the source speaks n_words in; a silent shot stays silent."""
+    if n_words <= 0:
+        return 0, 0
+    return max(1, n_words - WORD_TOL), n_words + WORD_TOL
+
+
+def _no_speech_note(doc):
+    if not doc.get("transcript"):
+        return ("shots.json has no transcript: a source that speaks needs shot_table.py --transcript "
+                "before the pace step; a source with no speech skips the pace step")
+    return "the source has no speech: skip the pace step (a clone without a voiceover script)"
+
+
 def plan(doc):
     rows, lang = _src(doc)
     total = sum(r["n_words"] for r in rows)
     shots = [{"id": r["id"], "in": r["in"], "out": r["out"], "source_words": r["n_words"],
               "source_syll": r["n_syll"], "must_speak": r["n_words"] > 0,
-              "words_min": max(1 if r["n_words"] else 0, r["n_words"] - WORD_TOL),
-              "words_max": r["n_words"] + WORD_TOL if r["n_words"] else 0,
+              "words_min": _bounds(r["n_words"])[0], "words_max": _bounds(r["n_words"])[1],
               "phrase_start": r["start"], "phrase_end": r["end"]} for r in rows]
     spoken = [r for r in rows if r["start"] is not None]
-    return {"language": lang, "shots": shots,
+    extra = {} if total else {"no_speech": True, "note": _no_speech_note(doc)}
+    return {"language": lang, **extra, "shots": shots,
             "total": {"source": total, "min": round(total * (1 - TOTAL_TOL), 2), "max": round(total * (1 + TOTAL_TOL), 2)},
             "speech_start": min(r["start"] for r in spoken) if spoken else None,
             "speech_end": max(r["end"] for r in spoken) if spoken else None,
@@ -88,13 +105,14 @@ def check(doc, script):
         text = per.get(r["id"], "")
         toks = st.tokens(text)
         n, syl = len(toks), sum(st.syllables(t, lang) for t in toks)
-        ok = abs(n - r["n_words"]) <= WORD_TOL and not (r["n_words"] > 0 and n == 0)
-        if r["n_words"] == 0 and n > 0:
-            ok = ok and n <= WORD_TOL
+        lo, hi = _bounds(r["n_words"])
+        ok = lo <= n <= hi
         row = {"id": r["id"], "text": text, "words": n, "source_words": r["n_words"], "delta": n - r["n_words"],
                "syll": syl, "source_syll": r["n_syll"], "syll_delta": syl - r["n_syll"], "ok": ok}
         if r["n_words"] > 0 and n == 0:
             reasons.append("%s: the source speaks here (%d words) and the script is silent" % (r["id"], r["n_words"]))
+        elif r["n_words"] == 0 and n > 0:
+            reasons.append("%s: the source is silent here and the script speaks (%d words)" % (r["id"], n))
         elif not ok:
             reasons.append("%s: %d words vs source %d (+/-%d)" % (r["id"], n, r["n_words"], WORD_TOL))
         out.append(row)
@@ -103,9 +121,12 @@ def check(doc, script):
     tot_ok = abs(tn - ts) <= TOTAL_TOL * ts + 1e-9 if ts else tn == 0
     if not tot_ok:
         reasons.append("total %d words vs source %d (+/-%d%%)" % (tn, ts, int(TOTAL_TOL * 100)))
-    return {"pass": not reasons, "shots": out,
-            "total": {"words": tn, "source": ts, "delta_pct": round(100.0 * (tn - ts) / ts, 1) if ts else None, "ok": tot_ok},
-            "reasons": reasons}
+    res = {"pass": not reasons, "shots": out,
+           "total": {"words": tn, "source": ts, "delta_pct": round(100.0 * (tn - ts) / ts, 1) if ts else None, "ok": tot_ok},
+           "reasons": reasons}
+    if not ts:
+        res.update(no_speech=True, note=_no_speech_note(doc))
+    return res
 
 
 def _split_counts(counts, n):
@@ -124,7 +145,7 @@ def align(doc, words, vo_start=0.0, script=None):
     rows, lang = _src(doc)
     spoken = [r for r in rows if r["start"] is not None]
     if not spoken:
-        raise ValueError("the source has no speech in shots.json (run shot_table.py with --transcript)")
+        raise ValueError("align needs speech in the source: " + _no_speech_note(doc))
     if not words:
         raise ValueError("the voiceover transcript has no words")
     if script:
@@ -182,7 +203,18 @@ def main(argv=None):
     a_.add_argument("--vo-start", type=float, default=0.0)
     a_.add_argument("--script")
     a = ap.parse_args(argv)
+    try:
+        return _run(a)
+    except Exception as e:  # every error is a JSON line and exit 2, never a traceback
+        msg = "%s: %s" % (type(e).__name__, e) if not isinstance(e, ValueError) else str(e)
+        print(json.dumps({"pass": False, "error": msg}, indent=1, ensure_ascii=False))
+        return 2
+
+
+def _run(a):
     doc = _load(a.shots)
+    if not isinstance(doc, dict) or not isinstance(doc.get("shots"), list):
+        raise ValueError("%s is not a shots.json (no shots[])" % a.shots)
     if a.cmd == "plan":
         print(json.dumps(plan(doc), indent=1, ensure_ascii=False))
         return 0

@@ -49,7 +49,7 @@ open these directly, in order. Everything else is lookup.
    `-feature-walkthrough` demo, `-premium-reveal` / `-product-hero` product-only,
    `-studio-lookbook` polished. Same directory as (2).
 4. `../../shared/references/craft.md` § 1 — the transcribe-verify doctrine step 12 rests on.
-5. `references/shot-by-shot.md` — only when step 5 picks the shot route, which it runs end to end.
+5. `references/shot-by-shot.md` — at step 1 when the shot route is likely; step 5 prices from its § Pricing.
 
 `../novoads-api/SKILL.md` is the contract, not a step: open it when a response shape or an
 error code needs settling. `references/api-notes.md` is history: what this API changed about
@@ -147,9 +147,9 @@ guesswork the user pays for.
 
 ### Step 1: Extract frames and audio
 
-Reuse the analyze-video script. Do not duplicate it. **On the shot route** (step 5; likely for a
-multi-shot source wanted "like the original"), replace this frame table after step 2 with the free,
-local shot table, which is step 4's contract: `python3 skills/clone-video-ad/scripts/shot_table.py SOURCE.mp4 --job outputs/<job> --transcript TRANSCRIPT.json`
+Reuse the analyze-video script. Do not duplicate it. **When the shot route is likely** (step 5; a multi-cut source wanted "like the original"), read `references/shot-by-shot.md` now,
+and after step 2 replace this frame table with its free, local shot table, step 4's contract (a source with no speech: drop `--transcript`, skip the pace step):
+`python3 skills/clone-video-ad/scripts/shot_table.py SOURCE.mp4 --job outputs/<job> --transcript outputs/<job>/source_transcript.json`
 
 ```bash
 bash "skills/analyze-video/scripts/extract-frames.sh" \
@@ -426,9 +426,9 @@ The creative core. Working from step 3:
 - Keep the **same energy arc**: excited → calm, flat, or building.
 - Replace product-specific references with the user's product name, features and claims.
 - **The pace rule, in both routes:** words per shot (per line on a single render) within ±1 of the
-  source's, the total within ±5%, syllables the tie-break when a brand name splits, phrase breaks
-  on the same cuts, and speech start and end within 0.15 s of the source's. Where step 1 wrote
-  `shots.json`, `scripts/pace.py check outputs/<job>/shots.json SCRIPT.json` tests it.
+  source's, the total within ±5%, syllables the tie-break when a brand name splits, phrase breaks on the same cuts.
+  On a single render it is the target, and the fit ceiling stays: at most `2.0 × (D − 0.5)` words in a `D`-second clip.
+  The shot route adds speech start and end within 0.15 s of the source's, and `python3 skills/clone-video-ad/scripts/pace.py check outputs/<job>/shots.json outputs/<job>/SCRIPT.json` tests it.
 - **Script variants.** If they asked for N *script variants* rather than N renders of one
   script (step 5), write N distinct adaptations that share the beat structure, the
   silent-beat placement and the per-line word counts, and differ in the hook angle, the
@@ -655,8 +655,8 @@ charge. A source video's id in `referenceAssetIds` comes back:
                     Video and audio references are not available on this endpoint.
 ```
 
-Generation references are **images only**: `image/jpeg`, `image/png`, `image/webp`. There is
-no video-to-video path on this API, so a clone is never built by feeding the original in.
+Generation references are **images only**: `image/jpeg`, `image/png`, `image/webp`. Seedance references are
+images only; omni-flash takes a reference video, but a clone never feeds the original in (step 10).
 What carries a source's style into a clone is your reading of it, written into the prompt.
 
 ### Step 11: Generate

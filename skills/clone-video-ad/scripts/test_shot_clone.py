@@ -12,7 +12,12 @@ shot, frames and strips, re-running shot_table keeps the `new` ledger, the hue g
 NO_PRODUCT on a grey product), the opening lock (>= 0.90 on a 2 % centre zoom, < 0.90 on
 another image), the frozen and invented-cut checks, build at 24 and 30 fps (duration
 within one frame, twin written), verify, a --talker window replacing the voiceover in
-its shot, and pace check/align on canned words[].
+its shot, and pace check/align on canned words[]. The review-fix cases: LIGHT without a
+photo refused and NO_PRODUCT never a pass, a coloured-backdrop photo refused, an aspect
+mismatch refused unless --allow-crop, a re-run keeping a hand merge and --resegment
+refusing once a take exists, a whip pan folded as whip_s, two flashes summed, strips near
+the end, the windowed motion floor, pace's JSON errors and silent shots, and verify's
+one-hit-per-cut rule.
 Requires ffmpeg/ffprobe on PATH. Python stdlib only, no pytest.
 """
 
@@ -86,13 +91,23 @@ def make_cut_source(d):
     return out, tr, words
 
 
-def make_photo(d, color, name):
+def make_photo(d, color, name, bg="white"):
     p = d / name
-    src = "color=c=white:s=480x360,format=yuv420p,drawbox=x=140:y=80:w=200:h=200:color=%s:t=fill" % color
+    src = "color=c=%s:s=480x360,format=yuv420p,drawbox=x=140:y=80:w=200:h=200:color=%s:t=fill" % (bg, color)
     # JPEG bytes under a .png name: the band must sniff the type, never trust the name
     # (ffmpeg's image2 demuxer would pick the png decoder from the extension and fail).
     ffmpeg("-f", "lavfi", "-i", src, "-frames:v", "1", "-c:v", "mjpeg", "-q:v", "2", "-f", "image2", p)
     return p
+
+
+def colors(d, name, segs, w=W, h=H, fps=30):
+    """Flat colour segments [(colour, frames), ...] concatenated at fps."""
+    fc = ";".join("color=c=%s:s=%dx%d:r=%s,trim=end_frame=%d,setpts=PTS-STARTPTS[s%d]" % (c, w, h, fps, n, i)
+                  for i, (c, n) in enumerate(segs))
+    fc += ";" + "".join("[s%d]" % i for i in range(len(segs))) + "concat=n=%d:v=1:a=0[v]" % len(segs)
+    out = d / name
+    enc(out, "-filter_complex", fc, "-map", "[v]", fps=fps)
+    return out
 
 
 def product_clip(d, name, bg="0x2050B0", dur=3, fps=24, base=None):
@@ -350,6 +365,278 @@ def run_cases(d):
     case("pace plan gives per-shot word targets",
          lambda: (code_p == 0 and [(s["words_min"], s["words_max"]) for s in out_p["shots"]] == [(2, 4), (2, 4), (0, 0), (2, 4)],
                   "targets=%s" % [(s["id"], s["words_min"], s["words_max"]) for s in (out_p or {}).get("shots", [])]))
+    review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p)
+
+
+def review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p):
+    fx = {}
+
+    def load(p):
+        return json.loads(Path(p).read_text())
+
+    # ---- F-a: LIGHT needs a photo; NO_PRODUCT is a warning, never a pass
+    def fa_refuse():
+        jf = d / "fa_nophoto"
+        jf.mkdir()
+        dd = load(sj)
+        dd.pop("product_photo", None)
+        (jf / "shots.json").write_text(json.dumps(dd))
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "light")
+        err = (out or {}).get("error") or ""
+        ok = (c == 2 and (out or {}).get("pass") is False and err == asm.LIGHT_NO_PHOTO_MSG
+              and not (jf / "master.mp4").exists() and "Traceback" not in e)
+        return ok, "exit=%d error=%s" % (c, err)
+    case("F-a: build --grade light without a product photo exits 2 and renders nothing", fa_refuse)
+
+    def fa_noproduct():
+        jf = d / "fa_grey"
+        jf.mkdir()
+        shutil.copyfile(str(sj), str(jf / "shots.json"))
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "light", "--photo", grey)
+        rec = load(jf / "assembly.json") if (jf / "assembly.json").exists() else {}
+        v = (rec.get("hue_gate") or {}).get("verdict")
+        ok = (c == 0 and v == "NO_PRODUCT" and ((out or {}).get("hue_gate") or {}).get("verdict") == "NO_PRODUCT"
+              and any(ln.startswith("WARNING: hue gate NO_PRODUCT") for ln in e.splitlines())
+              and any("NO_PRODUCT" in w for w in rec.get("warnings", [])))
+        return ok, "exit=%d verdict=%s stderr=%s" % (c, v, e.strip()[-160:])
+    case("F-a: a NO_PRODUCT hue gate exits 0 with a WARNING line and is never reported as PASS", fa_noproduct)
+
+    # ---- F-b: a packshot on a coloured backdrop is not a product band
+    bad = make_photo(d, PINK, "photo_pink_on_blue.png", bg="0x2050B0")
+
+    def fb_build():
+        jf = d / "fb"
+        jf.mkdir()
+        shutil.copyfile(str(sj), str(jf / "shots.json"))
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "light", "--photo", bad)
+        err = (out or {}).get("error") or ""
+        b = asm.product_band(bad)
+        ok = c == 2 and err.startswith(asm.PACKSHOT_MSG) and not (jf / "master.mp4").exists() and b.get("not_packshot")
+        return ok, "exit=%d share=%s error=%s" % (c, b.get("photo_product_share"), err[-160:])
+    case("F-b: build --grade light refuses a coloured-backdrop photo (exit 2)", fb_build)
+
+    def fb_gate():
+        c, out, e = script("assemble.py", "hue-gate", prot, "--ungraded", ung, "--photo", bad)
+        out = out or {}
+        ok = c == 2 and out.get("verdict") == "NO_PRODUCT" and any(asm.PACKSHOT_MSG in r for r in out.get("reasons", []))
+        return ok, "exit=%d verdict=%s reasons=%s" % (c, out.get("verdict"), out.get("reasons"))
+    case("F-b: hue-gate returns NO_PRODUCT with the packshot reason", fb_gate)
+
+    # ---- F-c: aspect
+    def fc_refuse():
+        land = colors(d, "land.mp4", [("0x303030", 30), ("0xC0C0C0", 30)], w=640, h=360)
+        jl = d / "fc_land"
+        script("shot_table.py", land, "--job", jl, "--no-frames")
+        dl = load(jl / "shots.json")
+        tk = d / "take_portrait.mp4"
+        enc(tk, "-f", "lavfi", "-i", "testsrc2=s=%dx%d:r=24:d=2" % (W, H), fps=24)
+        for r in dl["shots"]:
+            r["render"] = "take"
+            r["new"]["takes"] = [{"path": str(tk), "pick": True}]
+        (jl / "shots.json").write_text(json.dumps(dl))
+        fx["fc"] = jl
+        c, out, e = script("assemble.py", "build", jl / "shots.json", "--grade", "none")
+        err = (out or {}).get("error") or ""
+        ok = dl.get("aspect") == "16:9" and c == 2 and "--allow-crop" in err and not (jl / "master.mp4").exists()
+        return ok, "aspect=%s exit=%d error=%s" % (dl.get("aspect"), c, err[-160:])
+    case("F-c: shots.json aspect is 16:9 for a 16:9 source, and build refuses 9:16 takes (exit 2)", fc_refuse)
+
+    def fc_allow():
+        jl = fx.get("fc")
+        if not jl:
+            return False, "no fixture"
+        c, out, e = script("assemble.py", "build", jl / "shots.json", "--grade", "none", "--allow-crop")
+        rec = load(jl / "assembly.json") if (jl / "assembly.json").exists() else {}
+        crops = rec.get("crops") or []
+        ok = (c == 0 and rec.get("allow_crop") is True and len(crops) == 2
+              and all(abs(x["kept_pct"] - 31.6) < 0.5 for x in crops) and "centre-cropped" in e)
+        return ok, "exit=%d crops=%s" % (c, [(x["id"], x["size"], x["kept_pct"]) for x in crops])
+    case("F-c: --allow-crop builds and records each crop in assembly.json", fc_allow)
+
+    # ---- F-d: a re-run keeps the segmentation; --resegment refuses once a take exists
+    def fd_keep():
+        cc = colors(d, "cc.mp4", [("0x303030", 30), ("0xC0C0C0", 30), ("0xACACAC", 30)])
+        jd = d / "fd"
+        script("shot_table.py", cc, "--job", jd, "--no-frames")
+        doc = load(jd / "shots.json")
+        before = [(r["id"], r["in"], r["out"]) for r in doc["shots"]]
+        sh = doc["shots"]
+        sh[1]["out"] = sh[2]["out"]  # the reference's hand merge of a rejected confirm_cut row
+        sh[1]["dur"] = round(sh[1]["out"] - sh[1]["in"], 2)
+        del sh[2]
+        for r in sh:
+            r["render"] = "take"
+            r["new"]["takes"] = [{"jobId": "job-" + r["id"], "path": "takes/%s_t1.mp4" % r["id"], "pick": True}]
+        (jd / "shots.json").write_text(json.dumps(doc))
+        fx["fd"] = (cc, jd)
+        c, out, e = script("shot_table.py", cc, "--job", jd, "--no-frames")
+        after = load(jd / "shots.json")["shots"]
+        got = [(r["id"], r["in"], r["out"], [t["jobId"] for t in r["new"]["takes"]]) for r in after]
+        ok = (len(before) == 3 and c == 0 and (out or {}).get("segmentation") == "kept"
+              and got == [("SH01", 0.0, 1.0, ["job-SH01"]), ("SH02", 1.0, 3.0, ["job-SH02"])]
+              and after[1]["dur"] == 2.0 and after[1]["grade"]["n_frames"] > 0)
+        return ok, "exit=%d before=%s after=%s warnings=%s" % (c, before, got, (out or {}).get("warnings"))
+    case("F-d: a re-run after a hand merge keeps the merged rows and their takes", fd_keep)
+
+    def fd_reseg():
+        if "fd" not in fx:
+            return False, "no fixture"
+        cc, jd = fx["fd"]
+        c, out, e = script("shot_table.py", cc, "--job", jd, "--no-frames", "--resegment")
+        refused = (c == 2 and "--resegment refused" in ((out or {}).get("error") or "")
+                   and len(load(jd / "shots.json")["shots"]) == 2)
+        doc = load(jd / "shots.json")
+        for r in doc["shots"]:
+            r["new"]["takes"] = []
+        (jd / "shots.json").write_text(json.dumps(doc))
+        c2, out2, e2 = script("shot_table.py", cc, "--job", jd, "--no-frames", "--resegment")
+        n = len(load(jd / "shots.json")["shots"])
+        ok = refused and c2 == 0 and n == 3 and (out2 or {}).get("segmentation") == "resegmented"
+        return ok, "refuse exit=%d, no-take resegment exit=%d rows=%d" % (c, c2, n)
+    case("F-d: --resegment refuses (exit 2) while a row has a take, and re-cuts once none has", fd_reseg)
+
+    # ---- F-e: a whip pan's frames fold into the next row
+    def fe_whip():
+        whip = d / "whip.mp4"
+        fc = ("mandelbrot=s=1440x640:r=30,trim=end_frame=1,loop=loop=200:size=1,setpts=N/30/TB[m];"
+              "[m]split=2[m1][m2];"
+              "[m1]crop=%d:%d:0:0,trim=end_frame=30,setpts=PTS-STARTPTS[a];"
+              "[m2]crop=%d:%d:'min(n*260,1080)':0,trim=end_frame=5,setpts=PTS-STARTPTS[w];"
+              "color=c=0x406080:s=%dx%d:r=30,trim=end_frame=30,setpts=PTS-STARTPTS[b];"
+              "[a][w][b]concat=n=3:v=1:a=0[v]" % (W, H, W, H, W, H))
+        enc(whip, "-filter_complex", fc, "-map", "[v]")
+        je = d / "fe"
+        c, out, e = script("shot_table.py", whip, "--job", je, "--no-frames")
+        rows = load(je / "shots.json")["shots"]
+        ci = (rows[1].get("cut_in") or {}) if len(rows) > 1 else {}
+        ok = (c == 0 and len(rows) == 2 and 0.1 <= (ci.get("whip_s") or 0) < 0.2 and ci.get("type_hint") == "whip"
+              and all(r["dur"] >= 0.2 for r in rows))
+        return ok, "rows=%s" % [(r["id"], r["in"], r["out"], (r.get("cut_in") or {}).get("whip_s")) for r in rows]
+    case("F-e: a 5-frame whip pan folds into the next row as cut_in.whip_s, not a row", fe_whip)
+
+    def fe_tail():
+        tail = colors(d, "tail013.mp4", [("0x707070", 56), ("0x202020", 4)])  # a darker 0.13 s last shot
+        jt = d / "fe_tail"
+        c, out, e = script("shot_table.py", tail, "--job", jt, "--no-frames")
+        rows = load(jt / "shots.json")["shots"]
+        last = rows[-1] if rows else {}
+        ok = (c == 0 and len(rows) == 2 and abs(last.get("in", 0) - 1.87) < 0.02 and last.get("render_hint") == "hold_candidate"
+              and not (last.get("cut_in") or {}).get("whip_s") and not rows[0].get("tail_flash_s"))
+        return ok, "rows=%s" % [(r["id"], r["in"], r["out"], r["render_hint"]) for r in rows]
+    case("F-e: a cut 0.13 s before EOF stays its own row (nothing to fold into)", fe_tail)
+
+    # ---- F-f: consecutive flashes add up
+    def ff_flashes():
+        series = [{"t": i / 30.0, "YAVG": 30.0 if i / 30.0 < 1.0 else (235.0 if i / 30.0 < 1.2 else 40.0)} for i in range(66)]
+        cuts = [{"t": 1.0, "score": 0.9, "seen_at": "0.25", "confirm_cut": False},
+                {"t": 1.1, "score": 0.2, "seen_at": "0.25", "confirm_cut": False},
+                {"t": 1.2, "score": 0.9, "seen_at": "0.25", "confirm_cut": False}]
+        sh, fl = st.segments_to_shots(cuts, series, 2.2, 30.0)
+        cov = sum(x["b"] - x["a"] for x in sh)
+        ok = (len(sh) == 2 and abs(sh[1]["a"] - 1.0) < 1e-6 and abs(sh[1]["flash_s"] - 0.2) < 1e-6
+              and len(fl) == 2 and abs(cov - 2.2) < 1e-6)
+        return ok, "shots=%s flashes=%d covered=%.3f" % ([(x["a"], x["b"], round(x["flash_s"], 3)) for x in sh], len(fl), cov)
+    case("F-f: two consecutive flash segments sum into one flash_s and the shots cover the source", ff_flashes)
+
+    # ---- F-g: strips near the end
+    def fg_row():
+        late = colors(d, "late2.mp4", [("0x303030", 54), ("0xC0C0C0", 6)])  # a 0.2 s last shot
+        jg = d / "fg"
+        c, out, e = script("shot_table.py", late, "--job", jg)
+        rows = load(jg / "shots.json")["shots"]
+        last = rows[-1] if rows else {}
+        # 1.55-2.0 s holds 13 frames at 30 fps: 13 tiles, not 15 with two left blank
+        want = 13 * st.STRIP_TILE_W + 12 * 2
+        size = asm._image_size(jg / last["strip"]) if last.get("strip") and (jg / last["strip"]).is_file() else None
+        ok = c == 0 and len(rows) == 2 and size is not None and size[0] == want
+        return ok, "rows=%s strip=%s size=%s want width %d" % ([(r["id"], r["in"], r["out"]) for r in rows],
+                                                               last.get("strip"), size, want)
+    case("F-g: a cut 0.2 s before the end gets a strip with one tile per frame left", fg_row)
+
+    def fg_eof():
+        late = colors(d, "late1.mp4", [("0x303030", 57), ("0xC0C0C0", 3)])  # a cut 0.1 s before the end
+        jg = d / "fg1"
+        c, out, e = script("shot_table.py", late, "--job", jg)
+        rows = load(jg / "shots.json")["shots"]
+        named = [r["strip"] for r in rows if r.get("strip")]
+        direct = d / "strip_eof.jpg"
+        wrote = st.grab_strip(str(late), 1.9, 30.0, direct, 2.0)
+        # a strip that cannot be written (the source is gone) leaves row.strip unset
+        row = {"id": "SH02", "in": 1.0, "out": 2.0, "cut_in": {}}
+        ctx = {"src": str(d / "gone.mp4"), "fps": 30.0, "duration": 2.0, "stats": [], "transcript": None}
+        (d / "fg_gone" / "frames").mkdir(parents=True)
+        (d / "fg_gone" / "strips").mkdir()
+        warn = []
+        st.refresh_row(row, 1, 2, ctx, d / "fg_gone", True, warn)
+        ok = (c == 0 and all((jg / x).is_file() for x in named) and wrote and direct.is_file()
+              and "strip" not in row and any("no strip" in w for w in warn))
+        return ok, "rows=%s strips=%s direct=%s unwritable-row strip=%s" % (
+            [(r["id"], r["in"], r["out"]) for r in rows], named, wrote, row.get("strip"))
+    case("F-g: a cut 0.1 s before EOF: a strip is written, and row.strip is set only when its file exists", fg_eof)
+
+    # ---- F-h: motion floor over sliding windows
+    def fh_motion():
+        still23 = d / "still23.png"
+        ffmpeg("-f", "lavfi", "-i", "testsrc2=s=720x1080", "-frames:v", "1", still23)
+        push = d / "take_pushin.mp4"
+        enc(push, "-loop", "1", "-i", still23, "-t", "2", "-vf",
+            "crop=ih*9/16:ih,crop=iw/1.02:ih/1.02,scale=%d:%d,zoompan=z='1+0.002*on':d=1:s=%dx%d:fps=24" % (W, H, W, H), fps=24)
+        c, out, e = script("assemble.py", "check", push, "--still", still23, "--dur", 1.5)
+        mo = (out or {}).get("motion") or {}
+        c2, out2, _ = script("assemble.py", "check", frozen, "--still", still, "--dur", 1.5)
+        mo2 = (out2 or {}).get("motion") or {}
+        ok = c == 0 and mo.get("pass") is True and c2 == 1 and mo2.get("pass") is False
+        return ok, "push-in exit=%d window_max=%s; frozen exit=%d window_max=%s (floor %s)" % (
+            c, mo.get("window_max"), c2, mo2.get("window_max"), asm.MOTION_FLOOR)
+    case("F-h: a smooth push-in on a static detailed frame passes check; a frozen take fails", fh_motion)
+
+    # ---- F-i: pace errors are JSON; silent shots agree
+    def fi_silent():
+        scr = d / "script_silent_shot.json"
+        scr.write_text(json.dumps({"lines": [{"shot": "SH01", "text": "You bought it"},
+                                             {"shot": "SH02", "text": "on the marketplace?"},
+                                             {"shot": "SH03", "text": "Hmm"},
+                                             {"shot": "SH04", "text": "Those aren't real"}]}))
+        c, out, e = script("pace.py", "check", sj, scr)
+        reasons = (out or {}).get("reasons") or []
+        plan_sh03 = [x for x in (out_p or {}).get("shots", []) if x["id"] == "SH03"]
+        ok = (c == 1 and any(r.startswith("SH03") and "silent" in r for r in reasons)
+              and plan_sh03 and plan_sh03[0]["words_max"] == 0)
+        return ok, "exit=%d reasons=%s" % (c, reasons)
+    case("F-i: pace check refuses 1 word on a silent shot, as plan's words_max 0 says", fi_silent)
+
+    def fi_errors():
+        jn = d / "fi_speechless"
+        jn.mkdir()
+        dd = load(sj)
+        dd.pop("transcript", None)
+        for r in dd["shots"]:
+            r["speech"] = None
+        (jn / "shots.json").write_text(json.dumps(dd))
+        c1, o1, e1 = script("pace.py", "align", jn / "shots.json", vo_ok)
+        c2, o2, e2 = script("pace.py", "check", sj, d / "no_such_script.json")
+        c3, o3, e3 = script("pace.py", "plan", jn / "shots.json")
+        ok = (c1 == 2 and (o1 or {}).get("pass") is False and "speech" in ((o1 or {}).get("error") or "")
+              and c2 == 2 and (o2 or {}).get("pass") is False and bool((o2 or {}).get("error"))
+              and "Traceback" not in e1 + e2 and c3 == 0 and (o3 or {}).get("no_speech") is True)
+        return ok, "align exit=%d %s | check exit=%d %s | plan no_speech=%s" % (
+            c1, (o1 or {}).get("error"), c2, (o2 or {}).get("error"), (o3 or {}).get("no_speech"))
+    case("F-i: pace errors print JSON with exit 2 (no traceback); plan names a source with no speech", fi_errors)
+
+    # ---- F-j: one measured hit per table cut
+    def fj_claims():
+        m = colors(d, "fj_master.mp4", [("0x303030", 30), ("0xC0C0C0", 30)])  # one real cut, at 1.0
+        jj = d / "fj"
+        jj.mkdir()
+        rows = [{"id": "SH01", "in": 0.0, "out": 1.0}, {"id": "SH02", "in": 1.0, "out": 1.04, "cut_in": {}},
+                {"id": "SH03", "in": 1.04, "out": 2.0, "cut_in": {}}]
+        (jj / "shots.json").write_text(json.dumps({"duration": 2.0, "shots": rows}))
+        c, out, e = script("assemble.py", "verify", m, jj / "shots.json")
+        cuts = (out or {}).get("cuts") or []
+        hit = [x.get("measured") for x in cuts if x.get("ok")]
+        ok = (c == 1 and len(cuts) == 2 and len(hit) == 1 and any("claimed by SH02" in (x.get("note") or "") for x in cuts))
+        return ok, "exit=%d cuts=%s" % (c, [(x["id"], x.get("measured"), x["ok"], x.get("note")) for x in cuts])
+    case("F-j: verify never lets two table cuts claim the same measured hit", fj_claims)
 
 
 if __name__ == "__main__":

@@ -32,5 +32,6 @@
 {"intent":"he sells the very same gadget, I just need other hands, other rooms and fresh lines over this video","expected_skill":"clone-video-ad"}
 {"intent":"rebuild this competitor clip cut for cut, but with my pink version of the product","expected_skill":"clone-video-ad"}
 // A photo plus a video could be one still animated (image-to-motion) or the
-// whole ad rebuilt around the product; "like this video" leans to the clone.
-{"intent":"make my product photo move the way this video does","expected_skill":"clone-video-ad","ambiguous_with":["image-to-motion"]}
+// whole ad rebuilt around the product. Asking for an ad that moves like the
+// video leans to the clone; the image-to-motion side is kept by ambiguous_with.
+{"intent":"make an ad from my product photo that moves the way this video does","expected_skill":"clone-video-ad","ambiguous_with":["image-to-motion"]}

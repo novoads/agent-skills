@@ -22,23 +22,30 @@ LIGHT or NONE behind a product-hue gate). The route lives in `references/shot-by
 `shots.json` as its resumable ledger, and runs three stdlib-plus-ffmpeg scripts in the skill's new
 `scripts/` directory: `shot_table.py`, `pace.py` and `assemble.py`. Their test,
 `test_shot_clone.py`, builds its own fixtures and runs in the `media` CI job and in `doctor.sh`.
-`evals.md` adds E7 to E10: the shot-by-shot clone, the per-shot render rules, the route gate, and
-resume.
+The scripts refuse, exit 2, instead of failing open: a LIGHT grade without the product photo or
+with a photo that is not a packshot, a take or still whose aspect is off the source's (unless
+`--allow-crop`), and `--resegment` once takes exist; a re-run of `shot_table.py` keeps the hand-edited
+segmentation. Gate D's one yes states its bounds (still regenerations, second takes, the QC reels,
+the transcripts), and anything past them is a new priced yes. `evals.md` adds E7 to E10: the
+shot-by-shot clone, the per-shot render rules, the route gate, and resume.
 
 ### Changed
 
-**`clone-video-ad`: a pace rule replaces the words-per-second cap, in both routes.** Words per shot
+**`clone-video-ad`: a pace rule replaces the ±3 words per line, in both routes.** Words per shot
 (per line on a single render) within ±1 of the source's, the total within ±5%, syllables as the
-tie-break, phrase breaks on the same cuts, and speech start and end within 0.15 s of the source's.
-The 2.0 words-per-second read-back and the ±3 words per line are gone.
+tie-break, and phrase breaks on the same cuts. On a single render the rule is the target and the
+`2.0 × (D − 0.5)` fit ceiling stays a ceiling; the shot route adds speech start and end within
+0.15 s of the source's.
 
 **`clone-video-ad`: the photo carries the product.** Step 6 no longer re-describes the product's
 appearance in a video prompt: it names the product and lets the reference image show it. The shot
 route's stills carry a preservation clause instead.
 
-**`clone-video-ad`: the historical API notes moved to `references/api-notes.md`.** The stale line in
-them that said there is no video-to-video path now names `omni-flash`'s reference video and, where
-`GET /v1/openapi.json` publishes it, its `firstFrameAssetId`. `SKILL.md` shrank from 839 to 834
+**`clone-video-ad`: the historical API notes moved to `references/api-notes.md`.** Both copies of
+the stale line that said there is no video-to-video path are fixed: the one in the notes now names
+`omni-flash`'s reference video and, where `GET /v1/openapi.json` publishes it, its
+`firstFrameAssetId`, and step 10's says Seedance references are images only while `omni-flash`
+takes a reference video that a clone never feeds the original into. `SKILL.md` shrank from 839 to 834
 lines and its size baseline was lowered to match.
 
 **`omni-flash` `4k` on API 2.31.0.** `novoads-api`, the Omni Flash prompting guide and the README

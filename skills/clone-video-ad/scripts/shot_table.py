@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 """Shot table for the shot-by-shot clone route: cuts, flashes, per-shot stats, words, frames.
 
-  python3 skills/clone-video-ad/scripts/shot_table.py SOURCE.mp4 --job outputs/<job> [--transcript TRANSCRIPT.json]
+  python3 skills/clone-video-ad/scripts/shot_table.py SOURCE.mp4 --job outputs/<job> [--transcript TRANSCRIPT.json] [--resegment]
 
 Cuts come from ffmpeg scene detection read at two thresholds (every scene > 0.25 hit
 is a cut; a 0.12-only hit within 0.1 s of such an anchor merges into it; the other
 0.12-only hits group within 0.1 s into one cut each, marked confirm_cut for the vision
 read). A segment of <= 0.15 s whose YAVG is far above its neighbours is a flash: it is
-folded into the next shot as cut_in.flash_s, never counted as a shot.
+folded into the next shot as cut_in.flash_s, never counted as a shot (consecutive flashes
+add up). Any other segment under 0.2 s (the frames of a whip pan) folds into the next
+shot as cut_in.whip_s with cut_in.type_hint "whip"; at the very end it stays its own row
+(render_hint hold_candidate). shots.json `aspect` is the nearest
+of 9:16 and 16:9 to the source, for every still and take request.
 
 Writes outputs/<job>/shots.json (the run's resumable ledger), frames/<id>_{in,mid,out}.jpg
-and strips/<id>_cut.jpg. Re-running merges: the `new` ledger, cut_in.type and every
-field Claude filled survive; only the detector's own fields are recomputed.
+and strips/<id>_cut.jpg (one tile per frame available around the cut; row.strip is set
+only when the file was written). Re-running keeps the table's rows as they stand: ids,
+in/out, cut_in, hand merges and every filled field, including the `new` ledger. It
+refreshes only each row's stats, speech (with --transcript), frames and strip.
+--resegment re-cuts from the detector (fields carried over by id) and is refused, exit 2,
+once any row has a take in its ledger.
 
 Stdlib Python 3.9+ plus ffmpeg/ffprobe. The other scripts in this folder import the
 helpers below (probe, frame_series, stats_series, window_stats, load_words, ...).
@@ -19,6 +27,7 @@ helpers below (probe, frame_series, stats_series, window_stats, load_words, ...)
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
@@ -29,7 +38,8 @@ SCENE_HI = 0.25          # every hit above it is a cut
 SCENE_LO = 0.12          # hits in (0.12, 0.25] are "0.12-only"
 MERGE_S = 0.10           # a 0.12-only hit this close to a 0.25 anchor merges into it
 GROUP_S = 0.10           # leftover 0.12-only hits closer than this (strictly) form one cut,
-                         # placed at the group's first hit (Phase 0's full-ad read: 2.73, 31.43, 45.63)
+                         # placed at the group's first hit (measured on one test ad, 2026-09-29:
+                         # 2.73, 31.43, 45.63)
 STARTUP_S = 0.10         # a scene score before 0.1 s is a start-up artefact
 FLASH_MAX_S = 0.15       # a flash lasts at most this long
 FLASH_DY = 40.0          # ... and its YAVG sits this far above both neighbours
@@ -37,11 +47,19 @@ FLASH_CONTEXT_S = 0.30   # neighbour luma is read over this much of each side
 STATS_FPS = 10           # per-shot stats recipe: fps=10, scale=180:320, signalstats
 STATS_W, STATS_H = 180, 320
 HOLD_HINT_S = 1.0
+MICRO_S = 0.20           # any other segment shorter than this (the frames of a whip pan, a
+                         # stutter) is not a shot: it folds into the next one as cut_in.whip_s
+                         # (a trailing one stays a row: there is no next shot to fold into)
 SINGLE_FRAME_S = 0.4
 STRIP_S = 0.5
 FRAME_H = 640            # extracted frames are scaled to this height
 STRIP_TILE_W = 120
 EPS = 1e-6
+# The aspect values both the GPT image models and the Seedance video models accept (their
+# `aspectRatio` enums in GET /v1/openapi.json, as of 2026-09-29; omni-flash takes only 9:16
+# and 16:9). shots.json `aspect` is the nearest of these to the source; build refuses a take
+# whose aspect is off by > 2 %.
+ASPECTS = (("9:16", 9 / 16.0), ("16:9", 16 / 9.0), ("1:1", 1.0), ("21:9", 21 / 9.0))
 
 STAT_KEYS = ("YAVG", "SATAVG", "UAVG", "VAVG", "YLOW", "YHIGH")
 CLAUDE_FIELDS = ("framing", "subject_fill_pct", "subject_pos", "camera", "action", "people",
@@ -49,8 +67,9 @@ CLAUDE_FIELDS = ("framing", "subject_fill_pct", "subject_pos", "camera", "action
                  "render")
 DETECTOR_ROW_KEYS = {"id", "in", "out", "dur", "cut_in", "confirm_cut", "grade", "speech",
                      "frames", "strip", "render_hint"}
-DETECTOR_TOP_KEYS = {"version", "source", "duration", "fps", "size", "cuts_025", "cuts_012",
-                     "flashes", "shots", "source_start", "format_duration", "transcript"}
+DETECTOR_TOP_KEYS = {"version", "source", "duration", "fps", "size", "aspect", "aspect_off_pct",
+                     "cuts_025", "cuts_012", "flashes", "shots", "source_start", "format_duration",
+                     "transcript"}
 PIPE_DEMUX = {"image/webp": "webp_pipe", "image/png": "png_pipe", "image/jpeg": "jpeg_pipe"}
 
 
@@ -295,7 +314,12 @@ def _mean_y(series, a, b):
 
 
 def segments_to_shots(cuts, series, duration, fps):
-    """Cut list -> shot spans, with flashes folded into the next shot."""
+    """Cut list -> shot spans. Two kinds of segment are not shots: a flash (<= 0.15 s, far
+    brighter than both neighbours) and a micro segment (any other segment under MICRO_S,
+    such as the frames of a whip pan). Each folds into the next shot as flash_s or whip_s,
+    and consecutive ones add up. At the very end there is no next shot: a trailing flash
+    joins the last shot, and a trailing micro segment stays its own row (a real cut just
+    before the end, e.g. the first frames of the next shot in a trimmed ad)."""
     bounds = [0.0] + [c["t"] for c in cuts] + [duration]
     cut_at = [None] + cuts
     segs = []
@@ -317,40 +341,65 @@ def segments_to_shots(cuts, series, duration, fps):
             s.update(flash=True, y=round(y, 1), neighbours_y=[round(v, 1) for v in nb])
     shots, flashes, pending = [], [], None
     for j, s in enumerate(segs):
-        if s["flash"]:
-            flashes.append({"in": round(s["a"], 3), "out": round(s["b"], 3), "dur": round(s["b"] - s["a"], 3),
-                            "yavg": s["y"], "neighbours_yavg": s["neighbours_y"],
-                            "folded_into": "next" if j + 1 < len(segs) else "previous"})
-            if j + 1 < len(segs):
-                pending = s
+        span = s["b"] - s["a"]
+        kind = "flash" if s["flash"] else ("whip" if span < MICRO_S - half_frame else None)
+        if kind and len(segs) > 1:
+            last = j + 1 == len(segs)
+            if kind == "flash":
+                flashes.append({"in": round(s["a"], 3), "out": round(s["b"], 3), "dur": round(span, 3),
+                                "yavg": s["y"], "neighbours_yavg": s["neighbours_y"],
+                                "folded_into": "previous" if last and shots else "next"})
+            if not last:
+                if pending is None:
+                    pending = {"a": s["a"], "cut": s["cut"], "flash_s": 0.0, "whip_s": 0.0}
+                pending["flash_s" if kind == "flash" else "whip_s"] += span
                 continue
-            if shots:  # a trailing flash joins the last shot
+            if kind == "flash" and shots:  # a trailing flash joins the last shot
+                shots[-1]["tail_flash_s"] = round(s["b"] - (pending["a"] if pending else s["a"]), 3)
                 shots[-1]["b"] = s["b"]
-                shots[-1]["tail_flash_s"] = round(s["b"] - s["a"], 3)
+                pending = None
                 continue
-        head = pending or s
+            # a trailing micro segment falls through: it stays its own (hold candidate) row
+        head = pending or {"a": s["a"], "cut": s["cut"], "flash_s": 0.0, "whip_s": 0.0}
         shots.append({"a": head["a"], "b": s["b"], "cut": head["cut"],
-                      "flash_s": (s["a"] - pending["a"]) if pending else 0.0})
+                      "flash_s": head["flash_s"], "whip_s": head["whip_s"]})
         pending = None
     return shots, flashes
 
 
+def nearest_aspect(w, h):
+    """The nearest of ASPECTS to w:h (in log ratio) and how far off it is, in percent."""
+    r = w / float(h)
+    name, val = min(ASPECTS, key=lambda x: abs(math.log(r / x[1])))
+    return name, round(100.0 * abs(r / val - 1.0), 1)
+
+
 # ------------------------------------------------------------------ frames
 def grab_frame(src, t, out):
+    """One frame at t; returns True when the file was written."""
+    Path(out).unlink(missing_ok=True)
     run(["ffmpeg", "-y", "-v", "error", "-ss", "%.3f" % max(0.0, t), "-i", src, "-frames:v", "1",
-         "-vf", "scale=-2:%d" % FRAME_H, "-q:v", "3", out])
+         "-vf", "scale=-2:%d" % FRAME_H, "-q:v", "3", out], check=False)
+    return Path(out).is_file() and Path(out).stat().st_size > 0
 
 
-def grab_strip(src, t_cut, fps, out):
-    n = max(1, int(round(STRIP_S * fps)))
+def grab_strip(src, t_cut, fps, out, duration=None):
+    """A STRIP_S strip centred on the cut, one tile per frame actually available (a cut near
+    either end has fewer); tpad clones the last frame if the decoder delivers one short, so
+    the tile always fills. Returns True when the file was written."""
     a = max(0.0, t_cut - STRIP_S / 2.0)
-    run(["ffmpeg", "-y", "-v", "error", "-ss", "%.3f" % a, "-i", src, "-t", "%.3f" % STRIP_S,
-         "-vf", "scale=%d:-2,tile=%dx1:padding=2:color=white" % (STRIP_TILE_W, n),
-         "-frames:v", "1", "-q:v", "3", out])
+    end = a + STRIP_S if duration is None else max(a, min(float(duration), a + STRIP_S))
+    n = max(1, int((end - a) * fps + 1e-6)) if fps else 1
+    Path(out).unlink(missing_ok=True)
+    run(["ffmpeg", "-y", "-v", "error", "-ss", "%.3f" % a, "-i", src, "-t", "%.3f" % max(end - a, 0.001),
+         "-vf", "scale=%d:-2,tpad=stop_mode=clone:stop=%d,tile=%dx1:padding=2:color=white" % (STRIP_TILE_W, n, n),
+         "-frames:v", "1", "-q:v", "3", out], check=False)
+    return Path(out).is_file() and Path(out).stat().st_size > 0
 
 
 # ------------------------------------------------------------------ table
-def build_table(src, job, transcript=None, frames=True):
+def detect(src, transcript=None):
+    """The detector's reading of the source: probe, cuts, spans, stats and words."""
     src = str(Path(src).resolve())
     info = probe(src)
     fps = info["fps"]
@@ -358,24 +407,25 @@ def build_table(src, job, transcript=None, frames=True):
     duration = info["duration"]  # the video stream's own duration
     cuts, hi, lo_all = detect_cuts(series)
     spans, flashes = segments_to_shots(cuts, series, duration, fps)
-    stats = stats_series(src)
     words, lang = ([], "en")
     if transcript:
         words, lang = load_words(transcript)
-    job = Path(job)
-    job.mkdir(parents=True, exist_ok=True)
-    if frames:
-        (job / "frames").mkdir(exist_ok=True)
-        (job / "strips").mkdir(exist_ok=True)
+    return {"src": src, "info": info, "fps": fps, "duration": duration, "series": series, "hi": hi,
+            "lo_all": lo_all, "spans": spans, "flashes": flashes, "stats": stats_series(src),
+            "words": words, "lang": lang, "transcript": transcript}
+
+
+def detector_rows(ctx):
+    """Fresh rows from the detector's spans (geometry and empty fields; no stats yet)."""
     rows = []
-    for i, sp in enumerate(spans):
-        sid = "SH%02d" % (i + 1)
-        a, b, c = sp["a"], sp["b"], sp["cut"]
-        body_a = a + sp["flash_s"]
-        row = {"id": sid, "in": round(a, 2), "out": round(b, 2), "dur": round(b - a, 2),
+    for i, sp in enumerate(ctx["spans"]):
+        c = sp["cut"]
+        row = {"id": "SH%02d" % (i + 1), "in": round(sp["a"], 2), "out": round(sp["b"], 2),
+               "dur": round(sp["b"] - sp["a"], 2),
                "cut_in": {"score": round(c["score"], 3) if c else None,
                           "seen_at": c["seen_at"] if c else "start",
-                          "flash_s": round(sp["flash_s"], 2), "type": None},
+                          "flash_s": round(sp["flash_s"], 2), "whip_s": round(sp.get("whip_s", 0.0), 2),
+                          "type_hint": "whip" if sp.get("whip_s", 0.0) > EPS else None, "type": None},
                "confirm_cut": bool(c and c["confirm_cut"])}
         if c and c.get("group") and len(c["group"]) > 1:
             row["cut_in"]["group"] = c["group"]
@@ -383,50 +433,144 @@ def build_table(src, job, transcript=None, frames=True):
             row["cut_in"]["merged_012"] = c["merged"]
         if sp.get("tail_flash_s"):
             row["tail_flash_s"] = sp["tail_flash_s"]
-        row["grade"] = window_stats(stats, body_a, b)
-        if transcript:
-            mine = [w for w in words if a - EPS <= (w["start"] + w["end"]) / 2.0 < b - EPS
-                    or (i == len(spans) - 1 and (w["start"] + w["end"]) / 2.0 >= b - EPS)]
-            row["speech"] = speech_block(mine, lang)
-        else:
-            row["speech"] = None
-        fl = []
-        if frames:
-            if b - body_a < SINGLE_FRAME_S:
-                picks = [("mid", (body_a + b) / 2.0)]
-            else:
-                picks = [("in", body_a + 0.05), ("mid", (body_a + b) / 2.0), ("out", b - 0.05)]
-            for tag, t in picks:
-                rel = "frames/%s_%s.jpg" % (sid, tag)
-                grab_frame(src, t, job / rel)
-                fl.append(rel)
-            if i > 0:
-                rel = "strips/%s_cut.jpg" % sid
-                grab_strip(src, a, fps, job / rel)
-                row["strip"] = rel
-        row["frames"] = fl
-        row["render_hint"] = "hold_candidate" if (b - a) < HOLD_HINT_S else "take"
         for k in CLAUDE_FIELDS:
             row[k] = None
         row["new"] = {"person_id": None, "room_id": None, "still_prompt": None, "motion_prompt": None,
                       "still_assetId": None, "still_path": None, "takes": []}
         rows.append(row)
-    doc = {"version": VERSION, "source": src, "duration": round(duration, 3),
-           "format_duration": round(info["format_duration"], 3), "fps": round(fps, 3),
-           "size": [info["width"], info["height"]],
+    return rows
+
+
+def refresh_row(row, i, n_rows, ctx, job, frames, warnings):
+    """Recompute a row's [S] stats (dur, grade, speech when a transcript is given, the
+    render hint), its frames and its strip from its own in/out. Nothing else is touched."""
+    src, fps = ctx["src"], ctx["fps"]
+    a, b = float(row["in"]), float(row["out"])
+    ci = row.get("cut_in") or {}
+    body_a = min(b, a + float(ci.get("flash_s") or 0) + float(ci.get("whip_s") or 0))
+    row["dur"] = round(b - a, 2)
+    row["grade"] = window_stats(ctx["stats"], body_a, b)
+    if ctx["transcript"]:
+        mine = [w for w in ctx["words"] if a - EPS <= (w["start"] + w["end"]) / 2.0 < b - EPS
+                or (i == n_rows - 1 and (w["start"] + w["end"]) / 2.0 >= b - EPS)]
+        row["speech"] = speech_block(mine, ctx["lang"])
+    else:
+        row.setdefault("speech", None)
+    if frames:
+        fl = []
+        if b - body_a < SINGLE_FRAME_S:
+            picks = [("mid", (body_a + b) / 2.0)]
+        else:
+            picks = [("in", body_a + 0.05), ("mid", (body_a + b) / 2.0), ("out", b - 0.05)]
+        for tag, t in picks:
+            rel = "frames/%s_%s.jpg" % (row["id"], tag)
+            if grab_frame(src, t, job / rel):
+                fl.append(rel)
+            else:
+                warnings.append("%s: no frame written at %.2f s" % (row["id"], t))
+        row["frames"] = fl
+        row.pop("strip", None)
+        if i > 0:
+            rel = "strips/%s_cut.jpg" % row["id"]
+            if grab_strip(src, a, fps, job / rel, ctx["duration"]):
+                row["strip"] = rel
+            else:
+                warnings.append("%s: no strip written for the cut at %.2f s" % (row["id"], a))
+    else:
+        # --no-frames refreshes nothing on disk: keep only the entries whose files exist
+        row["frames"] = [f for f in row.get("frames") or [] if (job / f).is_file()]
+        if row.get("strip") and not (job / row["strip"]).is_file():
+            row.pop("strip")
+    row["render_hint"] = "hold_candidate" if (b - a) < HOLD_HINT_S else "take"
+
+
+def top_doc(ctx, rows):
+    info, series = ctx["info"], ctx["series"]
+    aspect, off = nearest_aspect(info["width"], info["height"])
+    doc = {"version": VERSION, "source": ctx["src"], "duration": round(ctx["duration"], 3),
+           "format_duration": round(info["format_duration"], 3), "fps": round(ctx["fps"], 3),
+           "size": [info["width"], info["height"]], "aspect": aspect, "aspect_off_pct": off,
            "source_start": round(series[0]["pts_time"], 3) if series else 0.0,
-           "cuts_025": [round(t, 3) for t, _ in hi],
-           "cuts_012": [round(t, 3) for t, _ in lo_all],
-           "flashes": flashes, "shots": rows}
-    if transcript:
-        doc["transcript"] = str(Path(transcript).resolve())
-        doc["transcript_language"] = lang
+           "cuts_025": [round(t, 3) for t, _ in ctx["hi"]],
+           "cuts_012": [round(t, 3) for t, _ in ctx["lo_all"]],
+           "flashes": ctx["flashes"], "shots": rows}
+    if ctx["transcript"]:
+        doc["transcript"] = str(Path(ctx["transcript"]).resolve())
+        doc["transcript_language"] = ctx["lang"]
     return doc
 
 
+def build_table(src, job, transcript=None, frames=True, warnings=None):
+    """A fresh table from the detector (no earlier shots.json read)."""
+    ctx = detect(src, transcript)
+    job = Path(job)
+    return _finish(ctx, detector_rows(ctx), job, frames, warnings if warnings is not None else [])
+
+
+def _finish(ctx, rows, job, frames, warnings):
+    job.mkdir(parents=True, exist_ok=True)
+    if frames:
+        (job / "frames").mkdir(exist_ok=True)
+        (job / "strips").mkdir(exist_ok=True)
+    for i, row in enumerate(rows):
+        refresh_row(row, i, len(rows), ctx, job, frames, warnings)
+    return top_doc(ctx, rows)
+
+
+def rows_with_takes(old):
+    rows = list(old.get("shots") or []) + list(old.get("orphaned_rows") or [])
+    return [r.get("id") for r in rows if isinstance(r, dict) and ((r.get("new") or {}).get("takes"))]
+
+
+def kept_rows_problem(old, ctx):
+    """Why the earlier table's segmentation cannot be kept on this source, or None."""
+    rows = old.get("shots")
+    fps = ctx["fps"] or 30.0
+    try:
+        d_old = float(old.get("duration"))
+        ins = [float(r["in"]) for r in rows]
+        outs = [float(r["out"]) for r in rows]
+    except (TypeError, ValueError, KeyError):
+        return "the existing shots.json has rows without a numeric in/out or no duration"
+    if abs(d_old - ctx["duration"]) > 1.0 / fps + 2e-3:
+        return ("the existing shots.json was cut from a %.3f s source and this one is %.3f s; "
+                "use a new --job for a different source" % (d_old, ctx["duration"]))
+    if any(o <= i for i, o in zip(ins, outs)) or any(b <= a for a, b in zip(ins, ins[1:])):
+        return "the existing shots.json has a row whose out is not after its in, or rows out of order"
+    return None
+
+
+def keep_segmentation(old, ctx, transcript_given):
+    """The earlier rows as they stand (ids, in/out, cut_in, every filled field, hand
+    merges); the detector's top-level facts refreshed; notes where the detector disagrees."""
+    warnings = []
+    rows = old["shots"]
+    doc_top = top_doc(ctx, rows)
+    for k, v in old.items():
+        if k not in DETECTOR_TOP_KEYS and k not in doc_top:
+            doc_top[k] = v
+    if not transcript_given:
+        for k in ("transcript", "transcript_language"):
+            if k in old:
+                doc_top[k] = old[k]
+    frame = 1.0 / (ctx["fps"] or 30.0)
+    det = [round(sp["a"], 2) for sp in ctx["spans"][1:]]
+    kept = [float(r["in"]) for r in rows[1:]]
+    extra = [t for t in det if all(abs(t - k) > frame + 0.01 for k in kept)]
+    gone = [k for k in kept if all(abs(t - k) > frame + 0.01 for t in det)]
+    if extra or gone:
+        warnings.append("kept the table's %d row(s) and their edits; the detector alone would cut at %s "
+                        "(not in the table: %s; table cuts it does not read: %s); --resegment re-cuts"
+                        % (len(rows), det, extra, gone))
+    for i, (a, b) in enumerate(zip(rows, rows[1:])):
+        if abs(float(a["out"]) - float(b["in"])) > 0.011:
+            warnings.append("%s ends at %s but %s starts at %s" % (a.get("id"), a["out"], b.get("id"), b["in"]))
+    return doc_top, warnings
+
+
 def merge_existing(doc, old, transcript_given):
-    """Keep the `new` ledger, cut_in.type and every non-null field Claude or a later step
-    wrote; recompute only the detector's fields. Rows are matched by id."""
+    """--resegment: fresh detector rows; keep the `new` ledger, cut_in.type and every
+    non-null field Claude or a later step wrote, matched by id."""
     warnings = []
     old_rows = {r.get("id"): r for r in old.get("shots", []) if isinstance(r, dict)}
     for r in doc["shots"]:
@@ -460,34 +604,72 @@ def merge_existing(doc, old, transcript_given):
     return warnings
 
 
+def _fail(msg):
+    print(json.dumps({"pass": False, "error": msg}, indent=1))
+    print("ERROR: " + msg, file=sys.stderr)
+    return 2
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("source")
     ap.add_argument("--job", required=True, help="outputs/<job> directory")
     ap.add_argument("--transcript", help="a /v1/transcripts response with words[]")
     ap.add_argument("--no-frames", action="store_true", help="skip frames/ and strips/ (fast re-runs, tests)")
+    ap.add_argument("--resegment", action="store_true",
+                    help="re-cut from the detector instead of keeping the existing rows (refused once a row has a take)")
     a = ap.parse_args(argv)
     job = Path(a.job)
-    doc = build_table(a.source, job, a.transcript, frames=not a.no_frames)
     out = job / "shots.json"
-    warnings = []
+    warnings, old = [], None
     if out.exists():
         try:
             with open(out, encoding="utf-8") as fh:
                 old = json.load(fh)
-            warnings = merge_existing(doc, old, bool(a.transcript))
         except (ValueError, OSError) as e:
             warnings.append("existing shots.json unreadable (%s); written fresh" % e)
+        if not (isinstance(old, dict) and isinstance(old.get("shots"), list) and old["shots"]
+                and all(isinstance(r, dict) for r in old["shots"])):
+            old = None
+    if old is not None and a.resegment:
+        taken = rows_with_takes(old)
+        if taken:
+            return _fail("--resegment refused: %s already have takes in their ledger, and re-cutting would "
+                         "orphan paid work; keep the table (run without --resegment) or start a new --job"
+                         % ", ".join(str(t) for t in taken))
+    ctx = detect(a.source, a.transcript)
+    if old is not None and not a.resegment:
+        problem = kept_rows_problem(old, ctx)
+        if problem:
+            return _fail(problem)
+        doc, w = keep_segmentation(old, ctx, bool(a.transcript))
+        warnings += w
+        mode = "kept"
+        job.mkdir(parents=True, exist_ok=True)
+        if not a.no_frames:
+            (job / "frames").mkdir(exist_ok=True)
+            (job / "strips").mkdir(exist_ok=True)
+        for i, row in enumerate(doc["shots"]):
+            refresh_row(row, i, len(doc["shots"]), ctx, job, not a.no_frames, warnings)
+    else:
+        doc = _finish(ctx, detector_rows(ctx), job, not a.no_frames, warnings)
+        mode = "detector"
+        if old is not None:
+            warnings += merge_existing(doc, old, bool(a.transcript))
+            mode = "resegmented"
     tmp = out.with_suffix(".json.tmp")
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=2, ensure_ascii=False)
     tmp.replace(out)
-    summary = {"shots_json": str(out), "duration": doc["duration"], "fps": doc["fps"],
+    summary = {"shots_json": str(out), "segmentation": mode, "duration": doc["duration"], "fps": doc["fps"],
+               "aspect": doc["aspect"], "aspect_off_pct": doc["aspect_off_pct"],
                "shots": len(doc["shots"]),
-               "cuts": [{"id": r["id"], "in": r["in"], "seen_at": r["cut_in"]["seen_at"],
-                         "score": r["cut_in"]["score"], "flash_s": r["cut_in"]["flash_s"],
-                         "confirm_cut": r["confirm_cut"]} for r in doc["shots"][1:]],
-               "confirm_cut": [r["id"] for r in doc["shots"] if r["confirm_cut"]],
+               "cuts": [{"id": r["id"], "in": r["in"], "seen_at": (r.get("cut_in") or {}).get("seen_at"),
+                         "score": (r.get("cut_in") or {}).get("score"),
+                         "flash_s": (r.get("cut_in") or {}).get("flash_s"),
+                         "whip_s": (r.get("cut_in") or {}).get("whip_s"),
+                         "confirm_cut": r.get("confirm_cut")} for r in doc["shots"][1:]],
+               "confirm_cut": [r["id"] for r in doc["shots"] if r.get("confirm_cut")],
                "flashes": doc["flashes"], "warnings": warnings}
     print(json.dumps(summary, indent=1))
     return 0

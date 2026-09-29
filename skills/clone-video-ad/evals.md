@@ -301,8 +301,9 @@ a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 an
   (the slowed-reel `POST /v1/analyses` read, or the contact-sheet fallback) and recorded as
   `sensor` in `shots.json`.
 - Every picked take passes the **opening lock** in `assemble.py check`: the aligned SSIM of its
-  frame 0 against the still, centre-cropped at 1.00–1.05, is ≥ 0.90, and the scale is
-  reported.
+  frame 0 (an offset talker window: the frame at its `window_start`) against the still, under a
+  centre crop at 1.00–1.05 or a horizontal-only squeeze at sx 0.97–0.995, is ≥ 0.90, and the
+  transform is reported.
 - The source's whip is rebuilt as a local **slide** (`xfade` in the whip's direction plus a
   horizontal blur) centred on the source's cut time, never prompted into a take.
 - `assemble.py build` writes the graded `master.mp4` (LIGHT by default, NONE offered) **and**
@@ -320,7 +321,10 @@ a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 an
 - **No competitor token.** `<the competitor's brand token>`, matched case-insensitively,
   appears nowhere in the picture (stills, on-screen text, cards), in the voice (the transcript
   of the delivered master) or in the captions. The source's own captions repeat its voiceover word for word, brand included,
-  which is why they are never copied.
+  which is why they are never copied. **The same holds for its offer text**: the source's
+  offers, discounts, prices, guarantees, retailer names and call-to-action words appear in no
+  voiceover line, still or end card unless the user supplied those exact words at gate C, and
+  no still carries readable text the user did not supply.
 - `assemble.py verify` exits 0: the output's duration is the source's within one frame, its hard
   cuts land **within 0.05 s** of the source's, and its whip and zoom cuts land inside their
   transition window (`in_transition`, as `verify` defines it, with the raw error reported).
@@ -331,8 +335,10 @@ a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 an
 whole-second; any request body carries a source-derived asset; a motion prompt names the
 product or asks for a whip; a second take fires on a shot whose take 1 passed; a pick is shown
 without its sensor; the hue gate does not PASS and the graded master is delivered anyway; two
-voices are heard; a caption is copied from the source's cards; or `<the competitor's brand
-token>` is seen, spoken or captioned anywhere in the deliverable.
+voices are heard; a caption is copied from the source's cards; `<the competitor's brand
+token>` is seen, spoken or captioned anywhere in the deliverable; or the source's offer or CTA
+text (a discount, a price, a guarantee, a retailer, a button's words) is spoken or shown
+without the user having supplied it.
 
 ---
 
@@ -362,9 +368,11 @@ five-slot cap.
 - The still's `assetId` goes in as `startImageAssetId`, and `startImageAssetId` is **never**
   sent together with `referenceAssetIds`.
 - A silent shot carries `audioEnabled: false` **and** silence in its prose (E4).
-- **Talkers:** a shot with an on-camera speaker renders with audio on and its new words
-  quoted, then goes through `POST /v1/voice-changes` to the voiceover's voice where the spec
-  publishes that route; the fallback is a silent reaction shot under the voiceover.
+- **Talkers:** an on-camera speaker's shot under about 2 s renders as a silent reaction (mouth
+  closed: a smile or a nod) under the voiceover. One long enough for its line renders with audio
+  on and its new words quoted, then goes through `POST /v1/voice-changes` to the voiceover's
+  voice where the spec publishes that route, with the pick's `window_start` at the measured
+  speech onset minus 0.05 s; the fallback is a silent reaction shot under the voiceover.
 - A shot the table marks `hold` (static, under about 1 s) is not rendered: its still is held
   with a slight zoompan.
 - Every take is priced with `POST /v1/estimates` before the one yes, as in E1, and that yes

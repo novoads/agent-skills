@@ -48,6 +48,14 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
 | S9 | Hand-over: the build's files under their own names; captions offered, priced, burned only on a yes | local | offer |
 
 - Gates A, B and C may be shown together, but each answer is its own approval (SKILL step 7).
+- **The source's offers and claims are the competitor's, like its brand.** Its offers, discounts,
+  prices, guarantees, retailer or store names and its call-to-action text belong to the
+  competitor. At gate C, list each one the source makes and ask the user for their own, in exact
+  words, or drop it; a line the user gives no replacement for is cut or rewritten without it.
+  **Never carry one into the script or into any still**, however well it fits the pacing: the
+  full-length test clone (2026-09-29) kept the source's discount in its voiceover and drew the
+  source's discount and button text on its end card. The E7 no-competitor-token check covers
+  this offer text too (evals.md).
 - **A source with no speech.** The S0 transcript can answer `409` "No speech was detected" on a
   speechless ad. Run `shot_table.py` without `--transcript` and skip the pace steps (S4's `check`,
   S8's `align`); `pace.py plan` says so when the table holds no words.
@@ -109,7 +117,9 @@ re-run. Then `outputs/<job>/shots.json`:
   `whip-right` or `zoom-in`).
 - Each row's `new` block, **filled as the run goes**: `person_id`, `room_id`, `still_prompt`,
   `motion_prompt`, `still_assetId`, `still_path`, `takes[]` of
-  `{jobId, status, path, checks, qc, pick, sensor}`.
+  `{jobId, status, path, checks, qc, pick, sensor, window_start}`. `window_start` (seconds,
+  default 0) is where the used window starts in the take: `build` trims
+  `[window_start, window_start + dur]`, and only an audio-on talker sets it (§ On-camera talkers).
 
 **A row with `confirm_cut: true` was seen at the low threshold only**; its `in` is the first hit
 of its group. Confirm it on its strip. If no cut is visible, merge it into the row before (that
@@ -229,7 +239,16 @@ or square):
 > hands and person match image 2 exactly, with no jewelry, nail colour or accessories that image 2
 > does not show. The
 > `<product>` must be exactly the `<product>` in image 1: `<features read off the photo: shape,
-> colours, materials, the label text as printed>`. No text overlays.
+> colours, materials, the label text as printed>`. No other text, letters, numbers, prices,
+> badges or buttons anywhere in the image.
+
+**No readable text in a still unless the user supplied the exact words.** Every still prompt
+forbids it ("No other text, letters, numbers, prices, badges or buttons anywhere in the image":
+the product's own printed label is the only text allowed), the end card included, because a model
+asked for "an end card like the source's" copies the source's offer and button text. The one exception is a still that carries the user's own words, given at
+gate C and quoted exactly in the prompt (an end card with their offer or call to action). Read
+every still before its take: one showing text it was not given, or any of the source's offer or
+CTA words, is regenerated, and that counts against gate D's 2 per shot.
 
 **The preservation clause is the last sentence**, and it is the one place a product's appearance
 is written out: the still is what the take inherits. Read the features off the product photo,
@@ -303,10 +322,18 @@ python3 skills/clone-video-ad/scripts/assemble.py check outputs/<job>/takes/SH01
 ```
 
 It prints JSON and exits 0 when all three pass: the **opening lock** (the best SSIM of frame 0
-against the still, centre-cropped at scale 1.00 to 1.05, passes at 0.90 or more; it reports the
-scale), **no invented cut** inside `[0, dur]`, and **motion present**: the most motion in any
-0.5 s window inside `[0, dur]` clears the floor, so a take that finishes its action and then holds
-(§ Motion prompts) passes, and only a take frozen throughout fails.
+against the still, passes at 0.90 or more), **no invented cut** inside `[0, dur]`, and **motion
+present**: the most motion in any 0.5 s window inside `[0, dur]` clears the floor, so a take that
+finishes its action and then holds (§ Motion prompts) passes, and only a take frozen throughout
+fails. The lock searches two geometries and reports the one that won in `transform`: a uniform
+centre zoom (the still cropped at scale 1.00 to 1.05; `mode: uniform`, and `scale`) and a
+horizontal-only squeeze (the take's centre strip at `sx` 0.97 to 0.995, `sy` 1.0;
+`mode: squeeze_x`). The draft tier opens on the still in both ways: on the full-length test ad
+(2026-09-29) 13 of 27 takes came back zoomed about 2 % and 10 squeezed to about 0.985 of the
+width with no zoom, which a uniform scale never matches. A take that fails under both geometries
+really changed its first frame. A talker take with an offset window is checked with
+`--window-start <s>`: the lock is read at that frame and the cut and motion checks cover
+`[s, s + dur]` (§ On-camera talkers).
 
 **Then the paid reads, one per reel.** Each passing take's `[0, dur]` window is slowed 3x so the
 sampling sees every moment, and the windows are joined into reels of **at most about 30 s each**
@@ -374,8 +401,27 @@ in `qc`. Gate E shows both.
 
 ## On-camera talkers
 
-A shot whose `speaks_on_camera` is true is the one exception to the silent rule. Render it with
-audio on and that shot's new words quoted in the motion prompt, so the lips move to them. Then,
+**A talker shot under about 2 s is a silent reaction by default.** Its motion prompt keeps the
+mouth closed (a smile, a nod, a listening look: "her lips stay closed, no speech"), the take is
+silent like any other, and the voiceover carries the line over it. Why: on the full-length test ad
+(2026-09-29) three talkers of about 1 s each were rendered speaking; every take spent 0.35 s or
+more before its first syllable, so two of them played as a mouth moving with no sound under the
+voiceover, which reads as a lip-sync error, not a reaction.
+
+**Audio on only when the shot is long enough for its line**: about 2 s or more, or a 2-3 syllable
+line (about 0.6 s of speech) in a shot of about 1 s. Then the rest of this section applies, plus
+one step: measure the take's speech onset (the first word's `start` in a transcript of the take,
+or the first 0.1 s whose level clears the take's peak minus 25 dB) and write
+`window_start = onset - 0.05` (never below 0) on the picked take in `new.takes[]`. `build` trims
+the take from there and places the `--talker` audio on the same window, so the lips and the voice
+stay together. An offset window no longer opens on the still, so **its opening lock is read at
+`window_start`'s frame** (`check --window-start`), not waived: the frame the viewer sees first is
+the one checked. When that frame fails the lock, move `window_start` back toward 0 (more lead
+silence, a frame nearer the still) or fall back to the silent reaction.
+
+A shot whose `speaks_on_camera` is true, and long enough by the rule above, is the one exception to
+the silent rule. Render it with audio on and that shot's new words quoted in the motion prompt, so
+the lips move to them. Then,
 where `GET /v1/openapi.json` publishes `POST /v1/voice-changes`, convert its speech to the
 voiceover's voice:
 
@@ -389,7 +435,8 @@ It answers `200` with JSON (nothing to poll, and never video): its `url` is the 
 timed from the take's frame 0, and it expires. Download that `url` at once into
 `outputs/<job>/talk/<id>_vc.<ext>` (the url's extension; mp3 as of 2026-09-29) and give it to `build` as
 `--talker <id>=<path>`, once per talker shot (§ Assembly and verify). `build` silences the
-voiceover inside that shot's window, lays the matching span of the talker audio there with 0.04 s
+voiceover inside that shot's window, lays the matching span of the talker audio there (from the
+pick's `window_start`, since the converted audio is timed from the take's frame 0) with 0.04 s
 crossfades at both edges, matches its level to the voiceover, and runs one loudnorm over the mix,
 so the lips and the voice agree. Keep the talker's line in the voiceover script anyway: `pace.py`
 aligns every spoken shot, and `build` replaces that window. **Where that endpoint is not
@@ -482,8 +529,13 @@ Two modes, per shot against that shot's source stats. `build` always writes an u
 identical timing, size and fps, because the hue gate compares the two.
 
 - **LIGHT (the default).** A brightness-only luma match to the source shot, then a hue-protected
-  saturation pull toward it that keeps the product's hue band. Why: the cuts read like the
-  original's, and a contrast stretch judged worse than no stretch at all.
+  saturation move toward it that keeps the product's hue band. Why: the cuts read like the
+  original's, and a contrast stretch judged worse than no stretch at all. The move scales every
+  other hue's chroma by `k`: down (k below 1) when the take is more saturated than the source
+  shot, and up to 1.6 when the source shot is more saturated, as on vivid CGI shots, which ended
+  5 to 18 SATAVG short on the full-length test ad while k could only go down. The product band
+  always keeps k = 1, so the hue gate below holds; `assembly.json` records each shot's `k` and
+  `k_max`.
 - **NONE (an option).** The takes' own colour. Why: on openings it judged at least as well as
   LIGHT, so offer it whenever the user prefers the render's own look.
 

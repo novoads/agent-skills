@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Free local checks, the product-hue gate, the shot-route build, its verifier and the QC reel.
 
-  python3 skills/clone-video-ad/scripts/assemble.py check    TAKE.mp4 --still STILL.png --dur D
+  python3 skills/clone-video-ad/scripts/assemble.py check    TAKE.mp4 --still STILL.png --dur D [--window-start S]
   python3 skills/clone-video-ad/scripts/assemble.py hue-gate GRADED.mp4 --ungraded TWIN.mp4 --photo PRODUCT [--windows a-b,c-d]
   python3 skills/clone-video-ad/scripts/assemble.py build    outputs/<job>/shots.json [--grade light|none] [--fps 24|30] [--vo VO.mp3 --vo-start S] [--bed BED.audio]
                                                       [--photo PRODUCT] [--allow-grey] [--allow-crop] [--talker SH07=voice_changed.mp3 ...]
@@ -9,10 +9,13 @@
   python3 skills/clone-video-ad/scripts/assemble.py reel     outputs/<job>/shots.json --slow 3 [--takes candidates|all]
                                                       [--shots SH01,SH03] --out outputs/<job>/qc/reel_1.mp4
 
-check     opening lock (max SSIM of take frame 0 vs the still centre-cropped at 1.00-1.05,
-          both 180x320 grey, PASS >= 0.90), no scene > 0.25 cut inside [0, D], motion present
-          (the largest mean frame difference over any 0.5 s window inside [0, D] above the
-          floor, so a take that moves and then holds passes). Exit 0 when all pass.
+check     opening lock (max SSIM of the take's frame at S, frame 0 by default, vs the still,
+          both 180x320 grey, over two geometries: the still centre-cropped at 1.00-1.05, and a
+          horizontal-only squeeze, the take's centre strip at sx 0.97-0.995 with sy 1.0; PASS
+          >= 0.90; the winning transform is reported), no scene > 0.25 cut inside [S, S+D],
+          motion present (the largest mean frame difference over any 0.5 s window inside
+          [S, S+D] above the floor, so a take that moves and then holds passes). Exit 0 when
+          all pass.
 hue-gate  product mask from the photo's hue band, built on the ungraded twin (4 fps, 180x320);
           PASS when chroma kept >= 0.80 overall and per window and hue drift <= 6 deg.
           Exit 0 PASS, 1 FAIL, 2 NO_PRODUCT (also when the photo is not a packshot on a
@@ -20,11 +23,13 @@ hue-gate  product mask from the photo's hue band, built on the ungraded twin (4 
           round its tallest hue peak holds < 50 % of its colour; and when the photo has too
           little colour). The band is that one cluster: a label in a second colour is not
           protected.
-build     per shot: the picked take trimmed to its slot, or a held still with a slight zoompan;
+build     per shot: the picked take trimmed to its slot from its new.takes[].window_start (seconds,
+          default 0), or a held still with a slight zoompan;
           transitions from cut_in.type (whip-left|whip-right -> xfade slide + horizontal blur
           centred on the cut, zoom-in -> xfade zoomin, flash_s -> a white blend, else hard);
           LIGHT grade = eq brightness to the source shot's YAVG (contrast 1.0, iterated to
-          +/-2) then the hue-protected chroma scale toward its SATAVG; NONE = no grade.
+          +/-2) then the hue-protected chroma scale k toward its SATAVG (k in [0, 1], or up to
+          1.6 when the source shot is more saturated; the product band stays at 1); NONE = no grade.
           Writes master_ungraded.mp4 (twin), master.mp4, assembly.json (with every command, and per
           shot the take it used: index, file, jobId, sensor).
           Refuses (exit 2, nothing rendered): LIGHT without a product photo, a photo that is
@@ -37,7 +42,8 @@ build     per shot: the picked take trimmed to its slot, or a held still with a 
           exits 0 with a WARNING line on stderr and is never reported as PASS.
           A picked take with no sensor is a WARNING line too.
           --talker ID=AUDIO (repeatable) puts that audio (a voice-changed talker take, timed
-          from the take's frame 0) in shot ID's window instead of the voiceover, with short
+          from the take's frame 0, so its span starts at the pick's window_start) in shot ID's
+          window instead of the voiceover, with short
           crossfades, level-matched to the voiceover before the shared loudnorm. Needs --vo.
 reel      the QC reel for the paid analysis: per rendered row, each take (candidates = those whose
           check passes; all = every take with a path) TRIMMED to [0, dur] in whole frames, THEN slowed
@@ -93,9 +99,18 @@ CHROMA_RETAINED_MIN = 0.80
 HUE_DRIFT_MAX = 6.0
 PHOTO_CHROMA_MIN = 0.50
 GRADE_FEATHER = 10.0
+# The non-product chroma scale k may RAISE saturation up to this ceiling when the source shot
+# is more saturated than the take (the full-length test ad's vivid CGI shots ended 5-18 SAT
+# short with k capped at 1). The product band always keeps k = 1, so the hue gate holds.
+GRADE_K_MAX = 1.6
 # ---- opening lock / check ----
 LOCK_MIN = 0.90
 LOCK_SCALES = [round(1.0 + 0.005 * i, 3) for i in range(11)]
+# A second geometry: the take squeezed horizontally (sx < 1, sy = 1) instead of zoomed. On
+# the full-length test ad (2026-09-29) 10 of 27 mini takes opened on the still squeezed to
+# about 0.985 of its width (ECC corr 0.993-0.997), which no uniform scale recovers. The
+# take's centre sx-wide strip, stretched back to full width, is compared with the full still.
+LOCK_SQUEEZE_X = [round(0.97 + 0.005 * i, 3) for i in range(6)]
 LOCK_WARN_SCALE = 1.04
 LOCK_W, LOCK_H = 180, 320
 # Motion = the largest mean |frame diff| (180x320 luma) over any MOTION_WINDOW_S window
@@ -393,7 +408,8 @@ def hue_gate(clip, photo=None, ungraded=None, windows=None, band=None, fps=GATE_
 # ------------------------------------------------------------------ hue-protected grade
 def solve_other_scale(clip, target_sat, band, window=None):
     """k for the NON-product hues so the window's SATAVG lands on target_sat while the band
-    keeps 100 % of its chroma (fading over GRADE_FEATHER deg). Clamped to [0, 1]."""
+    keeps 100 % of its chroma (fading over GRADE_FEATHER deg). Clamped to [0, 1] when the take is
+    already at or above the target, to [0, GRADE_K_MAX] when the source shot is more saturated."""
     ch, hue = _luts()
     stats = st.stats_series(str(clip))
     a, b = window or (0.0, len(stats) / float(st.STATS_FPS))
@@ -401,10 +417,12 @@ def solve_other_scale(clip, target_sat, band, window=None):
     info = {"measured_sat": measured}
     if not measured:
         return 1.0, info
+    kmax = GRADE_K_MAX if target_sat > measured else 1.0
+    info["k_max"] = kmax
     if not band or not band.get("band"):
         k = target_sat / measured
         info.update(k_raw=round(k, 3), protected=False)
-        return float(min(1.0, max(0.0, k))), info
+        return float(min(kmax, max(0.0, k))), info
     c0, half, fe = band["center"], band["half_width"], GRADE_FEATHER
     keep = [min(1.0, max(0.0, (half + fe - abs(circ_diff(hue[i], c0))) / fe)) for i in range(65536)]
     cw = [ch[i] * keep[i] for i in range(65536)]
@@ -428,12 +446,13 @@ def solve_other_scale(clip, target_sat, band, window=None):
     k = (target_sat / r - s_keep) / max(s_other, 1e-6)
     info.update(protected=True, protected_share_of_chroma=round(s_keep / max(s_keep + s_other, 1e-6), 3),
                 k_raw=round(k, 3), floor_sat_at_k0=round(s_keep * r, 2))
-    return float(min(1.0, max(0.0, k))), info
+    return float(min(kmax, max(0.0, k))), info
 
 
 def hue_protected_grade_filter(band, k, feather=GRADE_FEATHER):
     """Chroma-only filter: U,V scaled by k + (1-k)*keep, keep = clip((half+feather-d)/feather,0,1),
-    d = circular distance of the pixel's hue from the band centre. Hue angles never move."""
+    d = circular distance of the pixel's hue from the band centre. Hue angles never move; k > 1
+    raises the other hues' chroma (geq clips each plane to 0-255), the band stays at 1."""
     k = round(float(k), 4)
     c, half, fe = round(band["center"], 2), round(band["half_width"], 2), float(feather)
     keep = ("st(0,cb(X,Y)-128);st(1,cr(X,Y)-128);"
@@ -450,33 +469,49 @@ def _image_size(path):
     return int(s["width"]), int(s["height"])
 
 
-def opening_lock(take, still):
+def opening_lock(take, still, at=0.0):
+    """Best SSIM of the take's frame at `at` s (frame 0 by default) against the still, over two
+    geometries: a uniform centre zoom (the still cropped by 1/scale, scale 1.00-1.05) and a
+    horizontal-only squeeze (the take's centre sx-wide strip, sx 0.97-0.995, sy 1.0).
+    Reports the transform that won."""
     tinfo = st.probe(take)
+    fi = int(round(max(0.0, at) * (tinfo["fps"] or 24.0)))
     sw, sh = _image_size(still)
     ta = tinfo["width"] / float(tinfo["height"])
     cw, chh = (sh * ta, float(sh)) if sw / float(sh) > ta else (float(sw), sw / ta)
+    tw, th = tinfo["width"], tinfo["height"]
     scores = []
-    for s in LOCK_SCALES:
-        w, h = max(2, int(round(cw / s))), max(2, int(round(chh / s)))
-        fc = ("[0:v]crop=%d:%d,scale=%d:%d:flags=area,format=gray,setsar=1[a];"
-              "[1:v]trim=end_frame=1,setpts=PTS-STARTPTS,scale=%d:%d:flags=area,format=gray,setsar=1[b];"
-              "[a][b]ssim=stats_file=-" % (w, h, LOCK_W, LOCK_H, LOCK_W, LOCK_H))
+    geoms = [("uniform", s, s, s) for s in LOCK_SCALES] + [("squeeze_x", 1.0, sx, 1.0) for sx in LOCK_SQUEEZE_X]
+    for mode, s, sx, sy in geoms:
+        if mode == "uniform":
+            a_crop = "crop=%d:%d," % (max(2, int(round(cw / s))), max(2, int(round(chh / s))))
+            b_crop = ""
+        else:
+            a_crop = "crop=%d:%d," % (max(2, int(round(cw))), max(2, int(round(chh))))
+            b_crop = "crop=%d:%d," % (max(2, int(round(tw * sx))), th)
+        fc = ("[0:v]%sscale=%d:%d:flags=area,format=gray,setsar=1[a];"
+              "[1:v]trim=start_frame=%d:end_frame=%d,setpts=PTS-STARTPTS,%sscale=%d:%d:flags=area,format=gray,setsar=1[b];"
+              "[a][b]ssim=stats_file=-" % (a_crop, LOCK_W, LOCK_H, fi, fi + 1, b_crop, LOCK_W, LOCK_H))
         out = st.run(["ffmpeg", "-hide_banner", "-nostats", "-v", "error"] + st.image_input(still) +
                      ["-i", str(take), "-filter_complex", fc, "-f", "null", "-"]).stdout
         m = re.search(r"All:([\d.]+)", out)
-        scores.append((float(m.group(1)) if m else 0.0, s))
-    best, scale = max(scores)
+        scores.append((float(m.group(1)) if m else 0.0, mode, s, sx, sy))
+    best, mode, scale, sx, sy = max(scores, key=lambda x: (x[0], x[1] == "uniform"))
     res = {"ssim": round(best, 3), "scale": scale, "pass": best >= LOCK_MIN, "bar": LOCK_MIN,
+           "transform": {"mode": mode, "sx": sx, "sy": sy},
            "raw_ssim": round(scores[0][0], 3), "size": [LOCK_W, LOCK_H]}
-    if scale > LOCK_WARN_SCALE:
+    if at:
+        res["at"] = {"t": round(at, 3), "frame": fi}
+    if mode == "uniform" and scale > LOCK_WARN_SCALE:
         res["warning"] = "best scale %.3f > %.2f: the take reframes more than usual" % (scale, LOCK_WARN_SCALE)
     return res
 
 
-def motion(path, dur, fps=None):
-    """|frame diff| over [0, dur]: the mean, the single largest diff, and the largest mean
-    over any MOTION_WINDOW_S window (the whole span when it is shorter)."""
-    out = st.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-t", "%.3f" % dur, "-an", "-vf",
+def motion(path, dur, fps=None, start=0.0):
+    """|frame diff| over [start, start + dur]: the mean, the single largest diff, and the largest
+    mean over any MOTION_WINDOW_S window (the whole span when it is shorter)."""
+    seek = ["-ss", "%.3f" % start] if start else []
+    out = st.run(["ffmpeg", "-hide_banner", "-nostats"] + seek + ["-i", str(path), "-t", "%.3f" % dur, "-an", "-vf",
                   "scale=%d:%d:flags=area,format=yuv420p,tblend=all_mode=difference,signalstats,"
                   "metadata=print:file=-" % (LOCK_W, LOCK_H), "-f", "null", "-"]).stdout
     fr = [f for f in st._parse_metadata(out) if "YAVG" in f]
@@ -496,23 +531,29 @@ def motion(path, dur, fps=None):
             "window_start": round(fr[at]["pts_time"] - t0, 3), "window_diffs": k, "diffs": len(ys)}
 
 
-def check(take, still, dur):
+def check(take, still, dur, window_start=0.0):
+    """The free checks over the used window [window_start, window_start + dur] of the take: the
+    opening lock at window_start's frame (frame 0 unless a talker window is offset), no invented
+    cut inside the window, motion present."""
+    ws = max(0.0, float(window_start or 0.0))
     info = st.probe(take)
     res = {"take": str(take), "still": str(still), "dur": dur, "take_duration": round(info["duration"], 3)}
+    if ws:
+        res["window_start"] = ws
     reasons = []
-    if info["duration"] + 0.5 / max(info["fps"], 1.0) < dur:
-        reasons.append("take is %.2f s, shorter than the shot's %.2f s" % (info["duration"], dur))
-    lock = opening_lock(take, still)
+    if info["duration"] + 0.5 / max(info["fps"], 1.0) < ws + dur:
+        reasons.append("take is %.2f s, shorter than the used window's end %.2f s" % (info["duration"], ws + dur))
+    lock = opening_lock(take, still, at=ws)
     res["opening_lock"] = lock
     if not lock["pass"]:
         reasons.append("opening lock %.3f < %.2f" % (lock["ssim"], LOCK_MIN))
     series = st.frame_series(str(take), signalstats=False)
     inv = [{"t": round(f["t"], 3), "score": round(f["scene"], 3)} for f in series
-           if st.STARTUP_S <= f["t"] <= dur + EPS and f["scene"] > st.SCENE_HI]
+           if ws + st.STARTUP_S <= f["t"] <= ws + dur + EPS and f["scene"] > st.SCENE_HI]
     res["invented_cuts"] = inv
     if inv:
-        reasons.append("scene > %.2f inside [0, %.2f] at %s" % (st.SCENE_HI, dur, [c["t"] for c in inv]))
-    mo = motion(take, dur, info["fps"])
+        reasons.append("scene > %.2f inside [%.2f, %.2f] at %s" % (st.SCENE_HI, ws, ws + dur, [c["t"] for c in inv]))
+    mo = motion(take, dur, info["fps"], start=ws)
     res["motion"] = {"window_max": round(mo["window_max"], 3), "window_start": mo["window_start"],
                      "window_s": MOTION_WINDOW_S, "mean_absdiff": round(mo["mean_absdiff"], 3),
                      "max_absdiff": round(mo["max_absdiff"], 3), "diffs": mo["diffs"],
@@ -540,6 +581,21 @@ def _picked(r):
     """[(index, take)] for every take in new.takes marked pick: true."""
     return [(i, t) for i, t in enumerate((r.get("new") or {}).get("takes") or [])
             if isinstance(t, dict) and t.get("pick")]
+
+
+def _window_start(r, t):
+    """new.takes[].window_start in seconds (default 0): where the used window starts in the take."""
+    v = t.get("window_start") if isinstance(t, dict) else None
+    if v is None:
+        return 0.0
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        raise Refusal("%s: new.takes[].window_start %r is not a number of seconds" % (r["id"], v))
+    if v < 0 or v != v:
+        raise Refusal("%s: new.takes[].window_start %s is negative; it is where the used window starts in the "
+                      "take, 0 or more" % (r["id"], v))
+    return v
 
 
 def _shot_mode(r):
@@ -643,8 +699,8 @@ def mean_db(path, start=None, dur=None):
 
 def talker_plan(shots, K, segs, F, talkers, job):
     """Where each --talker audio goes: shot window [a, b] in the master, and the matching
-    span of the talker file, which is timed from the take's frame 0 (the segment starts
-    `head` frames before the cut when an xfade pulls it early)."""
+    span of the talker file, which is timed from the take's frame 0 (the segment starts at
+    the pick's window_start, `head` frames before the cut when an xfade pulls it early)."""
     ids = {r["id"]: i for i, r in enumerate(shots)}
     plan = []
     for sid, p in talkers.items():
@@ -652,8 +708,11 @@ def talker_plan(shots, K, segs, F, talkers, job):
             raise ValueError("--talker %s: no such shot in shots.json" % sid)
         i = ids[sid]
         s = segs[i]
+        picked = _picked(shots[i])
+        ws = _window_start(shots[i], picked[0][1]) if picked else 0.0
         plan.append({"id": sid, "path": str(_resolve(p, job)), "a": K[i] / float(F), "b": K[i + 1] / float(F),
-                     "src_a": s["head"] / float(F), "src_b": (s["head"] + s["nominal"]) / float(F)})
+                     "window_start": ws, "src_a": ws + s["head"] / float(F),
+                     "src_b": ws + (s["head"] + s["nominal"]) / float(F)})
     return sorted(plan, key=lambda t: t["a"])
 
 
@@ -689,6 +748,9 @@ def preflight(doc, job, grade, photo, allow_crop, allow_grey=False):
     if grade == "light" and band.get("low_chroma") and not allow_grey:
         raise Refusal(LOW_CHROMA_MSG)
     sources = [_shot_source(r, job) for r in doc["shots"]]
+    for r, (mode, _src) in zip(doc["shots"], sources):
+        if mode == "take":
+            _window_start(r, _picked(r)[0][1])
     W, H = [int(x) for x in doc["size"]]
     R = W / float(H)
     A = _aspect_value(doc.get("aspect"))
@@ -761,9 +823,16 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
         T = s["frames"]
         out_u = bdir / ("%s_ungraded.mp4" % r["id"])
         if mode == "take":
+            ws = _window_start(r, _picked(r)[0][1])
+            S = int(round(ws * F))
+            if ws:
+                tdur = st.probe(str(src))["duration"]
+                if (S + T) / float(F) > tdur + 0.5 / F:
+                    warnings.append("%s: window_start %.3f + %d frames runs %.2f s past the take's end (%.2f s); the "
+                                    "last frame is held" % (r["id"], ws, T, (S + T) / float(F) - tdur, tdur))
             vf = ("scale=%d:%d:force_original_aspect_ratio=increase:flags=lanczos,crop=%d:%d,setsar=1,fps=%d,"
-                  "tpad=stop_mode=clone:stop_duration=10,trim=start_frame=0:end_frame=%d,setpts=PTS-STARTPTS"
-                  % (W, H, W, H, F, T))
+                  "tpad=stop_mode=clone:stop_duration=10,trim=start_frame=%d:end_frame=%d,setpts=PTS-STARTPTS"
+                  % (W, H, W, H, F, S, S + T))
             run("seg_%s_take" % r["id"], ["ffmpeg", "-y", "-v", "error", "-i", src, "-an", "-vf", vf,
                                           "-frames:v", T, "-r", F] + SEG_ENC + [out_u])
         else:
@@ -779,7 +848,8 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
         if mode == "take":
             ti, tk = _picked(r)[0]
             srow["take"] = {"index": ti, "id": tk.get("id"), "file": str(src), "path": tk.get("path"),
-                            "jobId": tk.get("jobId"), "sensor": tk.get("sensor")}
+                            "jobId": tk.get("jobId"), "sensor": tk.get("sensor"),
+                            "window_start": _window_start(r, tk)}
         flash_frames = cuts[s["i"]]["flash_frames"] if s["i"] else 0
         wa, wb = (s["head"] + flash_frames) / float(F), (s["head"] + s["nominal"]) / float(F)
         tgt = r.get("grade") or {}
@@ -807,9 +877,9 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
                 solve_other_scale(out_u, float(T_s), band, (wa, wb))
             vf = "eq=brightness=%.4f:contrast=1.0" % b
             if band and band.get("band"):
-                if k < 0.9995:
+                if abs(k - 1.0) > 0.0005:
                     vf += "," + hue_protected_grade_filter(band, k)
-            elif k < 0.9995:
+            elif abs(k - 1.0) > 0.0005:
                 vf += ":saturation=%.4f" % k
             out_g = bdir / ("%s_graded.mp4" % r["id"])
             run("grade_%s" % r["id"], ["ffmpeg", "-y", "-v", "error", "-i", out_u, "-an", "-vf", vf,
@@ -889,7 +959,8 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
         run("mux_audio", cmd)
         rec["audio"] = {"vo": str(vo), "vo_start": vo_start, "bed": str(bed) if bed else None,
                         "loudnorm": "I=-14:TP=-1.5:LRA=11", "bed_gain_db": -20 if bed else None,
-                        "talkers": [{k: t[k] for k in ("id", "path", "a", "b", "src_a", "src_b", "gain_db")}
+                        "talkers": [{k: t[k] for k in ("id", "path", "a", "b", "window_start", "src_a", "src_b",
+                                                       "gain_db")}
                                     for t in tk]}
     else:
         shutil.copyfile(str(graded_video), str(master))
@@ -1009,7 +1080,7 @@ def verify(master, shots_path):
 # ------------------------------------------------------------------ QC reel
 def reel_windows(shots_path, takes="candidates", only=None):
     """The QC reel's windows: per rendered row, each take (every one with a path, or only those
-    whose free check passes) cut to [0, dur] in whole frames of the take."""
+    whose free check passes) cut to [window_start, window_start + dur] in whole frames of the take."""
     shots_path = Path(shots_path).resolve()
     job = shots_path.parent
     doc = json.loads(shots_path.read_text(encoding="utf-8"))
@@ -1033,18 +1104,20 @@ def reel_windows(shots_path, takes="candidates", only=None):
                 if not new.get("still_path"):
                     raise Refusal("%s: no new.still_path to run the free check against; pass --takes all "
                                   "to reel every take unchecked" % r["id"])
-                res = check(path, _resolve(new["still_path"], job), dur)
+                res = check(path, _resolve(new["still_path"], job), dur, _window_start(r, t))
                 if not res["pass"]:
                     skipped.append({"shot": r["id"], "take": label, "reasons": res["reasons"]})
                     continue
             info = st.probe(str(path))
             fps = float(info["fps"])
             n = int(math.ceil(dur * fps - 1e-6))
+            ws = _window_start(r, t)
+            s0 = int(round(ws * fps))
             if info.get("nb_frames"):
-                n = min(n, int(info["nb_frames"]))
+                n = min(n, int(info["nb_frames"]) - s0)
             wins.append({"shot": r["id"], "take": label, "take_index": i, "path": str(path),
                          "jobId": t.get("jobId"), "fps": fps, "frames": n, "size": [info["width"], info["height"]],
-                         "window": [0.0, round(n / fps, 4)], "dur": dur})
+                         "start_frame": s0, "window": [round(s0 / fps, 4), round((s0 + n) / fps, 4)], "dur": dur})
     if want is not None and not wins and not skipped:
         raise Refusal("no rendered take in the rows asked for (%s)" % only)
     return wins, skipped
@@ -1055,9 +1128,10 @@ def reel_graph(wins, slow, W, H, fps=REEL_FPS):
     -i would instead cut the slowed clip, keeping only the first 1/slow of each window."""
     parts = []
     for j, w in enumerate(wins):
-        parts.append("[%d:v]trim=start_frame=0:end_frame=%d,setpts=%s*(PTS-STARTPTS),"
+        s0 = int(w.get("start_frame") or 0)
+        parts.append("[%d:v]trim=start_frame=%d:end_frame=%d,setpts=%s*(PTS-STARTPTS),"
                      "scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1[r%d]"
-                     % (j, w["frames"], _num(slow), W, H, W, H, j))
+                     % (j, s0, s0 + w["frames"], _num(slow), W, H, W, H, j))
     parts.append("%sconcat=n=%d:v=1:a=0,fps=%d[v]" % ("".join("[r%d]" % j for j in range(len(wins))), len(wins), fps))
     return ";".join(parts)
 
@@ -1132,6 +1206,9 @@ def main(argv=None):
     c.add_argument("take")
     c.add_argument("--still", required=True)
     c.add_argument("--dur", type=float, required=True)
+    c.add_argument("--window-start", type=float, default=0.0,
+                   help="the used window's start in the take (a talker's new.takes[].window_start); "
+                        "the lock is read at that frame")
     g = sub.add_parser("hue-gate")
     g.add_argument("graded")
     g.add_argument("--ungraded")
@@ -1181,7 +1258,7 @@ def main(argv=None):
                          indent=1))
         return 0
     if a.cmd == "check":
-        res = check(a.take, a.still, a.dur)
+        res = check(a.take, a.still, a.dur, a.window_start)
         print(json.dumps(res, indent=1))
         return 0 if res["pass"] else 1
     if a.cmd == "hue-gate":

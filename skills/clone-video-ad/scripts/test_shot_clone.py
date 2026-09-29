@@ -25,7 +25,11 @@ The follow-up cases: build refuses a row with two picked takes, warns on a pick 
 sensor and records each shot's take (file, jobId) in assembly.json; the QC reel keeps the
 full windows where the old recipe (-t after -i, cut after the slow-down) keeps a third,
 candidates leave out a take that fails the free check, and a reel cut after the slow-down
-is refused and deleted.
+is refused and deleted. The full-length-run cases: the opening lock finds a take squeezed
+horizontally to about 0.985 of its width (and still fails a different image), a pick's
+window_start trims the take and moves the --talker span with it (a negative one refused, and
+check reads the lock at that frame), and the grade raises a grey-ish take's saturation toward
+a vivid target (k up to 1.6) while the product keeps its chroma.
 Requires ffmpeg/ffprobe on PATH. Python stdlib only, no pytest.
 """
 
@@ -380,6 +384,7 @@ def run_cases(d):
     review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p)
     rereview_fix_cases(d, sj, grey)
     followup_cases(d, sj)
+    phase4_cases(d, sj, still, other, photo, band)
 
 
 def review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p):
@@ -897,6 +902,132 @@ def followup_cases(d, sj):
               and not Path(str(out) + ".index.json").exists())
         return ok, msg[-200:]
     case("R3: a reel cut after the slow-down probes a third short: refused, deleted, no index written", r_guard)
+
+
+def frame_rgb(path, t):
+    """Mean R, G, B of the frame at t (scaled to 1x1)."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", "%.3f" % t, "-i", str(path), "-frames:v", "1",
+                        "-vf", "scale=1:1:flags=area", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+    return tuple(r.stdout[:3])
+
+
+def phase4_cases(d, sj, still, other, photo, band):
+    """P1 (the lock's horizontal squeeze), P3 (window_start on a pick, with --talker), P4 (the
+    grade may raise saturation, never on the product)."""
+    def chk(tk, st_, dur, want_code, pred, ws=None):
+        extra = ["--window-start", ws] if ws is not None else []
+        c, out, e = script("assemble.py", "check", tk, "--still", st_, "--dur", dur, *extra)
+        out = out or {}
+        return c == want_code and pred(out), "exit=%d lock=%s %s" % (c, out.get("opening_lock"), e[-150:])
+
+    # ---- P1: a take that opens on the still squeezed to 354/360 = 0.983 of its width
+    sq = d / "take_squeeze.mp4"
+    enc(sq, "-f", "lavfi", "-i", "testsrc2=s=%dx%d:r=24:d=2" % (W, H),
+        "-vf", "scale=%d:%d,pad=%d:%d:%d:0" % (W - 6, H, W, H, 3), fps=24)
+    case("P1: opening lock finds a horizontal squeeze (sx ~0.985, sy 1.0) that no uniform scale does; check passes",
+         lambda: chk(sq, still, 1.5, 0, lambda o: o["opening_lock"]["ssim"] >= 0.90
+                     and o["opening_lock"]["raw_ssim"] < 0.90
+                     and o["opening_lock"]["transform"]["mode"] == "squeeze_x"
+                     and 0.975 <= o["opening_lock"]["transform"]["sx"] <= 0.99
+                     and o["opening_lock"]["transform"]["sy"] == 1.0))
+    case("P1: the squeezed take against a different image still fails the lock",
+         lambda: chk(sq, other, 1.5, 1, lambda o: o["opening_lock"]["ssim"] < 0.90))
+
+    # ---- P3: window_start. SH02 (1.0-2.0 s, hard cuts) gets a take that is red for 0.5 s,
+    # then blue; the talker file is 1500 Hz for 0.5 s, then 1000 Hz.
+    def load(p):
+        return json.loads(Path(p).read_text())
+    rb = colors(d, "take_redblue.mp4", [("0xD02020", 12), ("0x2020D0", 60)], fps=24)
+    blue = d / "still_blue.png"
+    ffmpeg("-f", "lavfi", "-i", "color=c=0x2020D0:s=%dx%d" % (W, H), "-frames:v", "1", blue)
+
+    def p3_setup(tag, ws):
+        jf = d / ("p3_" + tag)
+        jf.mkdir()
+        dd = load(sj)
+        rows = {r["id"]: r for r in dd["shots"]}
+        for sid in ("SH01", "SH04"):
+            rows[sid]["new"]["takes"][0]["sensor"] = "sheets"
+        rows["SH02"]["new"]["takes"] = [{"id": "SH02_t1", "jobId": "job-SH02", "path": str(rb), "pick": True,
+                                         "sensor": "sheets", "window_start": ws}]
+        (jf / "shots.json").write_text(json.dumps(dd))
+        return jf
+
+    def p3_build():
+        jf = p3_setup("ws", 0.5)
+        vo_wav, talk = d / "vo_440_p3.wav", d / "talker_1500_1000.wav"
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=4", vo_wav)
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=1500:sample_rate=48000:duration=0.5", "-f", "lavfi", "-i",
+               "sine=frequency=1000:sample_rate=48000:duration=2.5", "-filter_complex",
+               "[0:a][1:a]concat=n=2:v=0:a=1[a]", "-map", "[a]", talk)
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "none",
+                           "--vo", vo_wav, "--vo-start", 0, "--talker", "SH02=%s" % talk)
+        m = jf / "master.mp4"
+        if not m.exists():
+            return False, "exit=%d no master %s" % (c, e[-300:])
+        px = [frame_rgb(m, t) for t in (1.1, 1.9)]
+        g = goertzel(m, 1.15, 1.85, (1000, 1500))
+        rec = load(jf / "assembly.json")
+        tk = (rec.get("audio") or {}).get("talkers") or [{}]
+        row = {x["id"]: x for x in rec["shots"]}["SH02"]
+        ok = (c == 0 and all(p[2] > 150 and p[0] < 80 for p in px)
+              and g[1000] / max(g[1500], 1e-9) > 10
+              and abs(tk[0].get("src_a", -1) - 0.5) < 1e-6 and abs(tk[0].get("src_b", -1) - 1.5) < 1e-6
+              and tk[0].get("window_start") == 0.5 and (row.get("take") or {}).get("window_start") == 0.5)
+        return ok, "exit=%d rgb@1.1,1.9=%s 1000/1500=%.1f talker=%s %s" % (
+            c, px, g[1000] / max(g[1500], 1e-9), {k: tk[0].get(k) for k in ("src_a", "src_b", "window_start")}, e[-150:])
+    case("P3: build trims a pick at new.takes[].window_start (0.5 s: blue, not red) and the --talker span follows it "
+         "(src 0.5-1.5 s: 1000 Hz, not 1500)", p3_build)
+
+    def p3_negative():
+        jf = p3_setup("neg", -0.2)
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "none")
+        err = (out or {}).get("error") or ""
+        return (c == 2 and "window_start -0.2 is negative" in err and not (jf / "master.mp4").exists()
+                and not (jf / "build").exists()), "exit=%d error=%s" % (c, err[-150:])
+    case("P3: a negative window_start is refused (exit 2) before anything renders", p3_negative)
+    case("P3: check --window-start 0.5 reads the lock at that frame (the blue still locks there, not at frame 0)",
+         lambda: (lambda a, b: (a[0] and b[0], a[1] + " | " + b[1]))(
+             chk(rb, blue, 1.0, 1, lambda o: o["opening_lock"]["ssim"] >= 0.99 and o["opening_lock"]["at"]["frame"] == 12
+                 and o["window_start"] == 0.5, ws=0.5),
+             chk(rb, blue, 1.0, 1, lambda o: o["opening_lock"]["ssim"] < 0.90)))
+
+    # ---- P4: a grey-ish take against a vivid target
+    gr = product_clip(d, "greyish.mp4", bg="0x6E747C", dur=2)
+
+    def p4_raise():
+        m0 = st.window_stats(st.stats_series(str(gr)), 0.0, 2.0)["SATAVG"]
+        target = m0 * 1.15
+        k, info = asm.solve_other_scale(gr, target, band)
+        out = d / "greyish_raised.mp4"
+        enc(out, "-i", gr, "-vf", asm.hue_protected_grade_filter(band, k), fps=24)
+        m1 = st.window_stats(st.stats_series(str(out)), 0.0, 2.0)["SATAVG"]
+        gate = asm.hue_gate(out, ungraded=gr, windows=[(0.0, 2.0)], band=band)
+        k_hi, _ = asm.solve_other_scale(gr, m0 * 10, band)
+        k_lo, _ = asm.solve_other_scale(gr, m0 * 0.5, band)
+        ok = (1.0 < k < asm.GRADE_K_MAX and abs(target - m1) < abs(target - m0) and abs(target - m1) < 1.0
+              and gate["verdict"] == "PASS" and gate["chroma_retained"] >= 0.97 and abs(gate["hue_drift"]) <= 1.0
+              and k_hi == asm.GRADE_K_MAX and k_lo < 1.0)
+        return ok, "sat %.2f -> %.2f (target %.2f) k=%.3f k_max=%s gate=%s kept=%s drift=%s k@x10=%s k@x0.5=%.3f" % (
+            m0, m1, target, k, info.get("k_max"), gate["verdict"], gate.get("chroma_retained"), gate.get("hue_drift"),
+            k_hi, k_lo)
+    case("P4: the grade raises a grey-ish take toward a vivid target (1 < k <= 1.6) and the product keeps its chroma",
+         p4_raise)
+
+
+def goertzel(path, a, b, freqs):
+    """Goertzel magnitude per frequency in the file's audio over [a, b], mono 48 kHz."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", "%.3f" % a, "-t", "%.3f" % (b - a), "-i", str(path),
+                        "-vn", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"], capture_output=True)
+    pcm = [int.from_bytes(r.stdout[i:i + 2], "little", signed=True) for i in range(0, len(r.stdout) - 1, 2)]
+    mags = {}
+    for f in freqs:
+        w = 2 * math.cos(2 * math.pi * f / 48000.0)
+        s1 = s2 = 0.0
+        for x in pcm:
+            s1, s2 = x + w * s1 - s2, s1
+        mags[f] = math.sqrt(max(0.0, s1 * s1 + s2 * s2 - w * s1 * s2)) / max(1, len(pcm))
+    return mags
 
 
 if __name__ == "__main__":

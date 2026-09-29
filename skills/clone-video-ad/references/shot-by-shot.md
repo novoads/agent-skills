@@ -43,8 +43,9 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
 | S4 | The new script, one line per shot, checked by `pace.py check` | local | **C**: dialogue (SKILL step 7) |
 | S5 | Voice picked from `GET /v1/voices`; every still, take, the voiceover, talker conversions, the QC calls and the transcripts priced | `/v1/estimates` | **D**: one yes, priced |
 | S6 | Casting stills and room plates, then one still per shot, then take 1 per rendered shot, 5 in flight | `/v1/images`, `/v1/videos` | none |
-| S7 | The free checks, the QC calls, adaptive take 2, the picks | local, `/v1/analyses` | **E**: a stop. Picks shown, free to flip |
-| S8 | Voiceover, fit and align; talkers; `assemble.py build`; captions; `verify`; transcript diff | local, `/v1` | none |
+| S7 | The free checks, the QC calls, adaptive take 2, the picks written to `shots.json` | local, `/v1/analyses` | **E**: a stop. Picks shown, free to flip |
+| S8 | Only after gate E's answer: voiceover, fit and align; talkers; `assemble.py build`; `verify`; transcript diff | local, `/v1` | none |
+| S9 | Hand-over: the build's files under their own names; captions offered, priced, burned only on a yes | local | offer |
 
 - Gates A, B and C may be shown together, but each answer is its own approval (SKILL step 7).
 - **A source with no speech.** The S0 transcript can answer `409` "No speech was detected" on a
@@ -61,9 +62,12 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
 
   Nothing is spent before it. Anything beyond these bounds (a third take, a third regeneration of
   a still, a fourth voiceover transcript) is a new priced yes.
-- **Gate E is a stop, like A to D.** It spends nothing. Show each shot's pick, its checks and the
-  sensor that picked it, then end your turn and wait. The user's answer (a go, or flips) comes
-  before the voiceover and before `build`; never assemble past an unanswered gate E.
+- **Gate E is a stop, like A to D.** It spends nothing. Write each pick into `shots.json` first
+  (§ The shot table is the ledger), then show each shot's pick, its checks and the sensor that
+  picked it, and end your turn. **Nothing in S8 starts before the user answers gate E**: not the
+  voiceover, not its fit or its transcripts, not a talker conversion, not `build`. The voiceover is
+  priced at gate D and made after gate E, never while takes render or QC runs. A turn that ends
+  on takes still rendering is not gate E; gate E is the turn that shows every pick.
 
 ## The shot table is the ledger
 
@@ -128,6 +132,13 @@ measured stats, frames and strips of those rows. `--resegment` re-cuts from the 
 starting over, and refuses (exit 2) while any row has a take in its ledger. `build` reads the picked take
 from `new.takes[]` (`pick: true`, its `path`) and a hold's `new.still_path`; a relative path
 resolves against `outputs/<job>/`, then the working directory.
+
+**The picks are ledger fields, written at gate E, before `build`.** On every rendered row, set
+`pick: true` on exactly one take in `new.takes[]` and write that take's `sensor` (`analysis` or
+`sheets`) and its `qc` verdict beside it, then show gate E. A flip at gate E moves `pick` in the
+file before `build` runs. `build` reads the picks from `shots.json` and nothing else: a pick that
+lives only in your message to the user is not a pick, and a rendered row with no `pick: true` stops
+the build.
 
 **The job folder.** The scripts write only `shots.json`, `frames/` and `strips/` (`shot_table.py`)
 and `build/` (per-shot segments and the silent graded cut), `master.mp4`, `master_ungraded.mp4`
@@ -215,6 +226,8 @@ or square):
 > `<Vertical | Horizontal | Square>` phone photo. A `<framing>` of the person in image 2
 > `<pose at the shot's first frame>`, filling about `<subject_fill_pct>`% of the frame height at
 > `<subject_pos>`, in the room from image 3, `<light_words>`, `<camera height and angle>`. The
+> hands and person match image 2 exactly, with no jewelry, nail colour or accessories that image 2
+> does not show. The
 > `<product>` must be exactly the `<product>` in image 1: `<features read off the photo: shape,
 > colours, materials, the label text as printed>`. No text overlays.
 
@@ -295,36 +308,61 @@ scale), **no invented cut** inside `[0, dur]`, and **motion present**: the most 
 0.5 s window inside `[0, dur]` clears the floor, so a take that finishes its action and then holds
 (§ Motion prompts) passes, and only a take frozen throughout fails.
 
-**Then the paid reads, one per reel.** Cut each passing take's `[0, dur]` window, slow it 2-4x so
-the default sampling sees every moment, and join the windows into reels of **at most about 30 s
-each** (the endpoint reads tight near 20 s and scatters at 120). Keep each reel's index (reel
-seconds to shot and take) in `outputs/<job>/qc/reel_<n>.json`:
+**Then the paid reads, one per reel.** Trim each passing take to its `[0, dur]` window, slow the
+trimmed window 3x so the sampling sees every moment, and join the windows into reels of **at most
+about 30 s each** (the endpoint reads tight near 20 s and scatters at 120). **Trim before you
+slow, inside the filter.** A `-t` written after `-i` is an output limit: it applies after `setpts`,
+so it keeps `dur` seconds of the slowed clip, which is only the first third of the window at 3x.
+One command builds the whole reel, each window trimmed, then slowed, then joined, at a normal
+frame rate (without `fps=24` a 3x reel plays at 8 fps):
 
 ```bash
-ffmpeg -y -i outputs/<job>/takes/SH01_t1.mp4 -t 2.4 -vf "setpts=3*PTS" -an outputs/<job>/qc/SH01_t1.mp4
+ffmpeg -y -i outputs/<job>/takes/SH01_t1.mp4 -i outputs/<job>/takes/SH03_t1.mp4 -filter_complex \
+  "[0:v]trim=0:1.77,setpts=3*(PTS-STARTPTS)[a];[1:v]trim=0:2.27,setpts=3*(PTS-STARTPTS)[b];[a][b]concat=n=2:v=1,fps=24[v]" \
+  -map "[v]" -an -c:v libx264 -pix_fmt yuv420p outputs/<job>/qc/reel_1.mp4
+ffprobe -v error -show_entries format=duration -of csv=p=0 outputs/<job>/qc/reel_1.mp4
 ```
+
+**Prove the reel before paying for it.** `trim` keeps whole frames, so each window lasts
+`ceil(dur x 24) / 24` seconds at the takes' 24 fps (1.77 s is 43 frames, 1.792 s), and the reel runs the sum of those
+times the slow factor: here (1.792 + 2.292) x 3 = 12.25 s. The probe must match that within
+0.05 s. A reel about a third of that length was cut after the slow; rebuild it, never send it.
+Then write `outputs/<job>/qc/reel_<n>.json`: `slow`, and one segment per window with its shot,
+take, `take_end` (`dur`) and its `reel_start` and `reel_end`, the running sum of those frame-rounded
+windows times `slow` (SH01 0 to 5.375, SH03 5.375 to 12.25). The last `reel_end` must equal the
+probed length within 0.05 s. Size the reels before gate D, so their count is the number of
+analysis calls it prices; a reel that would pass about 30 s is split, or slowed 2x instead of 3x.
 
 Upload each reel (SKILL step 2) and send one `POST /v1/analyses` per reel: several flat-fee calls,
 all priced at gate D. The body is strict (an unknown key is a free `400`) and, as of 2026-09-29,
-takes `assetId`, `maxSeconds`
-(1 to 120, default 20: set it to the reel's length) and an optional `question` (1 to 500
-characters), which the spec calls an instruction that steers what the breakdown emphasises and
-never changes the price. The forensic ask goes there:
+takes `assetId`, `maxSeconds` (an integer, 1 to 120, default 20) and an optional `question` (1 to
+500 characters), which the spec calls an instruction that steers what the breakdown emphasises and
+never changes the price. The endpoint reads `maxSeconds` from the start of the reel and publishes
+no sampling field, so **`maxSeconds` is the probed reel length rounded up**, and every window's
+`reel_end` must be at or under it; a reel longer than 120 s cannot be read whole and is split.
+The answer's `analyzedWindowSeconds` echoes the ceiling you sent, not what the reel holds, so it
+proves nothing about coverage: the probe does.
 
 ```bash
 curl -sS -X POST "${NOVOADS_BASE_URL:-https://api.novoads.ai}/v1/analyses" \
   -H "Authorization: Bearer $NOVOADS_API_KEY" -H "Content-Type: application/json" \
-  -d '{"assetId":"<the reel assetId>","maxSeconds":<reel seconds>,"question":"<the ask below>"}'
+  -d '{"assetId":"<the reel assetId>","maxSeconds":<ceil(probed seconds)>,"question":"<the ask below>"}'
 ```
+
+The forensic ask, with the reel's windows written into its last sentence from the index:
 
 > Second by second, list every defect with its timestamp: a hand or finger that appears, vanishes
 > or doubles; an object that moves on its own; a face or product that morphs; a label or colour
 > that changes; text that appears; a cut; motion that freezes. Say "clean" for a clean stretch.
+> The reel is 2 clips: clip 1 from 0 to 5.4 s, clip 2 from 5.4 to 12.25 s; the join at 5.4 s is
+> expected.
 
-The answer is a breakdown the question steers, not a promised defect list: a take whose stretch
-comes back with no timestamps you can map is read on contact sheets instead. Map each timestamp
-back through that reel's index. Size the reels before gate D, so their count is the number of
-analysis calls it prices; a reel over about 30 s is split, or slowed 2x rather than 4x.
+Keep the whole question within 500 characters: shorten the defect list, never the windows. The
+answer is a breakdown the question steers, not a promised defect list, and its timestamps come in
+whole seconds (a third of a second of take at 3x): a take whose stretch comes back with no
+timestamps you can map is read on contact sheets instead. Map each timestamp back through that
+reel's index; a join the answer reports at a time the index does not hold means the reel is not
+the one the index describes.
 
 **The fallback sensor is contact sheets**, a frame every 0.25 s over the used window, read by you:
 
@@ -420,7 +458,16 @@ last `align` output and ask before a fourth, which is a new priced yes.
 
 ## Captions
 
-Only when the source carries burned-in captions. **The text comes from the new voiceover's
+**Captions are an offer at hand-over, never a default.** Nothing is burned into a delivered file
+unasked, and captions are not part of gate D's set. At hand-over, offer them once with their price,
+both paths as the caption-video skill lays them out: `POST /v1/captions`, priced live (SKILL step
+9), and the local burn, which costs no credits. Mention it when the source carried burned-in
+captions. **Burn only on a yes**, into a copy (`master_captioned.mp4`, and
+`master_ungraded_captioned.mp4` when the user wants the twin too), so `master.mp4` stays
+uncaptioned. **A "no captions" the user already gave stands**, whenever it was said: do not price
+captions, do not offer them again, do not burn them.
+
+On a yes: **the text comes from the new voiceover's
 transcript**, hand-checked against the approved script; only the **style** comes from the source:
 size, weight, case, position and words per card. The source's captions repeat its own voiceover word
 for word, brand included, so copying them leaks a competitor's name into your ad. **No token from
@@ -508,13 +555,18 @@ refusals above (the photo, its colour, the aspect).
   saturation against the source, and `extra_025` (unexplained hard hits), are reported and never
   fail it; the ±2 brightness check lives in `build` (`luma_ok`). A failing cut names the shot.
 
-Then burn captions, and run SKILL step 12's transcript diff on the finished master.
+Then run SKILL step 12's transcript diff on the finished master. Captions wait for the hand-over
+offer (§ Captions).
 
 ## Hand-over
 
 Into `outputs/<job>/`, then open the folder (SKILL step 12):
 
-- **Both masters**, graded and ungraded (captioned, when the source was), and which grade each is.
+- **The build's files keep the names `build` wrote**: `master.mp4`, `master_ungraded.mp4`,
+  `assembly.json`. Never rename or move them; `verify`, the transcript diff and a resumed session
+  look for those names. A deliverable with a friendlier name is a copy
+  (`cp master.mp4 <product>-graded.mp4`), and the hand-over names both.
+- **Both masters**, graded and ungraded, uncaptioned, and which grade each is.
   The twin is silent; give it the master's audio with
   `ffmpeg -i master_ungraded.mp4 -i master.mp4 -map 0:v -map 1:a -c copy master_ungraded_audio.mp4`.
 - `shots.json`, the ledger: every still prompt, motion prompt, `jobId`, check and pick.
@@ -525,6 +577,7 @@ Into `outputs/<job>/`, then open the folder (SKILL step 12):
   to the original creator. The clone recasts it with new people, rooms, words and product; whether
   it may run as an ad is the user's call to clear.
 - The total spend, summed from the `creditsCharged` values the API returned.
+- **The captions offer**, with its price (§ Captions), unless the user already said no captions.
 
 ## Cost shape
 

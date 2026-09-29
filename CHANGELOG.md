@@ -12,7 +12,34 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Added
+
+**`clone-video-ad`: the shot-by-shot route.** Step 5 now prices two routes live and the user picks:
+the single render as before, or a shot-by-shot rebuild for a multi-shot clone wanted "like the
+original" (a new still per shot from a casting still and a room plate, a short silent take animated
+from it, one voiceover for the whole ad, and a local assembly on the source's cut times, graded
+LIGHT or NONE behind a product-hue gate). The route lives in `references/shot-by-shot.md`, with
+`shots.json` as its resumable ledger, and runs three stdlib-plus-ffmpeg scripts in the skill's new
+`scripts/` directory: `shot_table.py`, `pace.py` and `assemble.py`. Their test,
+`test_shot_clone.py`, builds its own fixtures and runs in the `media` CI job and in `doctor.sh`.
+`evals.md` adds E7 to E10: the shot-by-shot clone, the per-shot render rules, the route gate, and
+resume.
+
 ### Changed
+
+**`clone-video-ad`: a pace rule replaces the words-per-second cap, in both routes.** Words per shot
+(per line on a single render) within ±1 of the source's, the total within ±5%, syllables as the
+tie-break, phrase breaks on the same cuts, and speech start and end within 0.15 s of the source's.
+The 2.0 words-per-second read-back and the ±3 words per line are gone.
+
+**`clone-video-ad`: the photo carries the product.** Step 6 no longer re-describes the product's
+appearance in a video prompt: it names the product and lets the reference image show it. The shot
+route's stills carry a preservation clause instead.
+
+**`clone-video-ad`: the historical API notes moved to `references/api-notes.md`.** The stale line in
+them that said there is no video-to-video path now names `omni-flash`'s reference video and, where
+`GET /v1/openapi.json` publishes it, its `firstFrameAssetId`. `SKILL.md` shrank from 839 to 834
+lines and its size baseline was lowered to match.
 
 **`omni-flash` `4k` on API 2.31.0.** `novoads-api`, the Omni Flash prompting guide and the README
 add `4k` to Omni's possible resolutions, only where `GET /v1/models` lists it: the server

@@ -16,3 +16,12 @@ a folder of scripts rather than one file and only exists in the full pack, so re
 `MASTER_CONTEXT.md` are absent too: set `NOVOADS_API_KEY` in the environment yourself, and ask the
 user for brand voice and product instead of reading it.
 
+## The shot route needs this skill's `scripts/`
+
+The shot-by-shot route (`references/shot-by-shot.md`) runs `shot_table.py`, `pace.py` and
+`assemble.py` from the skill's own `scripts/` directory, which must sit beside `SKILL.md`. An
+install that copied only `SKILL.md` and `references/` lacks them: copy `skills/clone-video-ad/scripts/`
+from the same raw URL or the clone above. Their commands are written from the pack root
+(`python3 skills/clone-video-ad/scripts/<name>.py`); outside the pack, point them at wherever
+that directory landed. The single render needs none of them.
+

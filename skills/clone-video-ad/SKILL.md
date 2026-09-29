@@ -40,7 +40,7 @@ inside the full pack.
 
 This skill links outward more than any other here, and its two biggest targets fan out again
 (22 and 10 further links). **A file reached through another file gets skimmed, not read**, so
-open these four directly, in order. Everything else is lookup.
+open these directly, in order. Everything else is lookup.
 
 1. **This file** — workflow, gates, the constraints that bite.
 2. `../novoads-api/prompting/prompt-library/seedance-2.md` — fields, grid, prompt craft, what
@@ -49,34 +49,11 @@ open these four directly, in order. Everything else is lookup.
    `-feature-walkthrough` demo, `-premium-reveal` / `-product-hero` product-only,
    `-studio-lookbook` polished. Same directory as (2).
 4. `../../shared/references/craft.md` § 1 — the transcribe-verify doctrine step 12 rests on.
+5. `references/shot-by-shot.md` — only when step 5 picks the shot route, which it runs end to end.
 
 `../novoads-api/SKILL.md` is the contract, not a step: open it when a response shape or an
-error code needs settling.
-
-## What this API changes about cloning
-
-The analysis half is nearly untouched: frames and the beat structure are local work on the
-user's file, and the transcript is one cheap API call instead of a local install (step 2).
-The generation half has three differences worth knowing before you promise anything. All three were established with free `400` probes that reject
-before any charge, and re-verified field-for-field against the deployed spec `2.12.0`
-(2026-08-06):
-
-| The old shape | Here |
-|---|---|
-| Chain clip 1 → clip 2 → clip 3 as reference **videos**, so each clip inherits the last | **There is no video-to-video path.** `referenceVideos` is `400 (root): Unrecognized key`, and references are images only. What holds a series together is passing the **same image `assetId`s to every clip** plus repeating the actor tag verbatim — see step 5 |
-| `audioEnabled: true` to switch speech on, `false` for a silent clone | **`audioEnabled` exists here now, on the two Seedance variants only** (added in spec `2.2.0`; `400 Unrecognized key` on `omni-flash`, `veo-3.1` and `sora-2`). It defaults to `true`, so a clone with dialogue needs nothing. Send `false` only for a deliberately silent clone — and **still write the silence into the prose**, because the flag mutes the render while the prose is what stops the model staging a talking shot. It does not change the price, and `POST /v1/estimates` refuses the field |
-| Upload the source audio as `referenceAudios` to clone the voice | **There is no voice cloning on this API** (`400 Unrecognized key`). Describe the voice in the prompt — age, accent, pace, energy — and accept that it is a different person's voice. Do not offer the user a voice match you cannot deliver |
-
-Also gone, in the same probe: `endFrame`, `projectId` (this
-API has products, not projects), `duration` (it is `durationSeconds`) and `referenceImages`
-(it is `referenceAssetIds`).
-
-**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2.5x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs ≈half of `720p`** since the 2026-08-07 family reprice — measured live 2026-08-12, exactly half on both `seedance-2.0` and `seedance-2.5` — so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. Never send the key on `seedance-2.0-mini`, which renders 720p only.
-
-**And one the old shape got wrong in the other direction:** aspect ratio is not
-`9:16`-or-`16:9`. Seedance takes `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` — probed live, `1:1`
-and `4:3` both pass validation — so a square or landscape source clones at its own ratio
-instead of being letterboxed into a vertical frame.
+error code needs settling. `references/api-notes.md` is history: what this API changed about
+cloning, and why. The rules a run needs are in the constraints table at the end.
 
 ## Prerequisites
 
@@ -170,7 +147,9 @@ guesswork the user pays for.
 
 ### Step 1: Extract frames and audio
 
-Reuse the analyze-video script. Do not duplicate it.
+Reuse the analyze-video script. Do not duplicate it. **On the shot route** (step 5; likely for a
+multi-shot source wanted "like the original"), replace this frame table after step 2 with the free,
+local shot table, which is step 4's contract: `python3 skills/clone-video-ad/scripts/shot_table.py SOURCE.mp4 --job outputs/<job> --transcript TRANSCRIPT.json`
 
 ```bash
 bash "skills/analyze-video/scripts/extract-frames.sh" \
@@ -347,6 +326,16 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
 
 ### Step 5: Decide the generation mode
 
+**First the route: shot by shot, or a single render.** Price both with live `POST /v1/estimates`
+calls (the shot route's set is in `references/shot-by-shot.md`), show both totals side by side, and
+let the user pick. They differ several-fold, so never choose silently.
+
+- **Recommend shot by shot** when all three hold: the user wants it "like the original", the
+  source has at least 2 shots, and the product, hands or people are on screen. `seedance-2.0-mini`
+  takes are its draft tier. That route then runs from its reference; step 7 still gates its script.
+- **Recommend the single render** (below) when any one holds: the source is one continuous take,
+  the ask is a draft or a quick version, or the clip is a lip-synced talking head.
+
 ```
 ┌─ Source ≤ 15 seconds?
 │   YES → one clip. durationSeconds = the source duration, rounded to an integer in 4–15.
@@ -411,11 +400,9 @@ solved by waiting for a slot and not by backing off harder.
 **Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at half the
 price, back in 2–3 minutes instead of 3–8. Its fields are the same **except `resolution`**,
 which it does not take at all — it renders 720p, and sending the key is a `400`. A clone is
-exactly the case
-for it: the first render is where you find out whether your reading of the source survived
-into the prompt. Draft on mini, re-price with `model` set to the final tier, and show both
-numbers side by side. `SKILL.md` makes the tier an explicit question, asked once per
-workflow.
+exactly the case for it: the first render is where you find out whether your reading of the
+source survived into the prompt. Draft on mini, re-price with `model` set to the final tier, and
+show both numbers side by side. `SKILL.md` makes the tier an explicit question, asked once per workflow.
 
 **Ask how many variations, and which kind — here, not at generation time.** Default 1. Two
 different things share the word: the **same script rendered N times** (identical payload,
@@ -438,9 +425,10 @@ The creative core. Working from step 3:
 - Keep the **same number of spoken lines** and the **same silent-beat placement**.
 - Keep the **same energy arc**: excited → calm, flat, or building.
 - Replace product-specific references with the user's product name, features and claims.
-- Match each line's **word count within about ±3 words** so the pacing survives.
-- Read it back at a natural pace against the target duration: **2.0 words per second** measured
-  (~13 chars/sec with spaces), so a `D`-second clip holds about `2.0 × (D − 0.5)` words.
+- **The pace rule, in both routes:** words per shot (per line on a single render) within ±1 of the
+  source's, the total within ±5%, syllables the tie-break when a brand name splits, phrase breaks
+  on the same cuts, and speech start and end within 0.15 s of the source's. `scripts/pace.py check`
+  tests it wherever step 1 wrote `shots.json`.
 - **Script variants.** If they asked for N *script variants* rather than N renders of one
   script (step 5), write N distinct adaptations that share the beat structure, the
   silent-beat placement and the per-line word counts, and differ in the hook angle, the
@@ -450,7 +438,8 @@ The creative core. Working from step 3:
 **Visual adaptation:**
 
 - Keep the camera work, the framing per beat, and the edit style you analysed.
-- Replace the product description: physical appearance, colours, materials, label details.
+- **The photo carries the product:** name it and let the reference image show it; do not
+  re-describe its appearance in a video prompt (the shot route's stills use a preservation clause).
 - Keep the setting, the lighting and the atmosphere.
 - Keep the person description, unless the user wants a different persona.
 - Keep the technical-flaw cues — phone quality, mic character, imperfect light. They are
@@ -470,10 +459,9 @@ for a polished voiceover source. Cloning onto a different model reads that model
 mode only.** Take the beats-inside-one-render mechanics from v2 and the prompt craft from
 v1, which is the scope that file's own contract sets — and say which came from which when
 you present the prompt, so a wrong borrow is visible before it renders. **Your source beat
-map wins over its
-beat doctrine.** v2 defaults to one-shot and tells you to keep silent beats out of the base;
-a clone is not writing a base video, it is reproducing one. If the source has a silent beat,
-the clone has a silent beat, and v2 does not get a vote on that.
+map wins over its beat doctrine.** v2 defaults to one-shot and tells you to keep silent beats
+out of the base; a clone is not writing a base video, it is reproducing one. If the source has
+a silent beat, the clone has a silent beat, and v2 does not get a vote on that.
 
 Then:
 
@@ -546,9 +534,8 @@ Three decisions:
 1. **`language`** — declared, not controlling. **The prompt is what decides the spoken
    language**: the render says whatever the quoted line says, and nothing rejects a body
    whose `language` disagrees with it. Default the field from the `language` the transcript
-   returned (step 2), state
-   it in the gate above, and then actually write the dialogue in that language — the field
-   records the ad for later reporting, it does not translate anything.
+   returned (step 2), state it in the gate above, and then actually write the dialogue in that
+   language — the field records the ad for later reporting, it does not translate anything.
 2. **Whether the clone speaks at all.** A silent source clones silent, and that takes
    **both halves**: `audioEnabled: false` in the `POST /v1/videos` body, **and** the
    silence written into the prompt prose (`silent b-roll, no spoken dialogue`). The flag
@@ -711,6 +698,8 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   the timestamp, endpoint, model, `jobId`, `productId` and the request config: duration,
   aspect ratio, language, reference count, prompt **word count**. Never the prompt text,
   never the key, never a presigned URL. The log is observability, never a pricing source.
+- **On the shot route `outputs/<job>/shots.json` is the ledger.** Write each `jobId` into it before
+  polling; a resumed session polls the ids already there and submits only rows without one.
 
 ### Step 12: Poll, download, hand over
 
@@ -794,6 +783,7 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2.5x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈half** the base since the 2026-08-07 reprice (measured live 2026-08-12), so it is a real draft tier. `400 Unrecognized key` on `seedance-2.0-mini`, `sora-2` and `veo-3.1`, and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
 | `audioEnabled` — **Seedance only**, optional, default `true` | Send `false` for a silent clone. `400 Unrecognized key` on the three non-Seedance video models, and on `POST /estimates` for every model |
 | `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5** |
+| A shot shorter than 4 s | Renders at `durationSeconds: 4`, the floor, and is trimmed locally to its length (shot route: `max(4, ceil(dur + 0.2))`) |
 | `aspectRatio` `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | Default is **`16:9`**. Set it, or a vertical clone ships landscape |
 | Prompt within the model's cap | Enforced on the estimate too, against whichever `model` you name |
 | Audio is rendered from the prompt | The spoken line is lip-synced in this same call at no extra cost, which is why gate 1 exists. `audioEnabled: false` mutes the render; it does not give you a separate audio track to direct |
@@ -824,6 +814,7 @@ quote when reporting a problem.
 | The clone looks nothing like the source | The reading was wrong, not the render | Go back to the beat map with the user before spending again. Change **one** element per iteration — framing, or pacing, or the anchor — never three |
 | The label came back garbled | Seedance preserves logos and destroys printed text | Say in the prompt that the label stays sharp and unchanged, and check the reference photo actually shows it sharp |
 | The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only. The label being perfect tells you nothing about the audio |
+| A take cut mid-action, or frozen | The action had not finished at the trim point, or nothing moved (`assemble.py check`) | Re-take that shot only, one change to its motion prompt; never re-fire the set |
 | Source longer than 15s | Not a failure | Present the two routes from step 5 and let the user pick. Do not split on your own initiative |
 
 ## Related files
@@ -837,3 +828,7 @@ section does not repeat them. What is only here:
   frame and audio extraction, shared by both.
 - [novoads-api/reference.md](../novoads-api/reference.md) — every endpoint, field, limit and
   error code. A lookup, not a read-through.
+- [references/shot-by-shot.md](references/shot-by-shot.md) — the shot route, run by
+  [shot_table.py](scripts/shot_table.py), [pace.py](scripts/pace.py) and [assemble.py](scripts/assemble.py),
+  tested by [test_shot_clone.py](scripts/test_shot_clone.py).
+- [references/api-notes.md](references/api-notes.md) — what this API changed about cloning, as history.

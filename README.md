@@ -489,14 +489,17 @@ draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash`
 `720p` and `1080p`, plus `4k` where the server publishes it: read the live list, never assume `4k`.
 
 **Kling 3.0 is on this API as `kling-v3-pro` since API 2.38.0**, where `GET /v1/models` lists it:
-any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, audio on or off, text or a start frame. Its
+any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, audio on or off, text or a start frame, and
+since 2.44.0 an end frame beside the start frame. Its
 prompt library in `skills/novoads-api/prompting/prompt-library/` is vendor craft; the request body
 comes from the skill's `reference.md`. There is no b-roll or scene endpoint: a silent `omni-flash`
 or Seedance clip is the b-roll path.
 
-**Also on the API since 2.41.0 to 2.43.0:** background removal on a video up to 30 seconds
+**Also on the API since 2.40.0 to 2.44.0:** the dashboard's image to ad, product to ad and upscale
+tools on one photo (`preset` on `POST /v1/images`), background removal on a video up to 30 seconds
 (`POST /v1/background-removals`), your product in a library actor's hands on the Seedance family
-(`productSwap`), and a library actor moved by a clip you upload (`POST /v1/videos/animate-actor`).
+(`productSwap`), and a library actor moved by a clip you upload (`POST /v1/videos/animate-actor`:
+MP4, MOV or WebM, with or without the clip's own sound).
 Each is quoted by `POST /v1/estimates` before anything is spent.
 
 ## What's in the box

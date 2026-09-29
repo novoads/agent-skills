@@ -14,6 +14,19 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ### Changed
 
+**Image presets (API 2.40.0).** `novoads-api` documents `preset: "image-to-ad" | "product-to-ad" |
+"upscale"` on `POST /v1/images`: the dashboard's three one-photo tools, run on the photo in
+`imageAssetId` with no `model` or `prompt`. Quoted by `POST /v1/estimates` with the same `preset`,
+charged what it quoted, and polled like any image when it answers `running`. The image-ad overview
+says when to reach for one.
+
+**Kling end frame, motion-control sound and WebM (API 2.44.0).** `kling-v3-pro` takes
+`lastFrameAssetId` beside `startImageAssetId`; `POST /v1/videos/animate-actor` takes
+`keepOriginalSound: false` and a WebM driving clip (`POST /v1/uploads` still takes no M4V). Neither
+changes how the job is priced. The `novoads-api` routing row for Kling keeps its original trigger,
+and the row for editing an existing MP4 is back to its original wording, with background removal
+on a row of its own.
+
 **Images can answer `running` (API 2.39.0).** `POST /v1/images` still usually returns the
 finished images, but a render still going after about 105 seconds now answers `200` with
 `status: "running"`, the same `jobId` and no images. The three image scripts (`chatgpt-image-ad`,

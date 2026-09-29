@@ -134,7 +134,7 @@ Sound: Raw phone audio, slight room echo, background hiss intact.
 ### Kling 3.0 — motion operator · **`kling-v3-pro` on this API**
 
 > Kling 3.0 is on `api.novoads.ai` as `kling-v3-pro` since API 2.38.0 (3 to 15 seconds, `startImageAssetId`,
-> no `referenceAssetIds`). The formula below is prompt craft for it; the body comes from `reference.md`.
+> an end frame beside it since 2.44.0, no `referenceAssetIds`). The formula below is prompt craft for it; the body comes from `reference.md`.
 > Its physics-first phrasing also transfers usefully to Seedance: describe motion as consequence,
 > anchor hands to objects.
 

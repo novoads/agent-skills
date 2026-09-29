@@ -184,6 +184,15 @@ And the edit's output tracks the source's shape, so `aspectRatio` cannot be sent
 the API answers `400`, deliberately, rather than reframing what you asked to preserve. If
 `GET /v1/openapi.json` does not show the field, this deployment has the arm off.
 
+**The dashboard's three one-photo tools are on the API too (API 2.40.0).** `POST /v1/images`
+with `preset: "image-to-ad"` (an ad built around the photo), `"product-to-ad"` (the photo in
+one of the dashboard's ad templates) or `"upscale"` (the photo at 4K), the photo in
+`imageAssetId`, and no `model` or `prompt`: the server writes the prompt. Reach for one when
+the user names that tool or wants a still upscaled; the 40-template library and the skills here
+stay the path for a prompt you control. Fields and refusals: the `novoads-api` skill's
+`reference.md`, section *`preset`*. Price it with `POST /v1/estimates` and the same `preset`;
+it can answer `running` like any image.
+
 ---
 
 ## Decision tree — which skill to use

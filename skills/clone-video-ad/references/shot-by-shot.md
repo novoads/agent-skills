@@ -43,7 +43,7 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
 | S4 | The new script, one line per shot, checked by `pace.py check` | local | **C**: dialogue (SKILL step 7) |
 | S5 | Voice picked from `GET /v1/voices`; every still, take, the voiceover, talker conversions, the QC calls and the transcripts priced | `/v1/estimates` | **D**: one yes, priced |
 | S6 | Casting stills and room plates, then one still per shot, then take 1 per rendered shot, 5 in flight | `/v1/images`, `/v1/videos` | none |
-| S7 | The free checks, the QC calls, adaptive take 2, the picks | local, `/v1/analyses` | **E**: picks shown, free to flip |
+| S7 | The free checks, the QC calls, adaptive take 2, the picks | local, `/v1/analyses` | **E**: a stop. Picks shown, free to flip |
 | S8 | Voiceover, fit and align; talkers; `assemble.py build`; captions; `verify`; transcript diff | local, `/v1` | none |
 
 - Gates A, B and C may be shown together, but each answer is its own approval (SKILL step 7).
@@ -61,8 +61,9 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
 
   Nothing is spent before it. Anything beyond these bounds (a third take, a third regeneration of
   a still, a fourth voiceover transcript) is a new priced yes.
-- Gate E spends nothing. Show each shot's pick, its checks and the sensor that picked it, and let
-  the user flip any pick before assembly.
+- **Gate E is a stop, like A to D.** It spends nothing. Show each shot's pick, its checks and the
+  sensor that picked it, then end your turn and wait. The user's answer (a go, or flips) comes
+  before the voiceover and before `build`; never assemble past an unanswered gate E.
 
 ## The shot table is the ledger
 

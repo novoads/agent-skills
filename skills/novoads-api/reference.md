@@ -154,7 +154,7 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `prompt` | required | required |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2` | `gpt-image-2.5-sunburst` (default), `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `reve-2.1` |
 | `durationSeconds` | 4 to 30 | n/a |
-| `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K`, `nano-banana-pro` only, default `2K`; **moves the price** (API 2.36.0) |
+| `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K` spelled exactly (`4k` is a `400`), `nano-banana-pro` only at 2.36.0, default `2K`; **moves the price** (API 2.36.0) |
 | `numImages` | n/a | 1 to 4 |
 | `quality` | n/a | `high` `medium` `low`, GPT Image models only, default `medium`; **moves the price** (API 2.36.0) |
 | `outputFormat` | n/a | `png` `jpeg` `webp`, GPT Image models only; does not move the price, accepted so the quote carries the body you will send (API 2.36.0) |
@@ -164,7 +164,7 @@ All eleven models price here, `veo-3.1` and `sora-2` included (verified live, 20
 
 **The `4 to 30` span is the OUTER bound across the whole set, and no model renders all of it.** Only `seedance-2.5` goes past 15 seconds; asking `seedance-2.0` for 20 is a `400` here rather than a quote for something it cannot render. The spec says so in the field's own description — read `GET /v1/models` for the per-model grid.
 
-**`resolution` is accepted here because it moves the price** — on `seedance-2.0`, `480p` is ≈half the `720p` base, `1080p` is ≈2.5x it and `4k` ≈5x (the 480p arm re-priced 2026-08-07; the rest verified live 2026-08-04). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
+**`resolution` is accepted here because it moves the price** (not on `veo-3.1`, one flat price at every tier, so its `720p` is never a saving) — on `seedance-2.0`, `480p` is ≈half the `720p` base, `1080p` is ≈2.5x it and `4k` ≈5x (the 480p arm re-priced 2026-08-07; the rest verified live 2026-08-04). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
 
 There is **no `styleFamily`** on either arm. The field was deleted from the whole API in spec `2.0.0`, and both arms are strict, so a body carrying it comes back `400 (root): Unrecognized key: "styleFamily"` (verified live, 2026-08-02).
 
@@ -266,7 +266,7 @@ An `@ImageN` token pointing past the end of the array is refused **before the ch
 
 ### Seedance video and audio references (API 2.35.0)
 
-**Video and audio references on Seedance (API 2.35.0).** `seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini` take `referenceVideoAssetIds` (mp4 only) and `referenceAudioAssetIds` (mp3 only) beside `referenceAssetIds` (images). Read the per-kind maxima and the total-file cap from `GET /v1/models` and the OpenAPI schema rather than typing them; over a per-kind maximum is a request validation error, and over the total is `reference_count`. The summed video seconds and the summed audio seconds are each capped, and measured server side before any charge (`reference_duration`); the other refusals are `reference_kind`, `reference_mode` and `reference_unreadable`. They cannot be combined with `startImageAssetId`. References do not change the price: quote it with `POST /v1/estimates` all the same. A busy organization gets `429 rate_limited` with `Retry-After`. `omni-flash` keeps its own single `referenceVideoAssetId`.
+**Video and audio references on Seedance (API 2.35.0).** `seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini` take `referenceVideoAssetIds` (mp4 only) and `referenceAudioAssetIds` (mp3 only) beside `referenceAssetIds` (images). Read the per-kind maxima and the total-file cap from the OpenAPI document (`GET /v1/openapi.json`: each field's `maxItems` and description, which also state the summed-seconds and total-file caps; `GET /v1/models` does not publish them) rather than typing them; over a per-kind maximum is a request validation error, and over the total is `reference_count`. The summed video seconds and the summed audio seconds are each capped, and measured server side before any charge (`reference_duration`); the other refusals are `reference_kind`, `reference_mode` and `reference_unreadable`. They cannot be combined with `startImageAssetId`. References do not change the price: quote it with `POST /v1/estimates` all the same, WITHOUT the reference fields (the estimate arm does not take them). A measurement that runs past the server's deadline is `reference_unreadable` with `details.retryAfterSeconds` and no `Retry-After` header; a field the model does not publish is `reference_field`. A busy organization gets `429 rate_limited` with `Retry-After`. `omni-flash` keeps its own single `referenceVideoAssetId`.
 
 ### `omni-flash` inputs (API 2.30.0)
 
@@ -305,7 +305,7 @@ Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row r
 | `sora-2` | **none** | 720p, fixed |
 | `veo-3.1` | `720p`, `1080p` since API 2.34.0 (before it, **none**, 1080p fixed) | read `defaultResolution` |
 
-For mini and Veo the tiers are their own schedules: quote the tier with `POST /estimates`, never with the Seedance ratios.
+For mini the tiers are their own schedule: quote the tier with `POST /estimates`, never with the Seedance ratios. On `veo-3.1` the tier does not move the quote at 2.34.0 (one flat price), so never offer `720p` as a cheaper option; quote it all the same.
 
 **`seedance-2.5` does not inherit 2.0's high tiers, and that is a provider fact rather than a rollout gap.** Neither provider serves the model above 720p at all, so `1080p` and `4k` are a `400` on it and always will be. Do not carry a resolution across a model switch: a workflow that renders `seedance-2.0` at `1080p` and then swaps the model id to `seedance-2.5` is a rejected request, not a downgrade.
 
@@ -366,7 +366,7 @@ Synchronous. The response carries `images[]` (`url`, `expiresInSeconds` 3600, `a
 
 Reference order is preserved and can be addressed positionally by the prompt. There is no base64 field: upload first, pass ids.
 
-**`quality`, `outputFormat` and `resolution` (API 2.36.0).** `quality` (`high`, `medium`, `low`; default `medium`) and `outputFormat` (`png`, `jpeg`, `webp`; default `png`) are GPT Image models only; `resolution` (`1K`, `2K`, `4K`; default `2K`) is `nano-banana-pro` only. Each is a `400` on a model that does not offer it. `quality` and `resolution` change the price, `outputFormat` does not; quote the exact cell with `POST /estimates`, sending the same fields.
+**`quality`, `outputFormat` and `resolution` (API 2.36.0).** `quality` (`high`, `medium`, `low`; default `medium`) and `outputFormat` (`png`, `jpeg`, `webp`; default `png`) are GPT Image models only; `resolution` (`1K`, `2K`, `4K`; default `2K`) is `nano-banana-pro` only. Each is a `400` on a model that does not offer it. `quality` and `resolution` change the price, `outputFormat` does not; quote the exact cell with `POST /estimates`, sending the same fields. Read the model's lists from `GET /v1/models` rather than this line; image `resolution` is matched exactly, so `4k` is a `400`.
 
 Images accept **no `startImageAssetId`** — there is no first-frame concept on a still — and **no `styleFamily`**, which no longer exists anywhere on this API.
 
@@ -943,7 +943,7 @@ curl -sS -X POST https://api.novoads.ai/v1/products \
 
 ## GET /models
 
-The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`** (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
+The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`**, and on image models that offer them, `qualities`, `outputFormats` and `resolutions`, each with its `default*` (API 2.36.0) (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
 
 **`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `sora-2` returns `["720p"]`; `seedance-2.0-mini` returned `["720p"]` and `veo-3.1` `["1080p"]` until API 2.34.0, which lists `480p` and `720p` for mini and `720p` and `1080p` for Veo; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
 

@@ -21,8 +21,8 @@
 // default and it sweeps for them. Naming VIDEO is what moves it here, and it
 // costs a second sweep in video mode before there is anything to clone.
 {"intent":"clone whatever video ads our competitors are running right now","expected_skill":"clone-video-ad","ambiguous_with":["clone-image-ad","spy-competitor-ads"]}
-// Near-misses. There is no video-to-video on this API, so restyling footage is
-// not a thin version of cloning it — it is impossible. The other two are the
+// Near-misses. There is no in-place restyle of footage on this API (a reference video
+// only guides a new render), so restyling footage is not a thin version of cloning it. The other two are the
 // business around the clone rather than the clone.
 {"intent":"restyle our existing footage so it looks hand drawn","expected_skill":null}
 {"intent":"ask our lawyer whether copying a competitor's ad this closely is allowed","expected_skill":null}

@@ -71,7 +71,7 @@ Also gone, in the same probe: `endFrame`, `projectId` (this
 API has products, not projects), `duration` (it is `durationSeconds`) and `referenceImages`
 (it is `referenceAssetIds`).
 
-**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2.5x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs ≈half of `720p`** since the 2026-08-07 family reprice — measured live 2026-08-12, exactly half on both `seedance-2.0` and `seedance-2.5` — so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. Never send the key on `seedance-2.0-mini`, which renders 720p only.
+**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2.5x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs ≈half of `720p`** since the 2026-08-07 family reprice — measured live 2026-08-12, exactly half on both `seedance-2.0` and `seedance-2.5` — so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. On `seedance-2.0-mini` send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on; before it Mini rendered 720p only and the key was a `400`).
 
 **And one the old shape got wrong in the other direction:** aspect ratio is not
 `9:16`-or-`16:9`. Seedance takes `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` — probed live, `1:1`
@@ -669,7 +669,7 @@ charge. A source video's id in `referenceAssetIds` comes back:
 ```
 
 `referenceAssetIds` takes **images only**: `image/jpeg`, `image/png`, `image/webp`. Since API 2.35.0
-the Seedance variants take mp4 and mp3 references in their own fields (`referenceVideoAssetIds`, `referenceAudioAssetIds`; see novoads-api), but a clone here is never built by feeding the original in.
+the Seedance variants take mp4 and mp3 references in their own fields (`referenceVideoAssetIds`, `referenceAudioAssetIds`; see novoads-api), and there the same `400`'s hint points at those two fields instead of the second line above; either way, a clone here is never built by feeding the original in.
 What carries a source's style into a clone is your reading of it, written into the prompt.
 
 ### Step 11: Generate

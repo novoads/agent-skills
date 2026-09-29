@@ -277,5 +277,5 @@ jobs:
         run: python3 shared/skills/music-mix/scripts/test_music_mix.py
       - name: broll-overlay (14 cases)
         run: python3 shared/skills/broll-overlay/scripts/test_broll_overlay.py
-      - name: clone-video-ad shot route (61 cases)
+      - name: clone-video-ad shot route (66 cases)
         run: python3 skills/clone-video-ad/scripts/test_shot_clone.py

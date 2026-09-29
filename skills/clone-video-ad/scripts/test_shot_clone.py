@@ -29,7 +29,10 @@ is refused and deleted. The full-length-run cases: the opening lock finds a take
 horizontally to about 0.985 of its width (and still fails a different image), a pick's
 window_start trims the take and moves the --talker span with it (a negative one refused, and
 check reads the lock at that frame), and the grade raises a grey-ish take's saturation toward
-a vivid target (k up to 1.6) while the product keeps its chroma.
+a vivid target (k up to 1.6) while the product keeps its chroma. The pre-merge cases: at k 1.6 a
+saturated patch keeps its hue (the per-pixel cap; V 28 never wraps to 224) and the twin hue gate
+fails the uncapped filter's wrap, a squeeze shifted 6 px passes only through the shift re-read
+(a different image still fails it), and the QC reel reads a take from its window_start.
 Requires ffmpeg/ffprobe on PATH. Python stdlib only, no pytest.
 """
 
@@ -933,6 +936,20 @@ def phase4_cases(d, sj, still, other, photo, band):
     case("P1: the squeezed take against a different image still fails the lock",
          lambda: chk(sq, other, 1.5, 1, lambda o: o["opening_lock"]["ssim"] < 0.90))
 
+    # ---- M1: the same squeeze moved 6 px down (0.94 % of the height): no squeeze alone reaches
+    # 0.90, the shifted re-read does; a different image stays under the bar with the search run.
+    sqs = d / "take_squeeze_shift.mp4"
+    enc(sqs, "-f", "lavfi", "-i", "testsrc2=s=%dx%d:r=24:d=2" % (W, H),
+        "-vf", "scale=%d:%d,pad=%d:%d:3:6,crop=%d:%d:0:0" % (W - 6, H, W + 20, H + 20, W, H), fps=24)
+    case("M1: a squeeze shifted 6 px down fails every plain geometry and passes the shift re-read (dy +0.01)",
+         lambda: chk(sqs, still, 1.5, 0, lambda o: o["opening_lock"]["ssim"] >= 0.90
+                     and o["opening_lock"]["transform"]["mode"] == "squeeze_x_shift"
+                     and o["opening_lock"]["transform"]["dy"] == 0.01
+                     and o["opening_lock"]["shift_search"]["ssim"] == o["opening_lock"]["ssim"]))
+    case("M1: the shifted squeeze against a different image fails with the shift search run",
+         lambda: chk(sqs, other, 1.5, 1, lambda o: o["opening_lock"]["ssim"] < 0.90
+                     and o["opening_lock"]["shift_search"]["ssim"] < 0.90))
+
     # ---- P3: window_start. SH02 (1.0-2.0 s, hard cuts) gets a take that is red for 0.5 s,
     # then blue; the talker file is 1500 Hz for 0.5 s, then 1000 Hz.
     def load(p):
@@ -992,6 +1009,23 @@ def phase4_cases(d, sj, still, other, photo, band):
                  and o["window_start"] == 0.5, ws=0.5),
              chk(rb, blue, 1.0, 1, lambda o: o["opening_lock"]["ssim"] < 0.90)))
 
+    # ---- M3: the QC reel reads the window build uses. SH02's take is red 0.5 s then blue, with
+    # window_start 0.5: the reel must hold [0.5, 1.5] of it (blue throughout), not [0, 1.0].
+    def m3_reel():
+        jf = p3_setup("reel", 0.5)
+        out = jf / "qc" / "reel_ws.mp4"
+        c, res, e = script("assemble.py", "reel", jf / "shots.json", "--shots", "SH02", "--takes", "all",
+                           "--out", out)
+        res = res or {}
+        idx = load(str(out) + ".index.json") if Path(str(out) + ".index.json").exists() else {}
+        w = (idx.get("windows") or [{}])[0]
+        px = [frame_rgb(out, t) for t in (0.05, 1.5, 2.9)] if out.exists() else []
+        ok = (c == 0 and w.get("window") == [0.5, 1.5] and abs(res.get("probed_seconds", 0) - 3.0) <= 0.05
+              and len(px) == 3 and all(p[2] > 150 and p[0] < 80 for p in px))
+        return ok, "exit=%d window=%s probed=%s rgb@0.05,1.5,2.9=%s %s" % (
+            c, w.get("window"), res.get("probed_seconds"), px, e[-150:])
+    case("M3: the QC reel cuts a take at its window_start ([0.5, 1.5] of a red-then-blue take: blue only)", m3_reel)
+
     # ---- P4: a grey-ish take against a vivid target
     gr = product_clip(d, "greyish.mp4", bg="0x6E747C", dur=2)
 
@@ -1013,6 +1047,59 @@ def phase4_cases(d, sj, still, other, photo, band):
             k_hi, k_lo)
     case("P4: the grade raises a grey-ish take toward a vivid target (1 < k <= 1.6) and the product keeps its chroma",
          p4_raise)
+
+    # ---- H1: k > 1 on saturated pixels. geq wraps modulo 256, so an uncapped factor turns
+    # V 28 into 224 (a hue flip that can land inside the band). Stripes: the product's hue,
+    # the opposite hue at chroma 100, and UV (126, 28).
+    c0 = band["center"]
+    stripes = [(128 + 40 * math.cos(math.radians(c0)), 128 + 40 * math.sin(math.radians(c0))),
+               (128 + 100 * math.cos(math.radians(c0 + 180)), 128 + 100 * math.sin(math.radians(c0 + 180))),
+               (126, 28)]
+    stripes = [(int(round(u)), int(round(v))) for u, v in stripes]
+    sw = W // 3
+    gu = "+".join("between(X,%d,%d)*%d" % (i * sw // 2, (i + 1) * sw // 2 - 1, u) for i, (u, v) in enumerate(stripes))
+    gv = "+".join("between(X,%d,%d)*%d" % (i * sw // 2, (i + 1) * sw // 2 - 1, v) for i, (u, v) in enumerate(stripes))
+    h1_ung = d / "h1_ungraded.mp4"
+    ffmpeg("-f", "lavfi", "-i", "color=c=black:s=%dx%d:r=24:d=1" % (sw * 3, H), "-vf",
+           "format=yuv420p,geq=lum=120:cb='%s':cr='%s'" % (gu, gv), "-c:v", "libx264", "-crf", "1",
+           "-pix_fmt", "yuv420p", h1_ung)
+    h1_grd, h1_wrap = d / "h1_graded_k16.mp4", d / "h1_wrapped_k16.mp4"
+    ffmpeg("-i", h1_ung, "-vf", asm.hue_protected_grade_filter(band, 1.6), "-c:v", "libx264", "-crf", "1",
+           "-pix_fmt", "yuv420p", h1_grd)
+    cap = "st(3,min(ld(3),max(1,%d/max(max(abs(ld(0)),abs(ld(1))),1))));" % asm.GRADE_UV_MAX_OFF
+    uncapped = asm.hue_protected_grade_filter(band, 1.6).replace(cap, "")  # the filter as it was at e49e7b3
+    ffmpeg("-i", h1_ung, "-vf", uncapped, "-c:v", "libx264", "-crf", "1", "-pix_fmt", "yuv420p", h1_wrap)
+
+    def stripe_uv(path, i):
+        r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-vf",
+                            "crop=%d:%d:%d:0,scale=1:1:flags=area,format=yuv444p" % (sw - 8, H, i * sw + 4),
+                            "-frames:v", "1", "-f", "rawvideo", "-"], capture_output=True)
+        return r.stdout[1] - 128, r.stdout[2] - 128
+
+    def h1_hue():
+        rows, ok = [], True
+        for i in range(3):
+            (u0, v0), (u1, v1) = stripe_uv(h1_ung, i), stripe_uv(h1_grd, i)
+            dh = abs(circ(math.degrees(math.atan2(v1, u1)), math.degrees(math.atan2(v0, u0))))
+            same_sign = (u0 == 0 or u0 * u1 > 0) and (v0 == 0 or v0 * v1 > 0)
+            ok = ok and dh <= 2.0 and same_sign and max(abs(u1), abs(v1)) <= 127
+            rows.append("%d:(%+d,%+d)->(%+d,%+d) dhue %.2f" % (i, u0, v0, u1, v1, dh))
+        v28 = stripe_uv(h1_grd, 2)[1] + 128
+        g = asm.hue_gate(h1_grd, ungraded=h1_ung, band=band)
+        ok = ok and v28 < 28 and g["verdict"] == "PASS" and g["hue_flipped_share"] == 0.0
+        return ok, "%s | V28 -> %d | gate %s flipped %s" % ("; ".join(rows), v28, g["verdict"], g.get("hue_flipped_share"))
+    case("H1: LIGHT at k=1.6 caps the factor per pixel: a chroma-100 patch and UV (126,28) keep their hue "
+         "within 2 deg and their U/V signs (V 28 never becomes 224); the gate passes", h1_hue)
+
+    def h1_gate():
+        g = asm.hue_gate(h1_wrap, ungraded=h1_ung, band=band)
+        ok = (cap not in uncapped and g["verdict"] == "FAIL" and g["hue_flipped_share"] >= 0.2
+              and any("hue flipped" in x for x in g["reasons"])
+              and g.get("chroma_retained", 0) >= 0.97)
+        return ok, "gate %s kept %s drift %s flipped %s reasons %s" % (
+            g["verdict"], g.get("chroma_retained"), g.get("hue_drift"), g.get("hue_flipped_share"), g.get("reasons"))
+    case("H1: the twin hue gate FAILs the uncapped (wrapping) filter although the product mask keeps its chroma",
+         h1_gate)
 
 
 def goertzel(path, a, b, freqs):

@@ -46,8 +46,8 @@ build     per shot: the picked take trimmed to its slot from its new.takes[].win
           window instead of the voiceover, with short
           crossfades, level-matched to the voiceover before the shared loudnorm. Needs --vo.
 reel      the QC reel for the paid analysis: per rendered row, each take (candidates = those whose
-          check passes; all = every take with a path) TRIMMED to [0, dur] in whole frames, THEN slowed
-          with setpts, then joined at 24 fps. Probes the reel and refuses (exit 2, the reel deleted)
+          check passes; all = every take with a path) TRIMMED to [window_start, window_start +
+          dur] in whole frames, THEN slowed with setpts, then joined at 24 fps. Probes the reel and refuses (exit 2, the reel deleted)
           unless it equals the sum of the frame-rounded windows x slow within 0.05 s, or when it runs
           over 120 s. Writes <reel>.index.json (per window: shot, take, the window in the take, and
           reel_start/reel_end) and prints maxSeconds (the probed length rounded up) and the windows
@@ -68,6 +68,7 @@ import math
 import re
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -97,12 +98,23 @@ MIN_COVERAGE = 0.06
 MIN_BUCKET_COVERAGE = 0.01
 CHROMA_RETAINED_MIN = 0.80
 HUE_DRIFT_MAX = 6.0
+# Twin form also checks EVERY strongly coloured pixel, not only the product mask: a grade that
+# wraps a chroma plane flips a saturated pixel by ~180 deg, possibly INTO the band, and a mask
+# built on the ungraded twin cannot see that.
+# The signature is a U or V offset that changes SIGN while it stays large on both sides (-100 in
+# the twin, +96 in the master). A grade scales both offsets by one factor >= 0, so it never does
+# that; nor does a transition that blends a graded colour with another (tested on the 30 fps
+# build's slide, where a plain "hue moved > 45 deg" rule flagged 1.3 % of the blended pixels).
+HUE_FLIP_OFF = 48            # |U-128| or |V-128| at least this large in the twin AND in the master
+HUE_FLIP_MAX = 0.005         # more than this share of the strongly coloured pixels flipped -> FAIL
+HUE_FLIP_STRIDE = 3          # every 3rd pixel of the 180x320 gate frame is compared
 PHOTO_CHROMA_MIN = 0.50
 GRADE_FEATHER = 10.0
 # The non-product chroma scale k may RAISE saturation up to this ceiling when the source shot
 # is more saturated than the take (the full-length test ad's vivid CGI shots ended 5-18 SAT
 # short with k capped at 1). The product band always keeps k = 1, so the hue gate holds.
 GRADE_K_MAX = 1.6
+GRADE_UV_MAX_OFF = 127        # a raised chroma offset is capped here: 128 +/- 127 stays inside the 8-bit plane
 # ---- opening lock / check ----
 LOCK_MIN = 0.90
 LOCK_SCALES = [round(1.0 + 0.005 * i, 3) for i in range(11)]
@@ -111,6 +123,12 @@ LOCK_SCALES = [round(1.0 + 0.005 * i, 3) for i in range(11)]
 # about 0.985 of its width (ECC corr 0.993-0.997), which no uniform scale recovers. The
 # take's centre sx-wide strip, stretched back to full width, is compared with the full still.
 LOCK_SQUEEZE_X = [round(0.97 + 0.005 * i, 3) for i in range(6)]
+# A squeezed take whose best score is still under LOCK_MIN may also be shifted by a pixel or
+# two (the test ad: +1.6 px at 180 wide, sy up to 1.005). Only then, the best squeeze is re-read
+# with the take's crop window moved by dx, dy (fractions of the frame, +/-2 %) inside a 2 %
+# margin, all shifts in ONE ffmpeg call. The result is still a FLAG, never a verdict on its own.
+LOCK_SHIFT_STEPS = [-0.02, -0.01, -0.005, 0.0, 0.005, 0.01, 0.02]
+LOCK_SHIFT_MARGIN = 0.02
 LOCK_WARN_SCALE = 1.04
 LOCK_W, LOCK_H = 180, 320
 # Motion = the largest mean |frame diff| (180x320 luma) over any MOTION_WINDOW_S window
@@ -312,6 +330,24 @@ def _sums(frame, idx, n=GATE_W * GATE_H):
     return c, su, sv, vals
 
 
+def _hue_flips(fu, fg, n=GATE_W * GATE_H):
+    """(coloured, flipped): pixels, every HUE_FLIP_STRIDE-th of the frame, with a U or V offset of
+    at least HUE_FLIP_OFF in the twin, and those among them where a plane's offset changed sign
+    while staying at least HUE_FLIP_OFF (a wrapped plane: the hue turns by ~180 deg). The whole
+    frame, not the product mask."""
+    Uu, Vu, Ug, Vg = fu[n:2 * n], fu[2 * n:], fg[n:2 * n], fg[2 * n:]
+    o = HUE_FLIP_OFF
+    col = flip = 0
+    for i in range(0, min(n, len(Ug)), HUE_FLIP_STRIDE):
+        du, dv, gu, gv = Uu[i] - 128, Vu[i] - 128, Ug[i] - 128, Vg[i] - 128
+        if abs(du) >= o or abs(dv) >= o:
+            col += 1
+            if (abs(du) >= o and abs(gu) >= o and (du > 0) != (gu > 0)) or \
+               (abs(dv) >= o and abs(gv) >= o and (dv > 0) != (gv > 0)):
+                flip += 1
+    return col, flip
+
+
 def parse_windows(s):
     if not s:
         return None
@@ -328,7 +364,9 @@ def gate_frames(path, fps=GATE_FPS):
 def hue_gate(clip, photo=None, ungraded=None, windows=None, band=None, fps=GATE_FPS):
     """Twin form (ungraded given): the mask is built on the ungraded frames, the SAME pixels
     are measured in `clip`; chroma_retained = sum graded chroma / sum ungraded chroma,
-    hue_drift = chroma-weighted circular mean hue, graded minus ungraded. Photo form: the
+    hue_drift = chroma-weighted circular mean hue, graded minus ungraded, hue_flipped_share =
+    the share of the whole frame's strongly coloured pixels whose U or V offset changed sign
+    (_hue_flips). Photo form: the
     product's median chroma against the photo's (a coarse backstop)."""
     band = band or product_band(photo)
     windows = parse_windows(windows)
@@ -356,7 +394,8 @@ def hue_gate(clip, photo=None, ungraded=None, windows=None, band=None, fps=GATE_
         cu, uu, vu, _ = _sums(fr[i], idx)
         cg, ug, vg, vals = _sums(fg[i], idx)
         per.append({"n": len(idx), "cu": cu, "uu": uu, "vu": vu, "cg": cg, "ug": ug, "vg": vg,
-                    "vals": vals if not ungraded else None})
+                    "vals": vals if not ungraded else None,
+                    "flip": _hue_flips(fr[i], fg[i]) if ungraded else None})
     nsel = sum(sel)
     tot = sum(p["n"] for p in per if p)
     res["frames"] = nsel
@@ -394,6 +433,12 @@ def hue_gate(clip, photo=None, ungraded=None, windows=None, band=None, fps=GATE_
             reasons.append("a window retains %.2f < %.2f" % (res["chroma_retained_min_bucket"], CHROMA_RETAINED_MIN))
         if abs(res["hue_drift"]) > HUE_DRIFT_MAX:
             reasons.append("hue drift %+.1f deg > %.0f" % (res["hue_drift"], HUE_DRIFT_MAX))
+        fl = [p["flip"] for p in P]
+        n_col, n_flip = sum(x[0] for x in fl), sum(x[1] for x in fl)
+        res["hue_flipped_share"] = round(n_flip / float(max(n_col, 1)), 4)
+        if res["hue_flipped_share"] > HUE_FLIP_MAX:
+            reasons.append("hue flipped on %.1f%% of the strongly coloured pixels (a chroma plane wrapped)"
+                           % (100 * res["hue_flipped_share"]))
     else:
         med = _median([x for p in P for x in p["vals"]])
         res["chroma_clip"] = round(med, 2)
@@ -450,14 +495,20 @@ def solve_other_scale(clip, target_sat, band, window=None):
 
 
 def hue_protected_grade_filter(band, k, feather=GRADE_FEATHER):
-    """Chroma-only filter: U,V scaled by k + (1-k)*keep, keep = clip((half+feather-d)/feather,0,1),
-    d = circular distance of the pixel's hue from the band centre. Hue angles never move; k > 1
-    raises the other hues' chroma (geq clips each plane to 0-255), the band stays at 1."""
+    """Chroma-only filter: U,V scaled by ONE per-pixel factor f = k + (1-k)*keep,
+    keep = clip((half+feather-d)/feather,0,1), d = circular distance of the pixel's hue from the
+    band centre; the band stays at 1. With k > 1, f is capped per pixel at
+    max(1, 127/max(|U-128|,|V-128|)) so neither chroma plane leaves [1, 255]: geq does NOT clip,
+    it wraps modulo 256, and an uncapped V offset of -100 at k 1.6 comes back as +96 (a hue flip).
+    Scaling both offsets by the same capped factor keeps the hue angle exactly; a saturated pixel
+    just gains less chroma."""
     k = round(float(k), 4)
     c, half, fe = round(band["center"], 2), round(band["half_width"], 2), float(feather)
     keep = ("st(0,cb(X,Y)-128);st(1,cr(X,Y)-128);"
             "st(2,abs(mod(atan2(ld(1),ld(0))*180/PI-%s+540,360)-180));"
-            "st(3,%s+(1-%s)*clip((%s+%s-ld(2))/%s,0,1));" % (c, k, k, half, fe, fe))
+            "st(3,%s+(1-%s)*clip((%s+%s-ld(2))/%s,0,1));"
+            "st(3,min(ld(3),max(1,%d/max(max(abs(ld(0)),abs(ld(1))),1))));"
+            % (c, k, k, half, fe, fe, GRADE_UV_MAX_OFF))
     return "format=yuv420p,geq=lum='lum(X,Y)':cb='%s128+ld(0)*ld(3)':cr='%s128+ld(1)*ld(3)'" % (keep, keep)
 
 
@@ -472,8 +523,10 @@ def _image_size(path):
 def opening_lock(take, still, at=0.0):
     """Best SSIM of the take's frame at `at` s (frame 0 by default) against the still, over two
     geometries: a uniform centre zoom (the still cropped by 1/scale, scale 1.00-1.05) and a
-    horizontal-only squeeze (the take's centre sx-wide strip, sx 0.97-0.995, sy 1.0).
-    Reports the transform that won."""
+    horizontal-only squeeze (the take's centre sx-wide strip, sx 0.97-0.995, sy 1.0). When the
+    best is under LOCK_MIN, the best squeeze is re-read shifted by up to +/-2 % in x and y
+    (mode squeeze_x_shift when that wins; shift_search records the try either way).
+    Reports the transform that won. A fail is a flag for the QC read, not proof of a new frame."""
     tinfo = st.probe(take)
     fi = int(round(max(0.0, at) * (tinfo["fps"] or 24.0)))
     sw, sh = _image_size(still)
@@ -497,14 +550,57 @@ def opening_lock(take, still, at=0.0):
         m = re.search(r"All:([\d.]+)", out)
         scores.append((float(m.group(1)) if m else 0.0, mode, s, sx, sy))
     best, mode, scale, sx, sy = max(scores, key=lambda x: (x[0], x[1] == "uniform"))
+    shift = None
+    if best < LOCK_MIN:
+        bsq = max((x for x in scores if x[1] == "squeeze_x"), key=lambda x: x[0])
+        sc, dx, dy = _lock_shift_search(take, still, fi, cw, chh, tw, th, bsq[3])
+        shift = {"sx": bsq[3], "dx": dx, "dy": dy, "ssim": round(sc, 3)}
+        if sc > best:
+            best, mode, scale, sx, sy = sc, "squeeze_x_shift", 1.0, bsq[3], 1.0
     res = {"ssim": round(best, 3), "scale": scale, "pass": best >= LOCK_MIN, "bar": LOCK_MIN,
            "transform": {"mode": mode, "sx": sx, "sy": sy},
            "raw_ssim": round(scores[0][0], 3), "size": [LOCK_W, LOCK_H]}
+    if shift:
+        res["shift_search"] = shift
+        if mode == "squeeze_x_shift":
+            res["transform"].update(dx=shift["dx"], dy=shift["dy"])
     if at:
         res["at"] = {"t": round(at, 3), "frame": fi}
     if mode == "uniform" and scale > LOCK_WARN_SCALE:
         res["warning"] = "best scale %.3f > %.2f: the take reframes more than usual" % (scale, LOCK_WARN_SCALE)
     return res
+
+
+def _lock_shift_search(take, still, fi, cw, chh, tw, th, sx):
+    """(best ssim, dx, dy) of the squeeze sx with the take's crop window moved by dx, dy
+    (fractions of the frame) over LOCK_SHIFT_STEPS^2, inside a LOCK_SHIFT_MARGIN margin on both
+    sides. The still is cropped by the same margin, centred. One decode, one ffmpeg call."""
+    m = LOCK_SHIFT_MARGIN
+    grid = [(dx, dy) for dx in LOCK_SHIFT_STEPS for dy in LOCK_SHIFT_STEPS]
+    n = len(grid)
+    bw, bh = max(2, int(round(tw * sx * (1 - 2 * m)))), max(2, int(round(th * (1 - 2 * m))))
+    with tempfile.TemporaryDirectory() as td:
+        parts = ["[0:v]crop=%d:%d,crop=%d:%d,scale=%d:%d:flags=area,format=gray,setsar=1,split=%d%s"
+                 % (max(2, int(round(cw))), max(2, int(round(chh))), max(2, int(round(cw * (1 - 2 * m)))),
+                    max(2, int(round(chh * (1 - 2 * m)))), LOCK_W, LOCK_H, n, "".join("[a%d]" % j for j in range(n))),
+                 "[1:v]trim=start_frame=%d:end_frame=%d,setpts=PTS-STARTPTS,split=%d%s"
+                 % (fi, fi + 1, n, "".join("[t%d]" % j for j in range(n)))]
+        for j, (dx, dy) in enumerate(grid):
+            x = int(round((tw - bw) / 2.0 + dx * tw))
+            y = int(round((th - bh) / 2.0 + dy * th))
+            x, y = min(max(0, x), tw - bw), min(max(0, y), th - bh)
+            parts.append("[t%d]crop=%d:%d:%d:%d,scale=%d:%d:flags=area,format=gray,setsar=1[b%d];"
+                         "[a%d][b%d]ssim=stats_file=%s" % (j, bw, bh, x, y, LOCK_W, LOCK_H, j, j, j,
+                                                           Path(td, "s%d.log" % j).as_posix()))
+        st.run(["ffmpeg", "-hide_banner", "-nostats", "-v", "error"] + st.image_input(still) +
+               ["-i", str(take), "-filter_complex", ";".join(parts), "-f", "null", "-"])
+        best = (0.0, 0.0, 0.0)
+        for j, (dx, dy) in enumerate(grid):
+            f = Path(td, "s%d.log" % j)
+            mm = re.search(r"All:([\d.]+)", f.read_text()) if f.exists() else None
+            if mm and float(mm.group(1)) > best[0]:
+                best = (float(mm.group(1)), dx, dy)
+    return best
 
 
 def motion(path, dur, fps=None, start=0.0):

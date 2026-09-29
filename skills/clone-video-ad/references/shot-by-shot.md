@@ -63,7 +63,7 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
   - the stills (casting stills, room plates, one per shot), plus at most 2 regenerations per shot;
   - take 1 for every rendered shot, plus the adaptive second takes (every rendered shot at most);
   - the voiceover;
-  - the voice changes for the talker shots, a second-take talker's included;
+  - the voice changes for the audio-on talker shots, a second-take talker's included;
   - the QC analysis calls, one per reel (§ QC), plus one reel for the second takes;
   - the voiceover transcripts, the align loop bounded at 3 of them;
   - the final-diff transcript of the master.
@@ -119,7 +119,8 @@ re-run. Then `outputs/<job>/shots.json`:
   `motion_prompt`, `still_assetId`, `still_path`, `takes[]` of
   `{jobId, status, path, checks, qc, pick, sensor, window_start}`. `window_start` (seconds,
   default 0) is where the used window starts in the take: `build` trims
-  `[window_start, window_start + dur]`, and only an audio-on talker sets it (§ On-camera talkers).
+  `[window_start, window_start + dur]`, and only an audio-on talker sets it, on each of its takes as
+  soon as the take downloads, before its check, the QC reel and gate E (§ On-camera talkers).
 
 **A row with `confirm_cut: true` was seen at the low threshold only**; its `in` is the first hit
 of its group. Confirm it on its strip. If no cut is visible, merge it into the row before (that
@@ -172,7 +173,7 @@ The other bodies on the same endpoint:
 - `{"kind":"video","model":"seedance-2.0","durationSeconds":<N>,"language":"en","prompt":"<motion prompt>"}`,
   one per rendered shot (`seedance-2.0-mini` on the draft tier; `omni-flash` where you use it).
 - `{"kind":"voiceover","script":"<the approved script>"}` for the one voiceover.
-- `{"kind":"voice-change"}` per talker shot, only where `GET /v1/openapi.json` publishes that arm.
+- `{"kind":"voice-change"}` per audio-on talker shot, only where `GET /v1/openapi.json` publishes that arm.
   Sourceless, it quotes the one-minute minimum, which is what a take shorter than a minute bills.
 - `{"kind":"analysis"}` once per QC reel (§ QC: reels of at most about 30 s each).
 - `{"kind":"transcript"}` for the voiceover transcripts (at most 3) and the final diff.
@@ -309,8 +310,9 @@ curl -sS -X POST "${NOVOADS_BASE_URL:-https://api.novoads.ai}/v1/videos" \
 - **Write each `jobId` into the row's `new.takes[]` before polling.** Poll
   `GET /v1/generations/<jobId>` every 15 seconds until terminal, then download through `/watch` to
   `outputs/<job>/takes/<id>_t1.mp4` (SKILL step 12).
-- **Adaptive take 2.** A second take only when take 1 fails the free checks or the QC. Change one
-  thing in the motion prompt (usually the action's timing) and name it in the ledger.
+- **Adaptive take 2.** A second take only when take 1 fails the QC read, or fails a free check
+  that the QC read or its contact sheet confirms (a failed opening lock alone is a flag, § QC).
+  Change one thing in the motion prompt (usually the action's timing) and name it in the ledger.
 
 ## QC: free checks, then the analysis reels
 
@@ -330,12 +332,19 @@ centre zoom (the still cropped at scale 1.00 to 1.05; `mode: uniform`, and `scal
 horizontal-only squeeze (the take's centre strip at `sx` 0.97 to 0.995, `sy` 1.0;
 `mode: squeeze_x`). The draft tier opens on the still in both ways: on the full-length test ad
 (2026-09-29) 13 of 27 takes came back zoomed about 2 % and 10 squeezed to about 0.985 of the
-width with no zoom, which a uniform scale never matches. A take that fails under both geometries
-really changed its first frame. A talker take with an offset window is checked with
-`--window-start <s>`: the lock is read at that frame and the cut and motion checks cover
+width with no zoom, which a uniform scale never matches. When the best is still under 0.90, the
+best squeeze is re-read shifted by up to 2 % of the frame in x and y (`mode: squeeze_x_shift`,
+with `dx` and `dy`; `shift_search` records the try either way). **A failed lock is a flag, not a
+verdict.** On the test ad the shift re-read lifted 2 of the 9 failing takes, and 3 squeezed takes
+still scored 0.82 to 0.87 while showing the same picture as their still; 4 of the 9 had
+really changed their first frame. Put a flagged take in the QC read (`reel --takes all`, since
+the default leaves it out) or on its contact sheet, with the still beside frame 0, and record in
+`qc` which it was. The lock alone never orders a take 2. A talker take with an offset window
+is checked with `--window-start <s>`: the lock is read at that frame and the cut and motion checks cover
 `[s, s + dur]` (§ On-camera talkers).
 
-**Then the paid reads, one per reel.** Each passing take's `[0, dur]` window is slowed 3x so the
+**Then the paid reads, one per reel.** Each passing take's `[window_start, window_start + dur]`
+window (`[0, dur]` unless an audio-on talker's `window_start` is set) is slowed 3x so the
 sampling sees every moment, and the windows are joined into reels of **at most about 30 s each**
 (the endpoint reads tight near 20 s and scatters at 120). Build every reel with `reel`, never by
 hand: a hand-typed `-t` after `-i` cuts after the slow-down and keeps only the first third of each
@@ -389,15 +398,16 @@ timestamps you can map is read on contact sheets instead. Map each timestamp bac
 reel's index; a join the answer reports at a time the index does not hold means the reel is not
 the one the index describes.
 
-**The fallback sensor is contact sheets**, a frame every 0.25 s over the used window, read by you:
+**The fallback sensor is contact sheets**, a frame every 0.25 s over the used window
+`[window_start, window_start + dur]`, read by you (`-ss` is the take's `window_start`, 0 when unset):
 
 ```bash
-ffmpeg -y -i outputs/<job>/takes/SH01_t1.mp4 -t 2.4 -vf "fps=4,scale=270:-1,tile=4x4" \
+ffmpeg -y -ss 0 -i outputs/<job>/takes/SH01_t1.mp4 -t 2.4 -vf "fps=4,scale=270:-1,tile=4x4" \
   outputs/<job>/sheets/SH01_t1_%02d.jpg
 ```
 
 Record which sensor made each pick in the take's `sensor` (`analysis` or `sheets`) and its verdict
-in `qc`. Gate E shows both.
+in `qc`. Gate E shows both, and every check, reel and sheet it shows covers the window `build` uses.
 
 ## On-camera talkers
 
@@ -410,9 +420,12 @@ voiceover, which reads as a lip-sync error, not a reaction.
 
 **Audio on only when the shot is long enough for its line**: about 2 s or more, or a 2-3 syllable
 line (about 0.6 s of speech) in a shot of about 1 s. Then the rest of this section applies, plus
-one step: measure the take's speech onset (the first word's `start` in a transcript of the take,
-or the first 0.1 s whose level clears the take's peak minus 25 dB) and write
-`window_start = onset - 0.05` (never below 0) on the picked take in `new.takes[]`. `build` trims
+one step, **as soon as the take downloads, before its free check, the QC reel and gate E**:
+measure its speech onset by the free level method (the first 0.1 s whose level clears the take's
+peak minus 25 dB; a transcript of the take only if gate D priced one) and write
+`window_start = onset - 0.05` (never below 0) on that take in `new.takes[]`. Then run
+`check --window-start` and the reel on it, so `check`, the QC reel, the contact sheet and gate E all
+read the window `build` uses; a lock that fails there is fixed before gate E, not after. `build` trims
 the take from there and places the `--talker` audio on the same window, so the lips and the voice
 stay together. An offset window no longer opens on the still, so **its opening lock is read at
 `window_start`'s frame** (`check --window-start`), not waived: the frame the viewer sees first is
@@ -535,7 +548,8 @@ identical timing, size and fps, because the hue gate compares the two.
   shot, and up to 1.6 when the source shot is more saturated, as on vivid CGI shots, which ended
   5 to 18 SATAVG short on the full-length test ad while k could only go down. The product band
   always keeps k = 1, so the hue gate below holds; `assembly.json` records each shot's `k` and
-  `k_max`.
+  `k_max`. Raised chroma is capped per pixel (U and V by one factor, so the hue never moves): a
+  saturated pixel gains less, and no chroma plane wraps around into the opposite hue.
 - **NONE (an option).** The takes' own colour. Why: on openings it judged at least as well as
   LIGHT, so offer it whenever the user prefers the render's own look.
 
@@ -547,8 +561,9 @@ python3 skills/clone-video-ad/scripts/assemble.py hue-gate outputs/<job>/master.
   --ungraded outputs/<job>/master_ungraded.mp4 --photo <the product photo>
 ```
 
-Exit 0 is PASS (the product keeps at least 0.80 of its chroma overall and in every window, and its
-hue drifts 6° or less), 1 is FAIL, 2 is NO_PRODUCT (too little of the photo's product hue in frame
+Exit 0 is PASS (the product keeps at least 0.80 of its chroma overall and in every window, its
+hue drifts 6° or less, and no more than 0.5 % of the frame's strongly coloured pixels flip hue
+against the twin), 1 is FAIL, 2 is NO_PRODUCT (too little of the photo's product hue in frame
 to measure: neither a pass nor a fail, and reported as such). Add `--windows a-b,c-d` (the shots'
 `in`-`out` pairs) to check every window as `build` does. On a FAIL, rebuild with `--grade none`.
 Hand over **both masters** either way.
@@ -579,7 +594,7 @@ python3 skills/clone-video-ad/scripts/assemble.py build outputs/<job>/shots.json
 python3 skills/clone-video-ad/scripts/assemble.py verify outputs/<job>/master.mp4 outputs/<job>/shots.json
 ```
 
-`build` takes each row's picked take trimmed to `[0, dur]` (or its still held with a slight zoompan
+`build` takes each row's picked take trimmed to `[window_start, window_start + dur]` (or its still held with a slight zoompan
 for a `hold` row), scales it to the source's size (cropping one at `aspect`, refusing one off it
 unless `--allow-crop` is given: § Shot stills), makes each transition locally
 from `cut_in.type` (a whip is an xfade slide of about 0.25 s centred on the cut with a horizontal blur, `whip-right`

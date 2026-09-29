@@ -294,16 +294,21 @@ a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 an
 - Every motion prompt is camera plus ONE hand or body action, timed to finish before the
   shot's duration and then hold. It carries **no product words** and **no whip**.
 - Every take is sent with `durationSeconds = max(4, ceil(dur + 0.2))`, an integer, and
-  trimmed locally to [0, dur].
-- **Adaptive take 2:** a second take fires only for a shot whose take 1 failed
-  `assemble.py check` or the QC. Two takes per shot is not the default.
+  trimmed locally to [window_start, window_start + dur] (window_start is 0 unless an audio-on
+  talker's measured onset set it, before that take's check, reel and gate E).
+- **Adaptive take 2:** a second take fires only for a shot whose take 1 failed the QC read, or
+  failed `assemble.py check` in a way the QC read or its contact sheet confirms. A failed
+  opening lock alone is a flag that sends the take to that read, never the trigger for take 2.
+  Two takes per shot is not the default.
 - The picks are shown to the user shot by shot, each with **the sensor that made it named**
   (the slowed-reel `POST /v1/analyses` read, or the contact-sheet fallback) and recorded as
   `sensor` in `shots.json`.
 - Every picked take passes the **opening lock** in `assemble.py check`: the aligned SSIM of its
   frame 0 (an offset talker window: the frame at its `window_start`) against the still, under a
-  centre crop at 1.00–1.05 or a horizontal-only squeeze at sx 0.97–0.995, is ≥ 0.90, and the
-  transform is reported.
+  centre crop at 1.00–1.05 or a horizontal-only squeeze at sx 0.97–0.995 (re-read shifted by
+  up to 2 % when still under 0.90), is ≥ 0.90, and the transform is reported. A pick under
+  0.90 carries in its `qc` the QC read or contact-sheet comparison of the still with frame 0
+  that found the same picture.
 - The source's whip is rebuilt as a local **slide** (`xfade` in the whip's direction plus a
   horizontal blur) centred on the source's cut time, never prompted into a take.
 - `assemble.py build` writes the graded `master.mp4` (LIGHT by default, NONE offered) **and**
@@ -316,8 +321,13 @@ a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 an
 - The caption **text** comes from the new voiceover's transcript; only the **style** (size,
   weight, case, position, words per card) comes from the source. The transcript is taken from
   the voiceover muxed into an mp4: `POST /v1/transcripts` on a silent render answers **409
-  "No speech was detected"**, so a silent take or master is never the thing transcribed. The
-  cards are burned with `caption-video` at the master's fps.
+  "No speech was detected"**, so a silent take or master is never the thing transcribed.
+  Captions are offered at hand-over, not burned by default: on a yes to that offer, the cards
+  are burned with `caption-video` at the master's fps into `master_captioned.mp4`, and
+  `master.mp4` stays uncaptioned.
+- **Gate E is a stop.** The turn that shows every pick with its sensor ends there. No S8 step
+  (the voiceover, its fit or transcripts, a talker's voice change, `build`) runs before the
+  user answers gate E.
 - **No competitor token.** `<the competitor's brand token>`, matched case-insensitively,
   appears nowhere in the picture (stills, on-screen text, cards), in the voice (the transcript
   of the delivered master) or in the captions. The source's own captions repeat its voiceover word for word, brand included,
@@ -331,14 +341,17 @@ a rival tool's clone of the same ad, the full grade scored 13/16, LIGHT 14/16 an
 - The takes' native 24 fps is kept; no 30 fps is asserted, because 24 was not worse than 30 in
   the pairwise read on the test ad and frame duplication judders.
 
-**Fails if:** the first frame of any shot is not its approved still (lock < 0.90); a beat is
+**Fails if:** the first frame of any shot is not its approved still (a lock under 0.90 that no
+QC read or contact sheet cleared); a take 2 is ordered on a failed lock alone; a beat is
 whole-second; any request body carries a source-derived asset; a motion prompt names the
 product or asks for a whip; a second take fires on a shot whose take 1 passed; a pick is shown
 without its sensor; the hue gate does not PASS and the graded master is delivered anyway; two
 voices are heard; a caption is copied from the source's cards; `<the competitor's brand
 token>` is seen, spoken or captioned anywhere in the deliverable; or the source's offer or CTA
 text (a discount, a price, a guarantee, a retailer, a button's words) is spoken or shown
-without the user having supplied it.
+without the user having supplied it; captions are burned unasked or into `master.mp4`; or any
+S8 step (the voiceover, its transcripts, a talker's voice change, `build`) runs before gate E's
+answer.
 
 ---
 

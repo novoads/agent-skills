@@ -178,7 +178,8 @@ is the general lesson: a summary that restates a number owns that number forever
   charged, which is the good outcome: a silently dropped reference would be a paid render
   missing the product.
 - Video references are understood as a **different** number and a narrower set: up to 9,
-  on the three Seedance variants only.
+  on the three Seedance variants only. (Here "video references" means image references
+  on a video model; Seedance mp4 and mp3 references since API 2.35.0 have their own caps.)
 - A guardrail bullet that restates a limit is checked against the section it summarises
   before it is quoted to a user.
 
@@ -303,7 +304,8 @@ submission cost them something; or one queue's refusal stops the others.
 
 ## NA8 — An estimate that accepted a field is not a licence to send it
 
-**Scenario.** A draft on `seedance-2.0-mini`. The estimate is priced with
+**Scenario.** A draft on `seedance-2.0-mini`, against a server older than API 2.34.0
+(from 2.34.0 mini lists `480p` and `720p` and its variant takes `resolution`). The estimate is priced with
 `resolution: "720p"` and it comes back clean.
 
 **Observed split-brain (verified live 2026-08-04).** `POST /v1/estimates` **accepts**

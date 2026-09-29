@@ -20,7 +20,7 @@ Which field the `assetId` goes into depends on what you are generating:
 | **Video** — composite these references | `referenceAssetIds` | up to **9** | Addressed positionally: `@Image1`, `@Image2`… The Seedance variants and, since API 2.30.0, `omni-flash` (up to its own limit); `veo-3.1` and `sora-2` reject it. |
 | **Image** | `referenceAssetIds` | per model: **4** `gpt-image-2` / **14** `nano-banana-pro` / **8** `reve-2.1` | Addressed positionally. No `startImageAssetId` — a still has no first frame. |
 
-The two video modes are **mutually exclusive**: sending `startImageAssetId` and `referenceAssetIds` in the same request is a 400, not a merge. References are **images only** — `POST /v1/uploads` also accepts video, but a video `assetId` used as a reference is an error.
+The two video modes are **mutually exclusive**: sending `startImageAssetId` and `referenceAssetIds` in the same request is a 400, not a merge. `referenceAssetIds` takes **images only**: a video `assetId` there is an error. Video references go in Omni Flash's `referenceVideoAssetId` or, on the three Seedance models, `referenceVideoAssetIds` (mp4); audio references go in the Seedance models' `referenceAudioAssetIds` (mp3), from API 2.35.0.
 
 There is no `referenceImages` field on this API, and no base64 field anywhere: upload first, pass ids. `skills/novoads-api/reference.md` is the authority for every HTTP detail.
 

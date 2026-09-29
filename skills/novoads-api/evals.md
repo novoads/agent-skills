@@ -346,6 +346,30 @@ quoted as proof; or a resolution survives a model switch.
 
 ---
 
+## NA9 — A voice change asked for video is a job, and the default still is not
+
+**Scenario.** Two calls to `POST /v1/voice-changes` on the same video source and voice: one
+with no `output`, one with `"output":"video"` on a workspace that has video out on.
+
+**Assertions.**
+
+- The first is handled as the synchronous `200` it has always been: the mp3 is in the
+  response and nothing is polled.
+- The second is handled as a render: a `202` with `jobId`, `status`, `credits` and
+  `output: "video"`. Any of the job's lifecycle statuses passes: `queued` or `running` is
+  polled at `GET /v1/generations/{jobId}` to `succeeded` (`outputUrl`, the mp4) or `failed`
+  (`voiceChange.reasonCode` names the cause); `succeeded` on the `202` is the change already
+  made, downloaded, not polled.
+- Sent again once it has succeeded, the video call answers `202` with `status: "succeeded"`,
+  the finished copy and a zero `credits`, and the agent reports nothing charged.
+- An audio upload sent with `"output":"video"`, and `output` sent where the workspace does
+  not have it, are both a `400` with nothing charged, and neither is retried as-is.
+
+**Fails if:** the agent reads `reference.md` as "voice changes are always synchronous" and
+treats the `202` as an error, or polls a `200`.
+
+---
+
 ## Notes on evidence strength
 
 - **NA1 and NA2 are the strongest cases here.** Both were isolated on a paid run with

@@ -70,8 +70,8 @@ curl -sS -X POST https://api.novoads.ai/v1/transcripts ... -d '{"assetId":"<outp
 | Call | Result |
 |---|---|
 | `POST /estimates` `{kind:"voice-change", assetId}` | `credits: 1`, `sufficient: true`. Free. |
-| `POST /estimates` `{kind:"voice-change"}`, no source | also `credits: 1` — a 15s source and a sourceless quote agree, because both land on the one-minute minimum |
-| `POST /voice-changes` | `creditsCharged: 1`, `billedMinutes: 1`, `200` in **7.1s** |
+| `POST /estimates` `{kind:"voice-change"}`, no source | also `credits: 1` — a 15s source and a sourceless quote agree, because both land on the one-minute minimum (the per-minute price before API 2.32.0) |
+| `POST /voice-changes` | `creditsCharged: 1`, `billedMinutes: 1`, `200` in **7.1s** (measured before API 2.32.0, when voice change billed whole started minutes; it now bills seconds of source above a minimum and also returns `billedSeconds`) |
 | **the same call again, same source and voice** | **`creditsCharged: 0`**, byte-identical `jobId` and `assetId`, a freshly minted `url`, `200` in 1.9s |
 | `POST /voice-changes` with a made-up `voiceId` | `404 not_found`, naming the id. **No substitute voice, nothing charged** |
 | `POST /transcripts` × 2 (source, then output) | `creditsCharged: 0.1` each |
@@ -262,6 +262,74 @@ had speech in it; or reads the local gate's refusal as a reason to retry the cal
   tell is in the output rather than the exit code — the narrowest real voice in the table
   above is 18 Hz, and a spread near zero is a machine. No floor is set on the spread
   because thirteen files is not enough to place one honestly.
+
+---
+
+## D — video out: the finished file from the server, and the default untouched
+
+**Evidence.** Contract-backed, not measured: the `output` field is the change-voice plan's
+WAVE=2 contract, and no run from this pack has spent on it yet. The first run that does
+records its numbers here, the way A did.
+
+### D1 — `output: "video"` on a video source polls to `succeeded`
+
+**Scenario.** The acceptance ad from A, the voice already picked, and the operator wants the
+finished video from the server rather than a local mux. The workspace has video out on.
+
+**Assertions.**
+
+- Gates 1 to 4 run as written, and the Gate 2 quote is the same `kind: "voice-change"`
+  estimate on the same source. No separate video price is asked for or stated.
+- The call is `POST /v1/voice-changes` with `"output":"video"`, and the run expects a `202`
+  carrying `jobId`, `status`, `credits` and `output: "video"`, and writes down `jobId` and
+  `credits` at once. Any of the job's lifecycle statuses passes, because a re-run of this
+  case meets a change already made: `queued` or `running` means poll, `succeeded` means
+  download the copy and report nothing charged.
+- On `queued` or `running` it polls `GET /v1/generations/{jobId}` until `succeeded`,
+  downloads `outputUrl` (an mp4), and names the copy by `voiceChange.videoId`. It does not
+  run `assemble-voice-change.py`.
+- Gate 7 runs on the downloaded file: read back against the source, the lip window watched,
+  and a loudness delta measured and reported, since no assembly step printed one.
+- **Re-run.** Asked for the same change again once it has succeeded, the `202` carries
+  `status: "succeeded"`, the finished copy and a zero `credits`; the run asserts all three,
+  reports that nothing was charged, downloads that copy, and does not poll a new render
+  into existence.
+
+**Fails if:** it treats the `202` as a failure, or a `queued` or `running` one as the
+finished file; it muxes locally on
+top of the server's mux; it quotes a price from anywhere but the estimate; or it reports
+success without the Gate 7 read-back.
+
+### D2 — an audio upload with `output: "video"` is refused, nothing charged
+
+**Scenario.** On a workspace with video out on, the source is an `audio/mpeg` upload (a
+voice note, no picture) and the operator asks for "the video back".
+
+**Assertions.**
+
+- The run says before the call that video out needs a video source, and offers audio out
+  instead. If the call is sent anyway, the `400` is read as a refusal with nothing charged,
+  and the balance is not described as changed.
+- It does not retry the same body, and it does not invent a picture to satisfy the field.
+
+**Fails if:** it retries on the `400`, reports a charge, or promises a video from an audio
+source.
+
+### D3 — omitting `output` changes nothing
+
+**Scenario.** A run exactly like A, with no `output` in the body.
+
+**Assertions.**
+
+- The response is A's: a synchronous `200` with `jobId`, `assetId`, `url`,
+  `expiresInSeconds`, `creditsCharged`, `billedSeconds`, `billedMinutes` (deprecated), `voiceId`,
+  and nothing to poll.
+- Gate 6's local assembly runs as written, fences included.
+- Where the workspace does not have video out, a run that sent `output` and got the `400`
+  saying to omit it lands here: same body without the field, the same result done locally.
+
+**Fails if:** the run polls on a `200`, sends `output: "audio"` as if it were required, or
+treats a workspace without video out as unable to change a voice at all.
 
 ---
 

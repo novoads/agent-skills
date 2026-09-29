@@ -96,7 +96,7 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `POST` | `/competitor-ads` | Sweep a brand's live ads out of Meta's Ad Library. **`200`, charged, SYNCHRONOUS.** Behind a per-deployment flag. |
 | `GET` | `/voices` | The voices you may speak in. Filterable, reads only, spends nothing. |
 | `POST` | `/voiceovers` | Render a line of text as speech. **`200`, charged, SYNCHRONOUS — the mp3 is in the response.** Behind a per-deployment flag. |
-| `POST` | `/voice-changes` | Re-perform the speech in a source in another voice. **`200`, charged, SYNCHRONOUS — the mp3 is in the response.** Behind a per-deployment flag. |
+| `POST` | `/voice-changes` | Re-perform the speech in a source in another voice. **Default `output: "audio"`: `200`, charged, SYNCHRONOUS — the mp3 is in the response.** `output: "video"` (a video source, enabled per workspace): `202` and a job to poll at `GET /generations/{jobId}`, whose `outputUrl` is the new mp4. Behind a per-deployment flag. |
 | `POST` | `/videos/{jobId}/captions` | Same operation, source in the path. Generated videos only. |
 | `GET` | `/caption-presets` | The 30 caption styles, with tier and per-minute rate. |
 | `GET` | `/generations` | List jobs, filterable and paginated. |
@@ -749,7 +749,8 @@ it is off the path and the `voice-change` estimate arm are both absent from
 
 Takes a video this API rendered, or a video **or audio file** you uploaded, and returns
 **the finished audio** with the speech re-performed by a voice you choose. `200`, not `202`:
-the provider returns bytes rather than a job id.
+the provider returns bytes rather than a job id. That is the default; `output: "video"`
+returns the finished video as a polled job instead — [Video out](#video-out), below.
 
 | Field | Required | Notes |
 |---|---|---|
@@ -757,8 +758,9 @@ the provider returns bytes rather than a job id.
 | `assetId` | one of the two | a file you uploaded. **Video or audio** (`audio/mpeg`, `audio/wav`) — the only endpoint here that takes audio-only uploads |
 | `voiceId` | **yes** | no default, and **no substitution, ever**. From `GET /voices` |
 | `productId` | no | organizational only |
+| `output` | no | `"audio"` (default, the `200` below) or `"video"` (a `202` job; a video source only, enabled per workspace). See [Video out](#video-out) |
 
-Body is strict; exactly one source. Response `200`: `jobId`, `assetId`, `url`,
+Body is strict; exactly one source. Response with audio out, `200`: `jobId`, `assetId`, `url`,
 `expiresInSeconds`, `creditsCharged`, `billedMinutes`, `voiceId`.
 
 **What it preserves: timing, pacing and delivery, frame-accurately.** The take drops back
@@ -787,6 +789,28 @@ the same `assetId` is not a hit either.
 A longer one answers `400` naming the limit and charges nothing. Split it and convert the
 parts. A 15-second source converted in **7.1 seconds**.
 
+### Video out
+
+`output: "video"` returns the finished video instead of the take: the server puts the
+converted voice back over the source's picture. It is enabled per workspace; where it is off
+the call is a `400` whose message says to omit `output`, and nothing is charged.
+
+- **Response `202`:** `{ jobId, status, credits, output: "video" }`, where `status` is the
+  job's current status; retrying the same request is safe and returns the same job (the same
+  jobId). `queued`: not rendering yet; `running`: already rendering; `succeeded`, with the finished copy
+  and a zero `credits`, when the same change was already made. On `queued` or `running`, poll
+  `GET /generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4,
+  `voiceChange.videoId` names the copy) or `failed` (`voiceChange.reasonCode` names the
+  cause). On `succeeded`, download; there is nothing to poll.
+- **Price:** the same as audio out for the same source, quoted by the same `voice-change`
+  estimate arm. **When it is charged differs:** audio out at the request; video out only once
+  the job finds speech in the source, so a source with no speech ends `failed`, or
+  is refused at the request (no job is created) when an earlier attempt already found none, neither charged,
+  and a job that fails after that is refunded.
+- **A video source only.** An audio upload with `output: "video"` is a `400`, nothing
+  charged.
+- **Only the voice changes.** The words, the timing and the accent are the source's.
+
 ### Pricing
 
 **Per minute of source audio: whole minutes, rounded UP, one-minute minimum**, with no
@@ -800,10 +824,10 @@ ad and an empty body quoted the same number on the acceptance run.
 
 | Code | Cause |
 |---|---|
-| `400` | Validation, a source **past the 5-minute cap** (named), or voice changes being off on this deployment. Nothing charged. |
+| `400` | Validation, a source **past the 5-minute cap** (named), voice changes being off on this deployment, an **audio upload with `output: "video"`**, or `output` sent where video out is not enabled for the workspace (the message says to omit it). Nothing charged. |
 | `402` | Not enough credits; `details` carries `required` and `available`. |
 | `404` | No such job or asset for this organization, **or no such voice** — the voice cases are deliberately indistinguishable from "not yours". A voice that went inactive *after* the request started lands here too, with the credits refunded. |
-| `409` | The source job has not succeeded yet, it has **no audio to convert**, or **a conversion of this source in this voice is already in flight** — the message names that job id, so poll it or retry in a moment and the stored audio comes back without a second charge. Anything charged before a `409` is refunded. |
+| `409` | The source job has not succeeded yet, it has **no audio to convert**, or **a conversion of this source in this voice is already in flight** — the message names that job id, so poll it or retry in a moment and the stored audio comes back without a second charge. Anything charged before a `409` is refunded. On video out, a retry of a change still rendering is not a `409`: it answers `202` with `status: "running"`. |
 | `429` | `details.reason: voice_change_concurrency_limit` — **10** in flight, its own queue, counted apart from renders, captions, transcripts and narration. |
 | `500` | **Do not blindly retry**: this endpoint charges, and a failure can land after the debit. Call `GET /generations` first. |
 | `502` | The provider failed. Credits refunded automatically. |
@@ -822,9 +846,11 @@ Four assumptions callers arrive with, none of them true here:
   anyone talking": a music bed sent here converts into vocal noise, is **charged in full**,
   and answers `200`. That is a charged success, not an error, and there is nothing to refund.
   Check for speech locally before you call — the `change-voice` skill ships a free check that
-  does it in about a second.
+  does it in about a second. That is audio out, the default. Video out is charged only once
+  its job finds speech, so a source with none ends `failed`, or is refused at the request (no job is created) when an earlier attempt already found none, neither charged ([Video out](#video-out));
+  the local check still runs first.
 
-And it does not return **video**. Muxing the take back over the picture, and deciding which
+And by default it does not return **video** (`output: "video"` is the exception, above). Muxing the take back over the picture, and deciding which
 spans to swap so a sound effect or a music bed survives untouched, is yours to do locally,
 deliberately: those are creative decisions a server should not make on your behalf.
 
@@ -927,7 +953,7 @@ queued -> running -> finalizing -> succeeded
 
 **Poll for terminal, not for `succeeded`.** A loop waiting only on `succeeded` never exits on a failed job.
 
-`queued` means charged and submitted but not yet rendering. It is normal, not a stall.
+`queued` means charged and submitted but not yet rendering. It is normal, not a stall. A video-out voice change is different: it is charged once the job finds speech in the source, not at `queued` ([Video out](#video-out)).
 
 Measured on production renders (all providers, succeeded only, p10 to p90):
 
@@ -1038,7 +1064,7 @@ description if you meet one that is not here — this table is a working set, no
 | `caption_concurrency_limit` | **10 caption jobs already in flight** for the organization (verified in spec 2.6.0, 2026-08-04) | Same shape as above: wait, do not slow down. Counted **separately** from `concurrency_limit`, deliberately — a batch of captions can never block your next render, and vice versa. |
 | `transcript_concurrency_limit` | **10 transcripts already in flight** for the organization, where `POST /transcripts` is offered (verified against the deployed spec `2.12.0`, 2026-08-06) | Wait. A transcript is synchronous, so this bounds how many you can hold open at once and is often the first ceiling a batch meets. |
 | `voiceover_concurrency_limit` | **10 voice-overs already in flight** for the organization, where `POST /voiceovers` is offered (verified against the deployed spec `2.12.0`, 2026-08-06) | Wait — but on a two-second TTS call, not on your renders. Easy to misread as "stop generating video" when renders are legitimately in flight; they are unrelated queues. |
-| `voice_change_concurrency_limit` | **10 voice changes already in flight** for the organization, where `POST /voice-changes` is offered (verified against the deployed spec `2.21.0`, 2026-08-12) | Wait. Synchronous like transcripts, so this bounds how many conversions you can hold open at once rather than how fast you may ask. Its own queue: a batch of conversions never blocks a render, a caption or a narration line. |
+| `voice_change_concurrency_limit` | **10 voice changes already in flight** for the organization, where `POST /voice-changes` is offered (verified against the deployed spec `2.21.0`, 2026-08-12) | Wait. Audio out is synchronous like transcripts, so this bounds how many conversions you can hold open at once rather than how fast you may ask. Its own queue: a batch of conversions never blocks a render, a caption or a narration line. |
 | `key_limit` | 60 requests per minute on this key | Honor `Retry-After`. The `X-RateLimit-*` trio tracks this ceiling and only this one. |
 | `organization_limit` | 180 requests per minute across every key the organization holds | Honor `Retry-After`. `X-RateLimit-*` will still show room on your key — correct, not a broken limiter. Minting another key does not raise it. |
 | `client_limit` | 1,200 requests per minute from one address, **pre-authentication** | Honor `Retry-After`. Carries no `X-RateLimit-*` trio. |

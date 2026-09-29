@@ -21,6 +21,11 @@ one-hit-per-cut rule. The re-review cases: a pastel photo refused under LIGHT (-
 for a neutral product), takes at the requested aspect from a 4:5 source cropped with a
 NOTICE while takes off it are refused, and the packshot gate (a tight crop and a product
 with a second-colour label pass, a coloured backdrop and three equal colours are refused).
+The follow-up cases: build refuses a row with two picked takes, warns on a pick with no
+sensor and records each shot's take (file, jobId) in assembly.json; the QC reel keeps the
+full windows where the old recipe (-t after -i, cut after the slow-down) keeps a third,
+candidates leave out a take that fails the free check, and a reel cut after the slow-down
+is refused and deleted.
 Requires ffmpeg/ffprobe on PATH. Python stdlib only, no pytest.
 """
 
@@ -374,6 +379,7 @@ def run_cases(d):
                   "targets=%s" % [(s["id"], s["words_min"], s["words_max"]) for s in (out_p or {}).get("shots", [])]))
     review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p)
     rereview_fix_cases(d, sj, grey)
+    followup_cases(d, sj)
 
 
 def review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p):
@@ -751,6 +757,146 @@ def rereview_fix_cases(d, sj, grey):
         ok = b.get("not_packshot") is True and "no dominant product colour" in b.get("reason", "")
         return ok, "%s" % info
     case("N3: three colours of similar weight on white are refused (no dominant product colour)", n3_two)
+
+
+def followup_cases(d, sj):
+    """S (build's picks: one per row, a sensor on each, the take recorded) and R (the QC reel:
+    trim, then slow, then join; proved by probe)."""
+    def load(p):
+        return json.loads(Path(p).read_text())
+
+    # ---- S: picks in build
+    def s_setup(tag, mutate):
+        jf = d / ("s_" + tag)
+        jf.mkdir()
+        dd = load(sj)
+        mutate({r["id"]: r for r in dd["shots"]})
+        (jf / "shots.json").write_text(json.dumps(dd))
+        return jf
+
+    def s_two_picks():
+        def m(rows):
+            t = dict(rows["SH02"]["new"]["takes"][0])
+            t.update(jobId="job-SH02-b", id="SH02_t2")
+            rows["SH02"]["new"]["takes"].append(t)
+        jf = s_setup("two", m)
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "none")
+        err = (out or {}).get("error") or ""
+        ok = (c == 2 and "SH02: 2 takes are marked pick: true" in err and "SH02_t2" in err
+              and not (jf / "master.mp4").exists() and "Traceback" not in e)
+        return ok, "exit=%d error=%s" % (c, err[-160:])
+    case("S1: build refuses (exit 2) a rendered row with two takes marked pick: true, nothing rendered", s_two_picks)
+
+    built = {}
+
+    def s_sensor():
+        def m(rows):
+            rows["SH01"]["new"]["takes"][0]["sensor"] = "analysis"
+            rows["SH04"]["new"]["takes"][0]["sensor"] = "sheets"
+        jf = s_setup("sensor", m)
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "none")
+        built["job"], built["out"] = jf, out
+        warn = [ln for ln in e.splitlines() if ln.startswith("WARNING:") and "no sensor" in ln]
+        ok = c == 0 and len(warn) == 1 and warn[0].startswith("WARNING: SH02: the picked take has no sensor")
+        return ok, "exit=%d sensor warnings=%s" % (c, warn)
+    case("S2: a pick with no sensor builds with one WARNING line naming its shot (SH02 only)", s_sensor)
+
+    def s_recorded():
+        jf = built.get("job")
+        if not jf or not (jf / "assembly.json").exists():
+            return False, "no S2 build"
+        rows = {x["id"]: x for x in load(jf / "assembly.json")["shots"]}
+        src = {r["id"]: r for r in load(jf / "shots.json")["shots"]}
+        t1 = rows["SH01"].get("take") or {}
+        ok = (t1.get("file") == src["SH01"]["new"]["takes"][0]["path"]
+              and t1.get("jobId") == "job-SH01" and t1.get("index") == 0 and t1.get("sensor") == "analysis"
+              and (rows["SH02"].get("take") or {}).get("sensor") is None and rows["SH03"].get("take") is None
+              and [x.get("jobId") for x in (built["out"] or {}).get("shots", [])] == ["job-SH01", "job-SH02", None, "job-SH04"])
+        return ok, "SH01 take=%s SH03 take=%s" % (t1, rows["SH03"].get("take"))
+    case("S3: assembly.json records per shot the take file used, its index, jobId and sensor (a hold: none)",
+         s_recorded)
+
+    # ---- R: the QC reel
+    jr = d / "reel_job"
+    jr.mkdir()
+    rows = []
+    for sid, dur, pat in (("SH01", 1.77, "testsrc2"), ("SH03", 2.27, "testsrc2")):
+        tk = jr / ("%s_t1.mp4" % sid)
+        enc(tk, "-f", "lavfi", "-i", "%s=s=%dx%d:r=24:d=4" % (pat, W, H), fps=24)
+        stl = jr / ("%s.png" % sid)
+        ffmpeg("-i", tk, "-frames:v", "1", stl)
+        rows.append({"id": sid, "dur": dur, "render": "take",
+                     "new": {"still_path": str(stl), "takes": [{"id": sid + "_t1", "jobId": "job-" + sid, "path": str(tk)}]}})
+    frozen = jr / "SH01_t2.mp4"
+    enc(frozen, "-loop", "1", "-i", jr / "SH01.png", "-t", "4", fps=24)
+    (jr / "shots.json").write_text(json.dumps({"shots": rows}))
+    rows[0]["new"]["takes"].append({"id": "SH01_t2", "jobId": "job-SH01-b", "path": str(frozen)})
+    (jr / "shots2.json").write_text(json.dumps({"shots": rows}))
+    frames = [int(math.ceil(1.77 * 24)), int(math.ceil(2.27 * 24))]  # 43 and 55
+    want = sum(frames) / 24.0 * 3  # 12.25
+
+    def r_regression():
+        # the old recipe: -t after -i is an output limit, applied after setpts
+        clips = []
+        for r in rows:
+            cl = jr / ("old_%s.mp4" % r["id"])
+            ffmpeg("-i", r["new"]["takes"][0]["path"], "-t", r["dur"], "-vf", "setpts=3*PTS", "-an", cl)
+            clips.append(cl)
+        old = jr / "old_reel.mp4"
+        enc(old, "-i", clips[0], "-i", clips[1], "-filter_complex", "[0:v][1:v]concat=n=2:v=1,fps=24[v]", "-map", "[v]", fps=24)
+        old_s = st.probe(str(old))["duration"]
+        out = jr / "qc" / "reel_1.mp4"
+        c, res, e = script("assemble.py", "reel", jr / "shots.json", "--slow", "3", "--out", out)
+        res = res or {}
+        idx = load(str(out) + ".index.json") if Path(str(out) + ".index.json").exists() else {}
+        w = idx.get("windows") or []
+        probed = st.probe(str(out))["duration"] if out.exists() else 0
+        ok = (abs(old_s - want / 3) <= 0.25 and c == 0 and abs(probed - want) <= 0.05
+              and abs(res.get("probed_seconds", 0) - want) <= 0.05 and res.get("maxSeconds") == 13
+              and [(x["shot"], x["take"], x["window"], x["reel_start"], x["reel_end"]) for x in w] ==
+              [("SH01", "SH01_t1", [0.0, 1.7917], 0.0, 5.375), ("SH03", "SH03_t1", [0.0, 2.2917], 5.375, 12.25)]
+              and "from 5.38 to 12.25 s" in res.get("sentence", ""))
+        return ok, "old recipe %.3f s (want/3 = %.3f) | helper exit=%d probed=%.3f want=%.3f maxSeconds=%s windows=%s %s" % (
+            old_s, want / 3, c, probed, want, res.get("maxSeconds"),
+            [(x["shot"], x["reel_start"], x["reel_end"]) for x in w], e[-160:])
+    case("R1: the QC reel keeps each full window (12.25 s, maxSeconds 13) where -t after -i keeps a third", r_regression)
+
+    def r_candidates():
+        oc, ores, oe = script("assemble.py", "reel", jr / "shots2.json", "--out", jr / "qc" / "reel_c.mp4")
+        ac, ares, ae = script("assemble.py", "reel", jr / "shots2.json", "--takes", "all", "--out", jr / "qc" / "reel_a.mp4")
+        ores, ares = ores or {}, ares or {}
+        want_all = (2 * frames[0] + frames[1]) / 24.0 * 3
+        note = [ln for ln in oe.splitlines() if ln.startswith("NOTE: SH01 SH01_t2 left out")]
+        ok = (oc == 0 and ores.get("windows") == 2 and abs(ores.get("probed_seconds", 0) - want) <= 0.05 and len(note) == 1
+              and ac == 0 and ares.get("windows") == 3 and abs(ares.get("probed_seconds", 0) - want_all) <= 0.05
+              and ares.get("maxSeconds") == int(math.ceil(ares.get("probed_seconds", 0) - 1e-6)))
+        return ok, "candidates exit=%d windows=%s %.3f | all exit=%d windows=%s %.3f (want %.3f) notes=%s" % (
+            oc, ores.get("windows"), ores.get("probed_seconds", 0), ac, ares.get("windows"),
+            ares.get("probed_seconds", 0), want_all, note)
+    case("R2: --takes candidates leaves out a take that fails the free check (a NOTE line); --takes all reels it",
+         r_candidates)
+
+    def r_guard():
+        real = asm.reel_graph
+
+        def cut_after_slow(wins, slow, W_, H_, fps=24):
+            parts = ["[%d:v]setpts=%s*(PTS-STARTPTS),trim=end=%s,setpts=PTS-STARTPTS,scale=%d:%d,setsar=1[r%d]"
+                     % (j, slow, w["dur"], W_, H_, j) for j, w in enumerate(wins)]
+            return ";".join(parts) + ";%sconcat=n=%d:v=1:a=0,fps=%d[v]" % (
+                "".join("[r%d]" % j for j in range(len(wins))), len(wins), fps)
+        out = jr / "qc" / "reel_bad.mp4"
+        asm.reel_graph = cut_after_slow
+        try:
+            asm.reel(jr / "shots.json", out, 3, "all")
+            return False, "no refusal"
+        except asm.Refusal as e:
+            msg = str(e)
+        finally:
+            asm.reel_graph = real
+        ok = ("cut after the slow-down" in msg and "never send it" in msg and not out.exists()
+              and not Path(str(out) + ".index.json").exists())
+        return ok, msg[-200:]
+    case("R3: a reel cut after the slow-down probes a third short: refused, deleted, no index written", r_guard)
 
 
 if __name__ == "__main__":

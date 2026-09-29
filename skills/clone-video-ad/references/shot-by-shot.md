@@ -308,54 +308,52 @@ scale), **no invented cut** inside `[0, dur]`, and **motion present**: the most 
 0.5 s window inside `[0, dur]` clears the floor, so a take that finishes its action and then holds
 (§ Motion prompts) passes, and only a take frozen throughout fails.
 
-**Then the paid reads, one per reel.** Trim each passing take to its `[0, dur]` window, slow the
-trimmed window 3x so the sampling sees every moment, and join the windows into reels of **at most
-about 30 s each** (the endpoint reads tight near 20 s and scatters at 120). **Trim before you
-slow, inside the filter.** A `-t` written after `-i` is an output limit: it applies after `setpts`,
-so it keeps `dur` seconds of the slowed clip, which is only the first third of the window at 3x.
-One command builds the whole reel, each window trimmed, then slowed, then joined, at a normal
-frame rate (without `fps=24` a 3x reel plays at 8 fps):
+**Then the paid reads, one per reel.** Each passing take's `[0, dur]` window is slowed 3x so the
+sampling sees every moment, and the windows are joined into reels of **at most about 30 s each**
+(the endpoint reads tight near 20 s and scatters at 120). Build every reel with `reel`, never by
+hand: a hand-typed `-t` after `-i` cuts after the slow-down and keeps only the first third of each
+window.
 
 ```bash
-ffmpeg -y -i outputs/<job>/takes/SH01_t1.mp4 -i outputs/<job>/takes/SH03_t1.mp4 -filter_complex \
-  "[0:v]trim=0:1.77,setpts=3*(PTS-STARTPTS)[a];[1:v]trim=0:2.27,setpts=3*(PTS-STARTPTS)[b];[a][b]concat=n=2:v=1,fps=24[v]" \
-  -map "[v]" -an -c:v libx264 -pix_fmt yuv420p outputs/<job>/qc/reel_1.mp4
-ffprobe -v error -show_entries format=duration -of csv=p=0 outputs/<job>/qc/reel_1.mp4
+python3 skills/clone-video-ad/scripts/assemble.py reel outputs/<job>/shots.json --slow 3 \
+  --out outputs/<job>/qc/reel_1.mp4
 ```
 
-**Prove the reel before paying for it.** `trim` keeps whole frames, so each window lasts
-`ceil(dur x 24) / 24` seconds at the takes' 24 fps (1.77 s is 43 frames, 1.792 s), and the reel runs the sum of those
-times the slow factor: here (1.792 + 2.292) x 3 = 12.25 s. The probe must match that within
-0.05 s. A reel about a third of that length was cut after the slow; rebuild it, never send it.
-Then write `outputs/<job>/qc/reel_<n>.json`: `slow`, and one segment per window with its shot,
-take, `take_end` (`dur`) and its `reel_start` and `reel_end`, the running sum of those frame-rounded
-windows times `slow` (SH01 0 to 5.375, SH03 5.375 to 12.25). The last `reel_end` must equal the
-probed length within 0.05 s. Size the reels before gate D, so their count is the number of
-analysis calls it prices; a reel that would pass about 30 s is split, or slowed 2x instead of 3x.
+It takes every rendered row's takes that pass `check` (`--takes all` keeps the failed ones too,
+and a NOTE line names each take left out), trims each window in whole frames, then slows it, then
+joins at 24 fps. **It proves the reel before you pay for it:** it probes the reel and exits 2,
+deleting it, unless the probe equals the sum of the frame-rounded windows times the slow factor
+within 0.05 s (1.77 s is 43 frames, 1.792 s, so windows of 1.77 and 2.27 s make a 12.25 s reel),
+or when the reel passes 120 s. It writes `qc/reel_1.mp4.index.json` (per window: its shot, take,
+the window in the take, and its `reel_start` and `reel_end`) and prints `maxSeconds` and the
+windows sentence for the question. A reel with no index beside it was refused: rebuild it, never
+send it. Size the reels before gate D, so their count is the number of analysis calls it prices; a
+reel that would pass about 30 s (a WARNING line) is split with `--shots SH01,SH03` per reel, or
+made with `--slow 2`.
 
 Upload each reel (SKILL step 2) and send one `POST /v1/analyses` per reel: several flat-fee calls,
 all priced at gate D. The body is strict (an unknown key is a free `400`) and, as of 2026-09-29,
 takes `assetId`, `maxSeconds` (an integer, 1 to 120, default 20) and an optional `question` (1 to
 500 characters), which the spec calls an instruction that steers what the breakdown emphasises and
 never changes the price. The endpoint reads `maxSeconds` from the start of the reel and publishes
-no sampling field, so **`maxSeconds` is the probed reel length rounded up**, and every window's
-`reel_end` must be at or under it; a reel longer than 120 s cannot be read whole and is split.
+no sampling field, so **`maxSeconds` is the probed reel length rounded up**, the value `reel`
+prints, and every window's `reel_end` in the index is at or under it.
 The answer's `analyzedWindowSeconds` echoes the ceiling you sent, not what the reel holds, so it
 proves nothing about coverage: the probe does.
 
 ```bash
 curl -sS -X POST "${NOVOADS_BASE_URL:-https://api.novoads.ai}/v1/analyses" \
   -H "Authorization: Bearer $NOVOADS_API_KEY" -H "Content-Type: application/json" \
-  -d '{"assetId":"<the reel assetId>","maxSeconds":<ceil(probed seconds)>,"question":"<the ask below>"}'
+  -d '{"assetId":"<the reel assetId>","maxSeconds":<maxSeconds from reel>,"question":"<the ask below>"}'
 ```
 
-The forensic ask, with the reel's windows written into its last sentence from the index:
+The forensic ask, its last sentence the windows sentence `reel` printed from the index:
 
 > Second by second, list every defect with its timestamp: a hand or finger that appears, vanishes
 > or doubles; an object that moves on its own; a face or product that morphs; a label or colour
 > that changes; text that appears; a cut; motion that freezes. Say "clean" for a clean stretch.
-> The reel is 2 clips: clip 1 from 0 to 5.4 s, clip 2 from 5.4 to 12.25 s; the join at 5.4 s is
-> expected.
+> The reel is 2 clips: clip 1 from 0 to 5.38 s, clip 2 from 5.38 to 12.25 s. The join at 5.38 s
+> is expected.
 
 Keep the whole question within 500 characters: shorten the defect list, never the windows. The
 answer is a breakdown the question steers, not a promised defect list, and its timestamps come in

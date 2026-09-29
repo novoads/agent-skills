@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Free local checks, the product-hue gate, the shot-route build and its verifier.
+"""Free local checks, the product-hue gate, the shot-route build, its verifier and the QC reel.
 
   python3 skills/clone-video-ad/scripts/assemble.py check    TAKE.mp4 --still STILL.png --dur D
   python3 skills/clone-video-ad/scripts/assemble.py hue-gate GRADED.mp4 --ungraded TWIN.mp4 --photo PRODUCT [--windows a-b,c-d]
   python3 skills/clone-video-ad/scripts/assemble.py build    outputs/<job>/shots.json [--grade light|none] [--fps 24|30] [--vo VO.mp3 --vo-start S] [--bed BED.audio]
                                                       [--photo PRODUCT] [--allow-grey] [--allow-crop] [--talker SH07=voice_changed.mp3 ...]
   python3 skills/clone-video-ad/scripts/assemble.py verify   outputs/<job>/master.mp4 outputs/<job>/shots.json
+  python3 skills/clone-video-ad/scripts/assemble.py reel     outputs/<job>/shots.json --slow 3 [--takes candidates|all]
+                                                      [--shots SH01,SH03] --out outputs/<job>/qc/reel_1.mp4
 
 check     opening lock (max SSIM of take frame 0 vs the still centre-cropped at 1.00-1.05,
           both 180x320 grey, PASS >= 0.90), no scene > 0.25 cut inside [0, D], motion present
@@ -23,17 +25,27 @@ build     per shot: the picked take trimmed to its slot, or a held still with a 
           centred on the cut, zoom-in -> xfade zoomin, flash_s -> a white blend, else hard);
           LIGHT grade = eq brightness to the source shot's YAVG (contrast 1.0, iterated to
           +/-2) then the hue-protected chroma scale toward its SATAVG; NONE = no grade.
-          Writes master_ungraded.mp4 (twin), master.mp4, assembly.json (with every command).
+          Writes master_ungraded.mp4 (twin), master.mp4, assembly.json (with every command, and per
+          shot the take it used: index, file, jobId, sensor).
           Refuses (exit 2, nothing rendered): LIGHT without a product photo, a photo that is
-          not a packshot, LIGHT on a photo with too little colour unless --allow-grey (a
+          not a packshot, a rendered row with more than one take marked pick: true,
+          LIGHT on a photo with too little colour unless --allow-grey (a
           neutral product), and a take or still that needs a crop (> 2 % off the source's
           aspect) and is not at shots.json `aspect` either, unless --allow-crop. One AT
           `aspect` from a source no API aspect matches is cropped with a NOTICE line. Every
           crop is recorded in assembly.json crops[]. A NO_PRODUCT or SKIPPED hue gate
           exits 0 with a WARNING line on stderr and is never reported as PASS.
+          A picked take with no sensor is a WARNING line too.
           --talker ID=AUDIO (repeatable) puts that audio (a voice-changed talker take, timed
           from the take's frame 0) in shot ID's window instead of the voiceover, with short
           crossfades, level-matched to the voiceover before the shared loudnorm. Needs --vo.
+reel      the QC reel for the paid analysis: per rendered row, each take (candidates = those whose
+          check passes; all = every take with a path) TRIMMED to [0, dur] in whole frames, THEN slowed
+          with setpts, then joined at 24 fps. Probes the reel and refuses (exit 2, the reel deleted)
+          unless it equals the sum of the frame-rounded windows x slow within 0.05 s, or when it runs
+          over 120 s. Writes <reel>.index.json (per window: shot, take, the window in the take, and
+          reel_start/reel_end) and prints maxSeconds (the probed length rounded up) and the windows
+          sentence for the question.
 verify    duration within one frame, measured cuts (both thresholds) within 0.05 s of the
           table's (a whip or zoom cut: inside its transition window), each measured hit
           claimed by one table cut at most, per-shot Y and SAT against the source. Exit 0 on
@@ -105,6 +117,11 @@ FLASH_ALPHA = 0.85
 TALKER_FADE_S = 0.04        # crossfade between the voiceover and a talker window
 TALKER_GAIN_MAX_DB = 12.0   # level-match clamp for a talker window against the voiceover
 CUT_TOL_S = 0.05
+# ---- QC reel
+REEL_FPS = 24
+REEL_TOL_S = 0.05            # the probed reel vs the frame-rounded windows x slow
+REEL_SOFT_S = 30             # the analysis reads tight near 20 s and scatters at 120
+REEL_MAX_S = 120             # maxSeconds' ceiling: a longer reel cannot be read whole
 ASPECT_TOL = 0.02            # a take or still whose aspect is off the source's by more is refused
 XFADE = {"whip-right": "slideleft", "whip-left": "slideright", "zoom-in": "zoomin"}
 SEG_ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p"]
@@ -519,14 +536,29 @@ def _resolve(p, base):
     return (base / p).resolve()
 
 
+def _picked(r):
+    """[(index, take)] for every take in new.takes marked pick: true."""
+    return [(i, t) for i, t in enumerate((r.get("new") or {}).get("takes") or [])
+            if isinstance(t, dict) and t.get("pick")]
+
+
+def _shot_mode(r):
+    new = r.get("new") or {}
+    return r.get("render") or ("take" if _picked(r) else ("hold" if new.get("still_path") else None))
+
+
 def _shot_source(r, base):
     new = r.get("new") or {}
-    picked = [t for t in new.get("takes") or [] if isinstance(t, dict) and t.get("pick")]
-    mode = r.get("render") or ("take" if picked else ("hold" if new.get("still_path") else None))
+    picked = _picked(r)
+    mode = _shot_mode(r)
     if mode == "take":
-        if not picked or not picked[-1].get("path"):
+        if len(picked) > 1:
+            raise Refusal("%s: %d takes are marked pick: true (takes %s); gate E picks exactly one, so set pick "
+                          "on that one only in shots.json" % (r["id"], len(picked), ", ".join(
+                              str(t.get("id") or t.get("jobId") or "#%d" % i) for i, t in picked)))
+        if not picked or not picked[0][1].get("path"):
             raise ValueError("%s: render=take but no picked take with a path in new.takes" % r["id"])
-        return "take", _resolve(picked[-1]["path"], base)
+        return "take", _resolve(picked[0][1]["path"], base)
     if mode == "hold":
         if not new.get("still_path"):
             raise ValueError("%s: render=hold but new.still_path is empty" % r["id"])
@@ -721,6 +753,10 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
                           ", ".join(c["id"] for c in at_req), "/".join(sorted({str(c["kept_pct"]) for c in at_req})))
                       ] if at_req else []
     ung, grd = [], []
+    for r, (mode, src) in zip(shots, sources):
+        if mode == "take" and not _picked(r)[0][1].get("sensor"):
+            warnings.append("%s: the picked take has no sensor (analysis or sheets), so nothing records what "
+                            "chose it; write it into shots.json before the hand-over" % r["id"])
     for s, r, (mode, src) in zip(segs, shots, sources):
         T = s["frames"]
         out_u = bdir / ("%s_ungraded.mp4" % r["id"])
@@ -739,7 +775,11 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
                 ["-an", "-vf", vf, "-frames:v", T, "-r", F] + SEG_ENC + [out_u])
         ung.append(out_u)
         srow = {"id": r["id"], "mode": mode, "src": str(src), "K": s["K"], "nominal_frames": s["nominal"],
-                "head": s["head"], "tail": s["tail"], "frames": T}
+                "head": s["head"], "tail": s["tail"], "frames": T, "take": None}
+        if mode == "take":
+            ti, tk = _picked(r)[0]
+            srow["take"] = {"index": ti, "id": tk.get("id"), "file": str(src), "path": tk.get("path"),
+                            "jobId": tk.get("jobId"), "sensor": tk.get("sensor")}
         flash_frames = cuts[s["i"]]["flash_frames"] if s["i"] else 0
         wa, wb = (s["head"] + flash_frames) / float(F), (s["head"] + s["nominal"]) / float(F)
         tgt = r.get("grade") or {}
@@ -966,6 +1006,124 @@ def verify(master, shots_path):
     return res
 
 
+# ------------------------------------------------------------------ QC reel
+def reel_windows(shots_path, takes="candidates", only=None):
+    """The QC reel's windows: per rendered row, each take (every one with a path, or only those
+    whose free check passes) cut to [0, dur] in whole frames of the take."""
+    shots_path = Path(shots_path).resolve()
+    job = shots_path.parent
+    doc = json.loads(shots_path.read_text(encoding="utf-8"))
+    want = {x.strip() for x in only.split(",") if x.strip()} if only else None
+    wins, skipped = [], []
+    for r in doc["shots"]:
+        if want is not None and r["id"] not in want:
+            continue
+        if _shot_mode(r) != "take":
+            continue
+        new = r.get("new") or {}
+        dur = float(r["dur"])
+        for i, t in enumerate(new.get("takes") or []):
+            if not isinstance(t, dict) or not t.get("path"):
+                continue
+            path = _resolve(t["path"], job)
+            if not path.is_file():
+                raise Refusal("%s take %d: the file is missing: %s" % (r["id"], i, t["path"]))
+            label = t.get("id") or path.stem
+            if takes == "candidates":
+                if not new.get("still_path"):
+                    raise Refusal("%s: no new.still_path to run the free check against; pass --takes all "
+                                  "to reel every take unchecked" % r["id"])
+                res = check(path, _resolve(new["still_path"], job), dur)
+                if not res["pass"]:
+                    skipped.append({"shot": r["id"], "take": label, "reasons": res["reasons"]})
+                    continue
+            info = st.probe(str(path))
+            fps = float(info["fps"])
+            n = int(math.ceil(dur * fps - 1e-6))
+            if info.get("nb_frames"):
+                n = min(n, int(info["nb_frames"]))
+            wins.append({"shot": r["id"], "take": label, "take_index": i, "path": str(path),
+                         "jobId": t.get("jobId"), "fps": fps, "frames": n, "size": [info["width"], info["height"]],
+                         "window": [0.0, round(n / fps, 4)], "dur": dur})
+    if want is not None and not wins and not skipped:
+        raise Refusal("no rendered take in the rows asked for (%s)" % only)
+    return wins, skipped
+
+
+def reel_graph(wins, slow, W, H, fps=REEL_FPS):
+    """Each window TRIMMED in whole frames first, THEN slowed, then all joined at fps. A -t after
+    -i would instead cut the slowed clip, keeping only the first 1/slow of each window."""
+    parts = []
+    for j, w in enumerate(wins):
+        parts.append("[%d:v]trim=start_frame=0:end_frame=%d,setpts=%s*(PTS-STARTPTS),"
+                     "scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1[r%d]"
+                     % (j, w["frames"], _num(slow), W, H, W, H, j))
+    parts.append("%sconcat=n=%d:v=1:a=0,fps=%d[v]" % ("".join("[r%d]" % j for j in range(len(wins))), len(wins), fps))
+    return ";".join(parts)
+
+
+def _num(x):
+    return ("%.6f" % float(x)).rstrip("0").rstrip(".")
+
+
+def reel(shots_path, out, slow=3.0, takes="candidates", only=None):
+    """Build the QC reel, prove its length by probe, write <reel>.index.json. Refusal (exit 2)
+    when the probe is off the frame-rounded sum of windows x slow by more than REEL_TOL_S."""
+    slow = float(slow)
+    if not slow >= 1.0:
+        raise Refusal("--slow must be 1 or more")
+    wins, skipped = reel_windows(shots_path, takes, only)
+    if not wins:
+        raise Refusal("no take to reel: %s" % ("every take failed the free check (%s)" % "; ".join(
+            "%s %s" % (x["shot"], x["take"]) for x in skipped) if skipped else "no rendered row has a take with a path"))
+    out = Path(out).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    W, H = [int(v) // 2 * 2 for v in wins[0]["size"]]
+    cmd = ["ffmpeg", "-y", "-v", "error"]
+    for w in wins:
+        cmd += ["-i", w["path"]]
+    cmd += ["-filter_complex", reel_graph(wins, slow, W, H), "-map", "[v]", "-an", "-r", REEL_FPS,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]
+    st.run(cmd)
+    t, rows = 0.0, []
+    for w in wins:
+        a = t
+        t += w["frames"] / w["fps"] * slow
+        rows.append({"shot": w["shot"], "take": w["take"], "take_index": w["take_index"], "path": w["path"],
+                     "jobId": w["jobId"], "window": w["window"], "frames": w["frames"],
+                     "reel_start": round(a, 4), "reel_end": round(t, 4)})
+    expected = round(t, 4)
+    probed = round(float(st.probe(str(out))["duration"]), 4)
+    if abs(probed - expected) > REEL_TOL_S:
+        out.unlink()
+        raise Refusal("the reel probed %.3f s but its windows x %s sum to %.3f s (tolerance %.2f s); it was deleted, "
+                      "never send it%s" % (probed, _num(slow), expected, REEL_TOL_S,
+                                           " (about 1/%s: cut after the slow-down)" % _num(slow)
+                                           if slow > 1 and abs(probed * slow - expected) <= 0.1 * expected else ""))
+    max_s = int(math.ceil(probed - 1e-6))
+    warnings = []
+    if probed > REEL_MAX_S:
+        out.unlink()
+        raise Refusal("the reel runs %.2f s, over the %d s the analysis reads; split it with --shots" % (probed, REEL_MAX_S))
+    if probed > REEL_SOFT_S:
+        warnings.append("the reel runs %.2f s, over about %d s: the read scatters on long reels; split it with "
+                        "--shots or use --slow 2" % (probed, REEL_SOFT_S))
+    sentence = "The reel is %d clip%s: %s." % (len(rows), "s" if len(rows) > 1 else "", ", ".join(
+        "clip %d from %s to %s s" % (k + 1, _num(round(x["reel_start"], 2)), _num(round(x["reel_end"], 2)))
+        for k, x in enumerate(rows)))
+    if len(rows) > 1:
+        sentence += " The join%s at %s s %s expected." % ("s" if len(rows) > 2 else "", ", ".join(
+            _num(round(x["reel_start"], 2)) for x in rows[1:]), "are" if len(rows) > 2 else "is")
+    idx = {"version": 1, "reel": str(out), "shots_json": str(Path(shots_path).resolve()), "slow": slow,
+           "fps": REEL_FPS, "takes": takes, "expected_seconds": expected, "probed_seconds": probed,
+           "maxSeconds": max_s, "windows": rows, "skipped": skipped, "sentence": sentence, "warnings": warnings,
+           "command": [str(c) for c in cmd]}
+    ipath = Path(str(out) + ".index.json")
+    ipath.write_text(json.dumps(idx, indent=2), encoding="utf-8")
+    idx["index"] = str(ipath)
+    return idx
+
+
 # ------------------------------------------------------------------ cli
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -998,7 +1156,30 @@ def main(argv=None):
     v = sub.add_parser("verify")
     v.add_argument("master")
     v.add_argument("shots")
+    q = sub.add_parser("reel")
+    q.add_argument("shots")
+    q.add_argument("--slow", type=float, default=3.0)
+    q.add_argument("--takes", choices=("candidates", "all"), default="candidates",
+                   help="candidates: only takes whose free check passes (default); all: every take with a path")
+    q.add_argument("--shots", dest="only", metavar="SH01,SH03", help="only these rows (to split a long reel)")
+    q.add_argument("--out", required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "reel":
+        try:
+            idx = reel(a.shots, a.out, a.slow, a.takes, a.only)
+        except (Refusal, ValueError, OSError, RuntimeError) as e:
+            print(json.dumps({"pass": False, "error": str(e)}, indent=1))
+            print("ERROR: %s" % e, file=sys.stderr)
+            return 2
+        for w in idx["warnings"]:
+            print("WARNING: %s" % w, file=sys.stderr)
+        for x in idx["skipped"]:
+            print("NOTE: %s %s left out, the free check failed: %s" % (x["shot"], x["take"], "; ".join(x["reasons"])),
+                  file=sys.stderr)
+        print(json.dumps({k: idx[k] for k in ("reel", "index", "probed_seconds", "expected_seconds", "maxSeconds",
+                                              "sentence", "warnings")} | {"pass": True, "windows": len(idx["windows"])},
+                         indent=1))
+        return 0
     if a.cmd == "check":
         res = check(a.take, a.still, a.dur)
         print(json.dumps(res, indent=1))
@@ -1027,6 +1208,7 @@ def main(argv=None):
         for w in rec["warnings"]:
             print("WARNING: %s" % w, file=sys.stderr)
         out["shots"] = [{"id": s["id"], "mode": s["mode"], "frames": s["frames"],
+                         "take": (s.get("take") or {}).get("file"), "jobId": (s.get("take") or {}).get("jobId"),
                          "y_after": (s.get("grade") or {}).get("y_after"), "y_target": (s.get("grade") or {}).get("y_target"),
                          "k": (s.get("grade") or {}).get("k")} for s in rec["shots"]]
         out["assembly_json"] = str(Path(a.shots).resolve().parent / "assembly.json")

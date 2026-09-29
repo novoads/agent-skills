@@ -14,7 +14,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 | `prompt` | required | The video prompt. See *Length* below. |
 | `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
 | `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9`.** Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
-| `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. Not on `seedance-2.0-mini`. |
+| `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. On `seedance-2.0-mini` only from API 2.34.0, and only the tiers `GET /v1/models` lists for it. |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | The language the ad is rendered in. Write the prompt in it too. |
 | `startImageAssetId` | one `assetId` | Animates that image as the **first frame**. |
 | `referenceAssetIds` | up to **9** `assetId`s | **Composites** them as visual references. Addressed in the prompt as `@Image1`…`@ImageN`. |
@@ -24,7 +24,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 
 > `startImageAssetId and referenceAssetIds are separate modes and cannot be combined. Pass startImageAssetId to animate one image as the first frame, or referenceAssetIds to composite several references into a new scene.`
 
-References are **images only** (`image/jpeg`, `image/png`, `image/webp`), even though `POST /v1/uploads` also accepts video. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` takes `referenceAssetIds` too since API 2.30.0 (images only as well, with one separate `referenceVideoAssetId`); read its guide before carrying a Seedance reference prompt across.
+`referenceAssetIds` is **images only** (`image/jpeg`, `image/png`, `image/webp`); since API 2.35.0 mp4 and mp3 references go in `referenceVideoAssetIds` and `referenceAudioAssetIds`, with caps from `GET /v1/models`, and cannot be combined with `startImageAssetId`. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` takes `referenceAssetIds` too since API 2.30.0 (images only as well, with one separate `referenceVideoAssetId`); read its guide before carrying a Seedance reference prompt across.
 
 **`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈half**, `1080p` is **≈2.5x**, `4k` is **≈5x**. The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: measured live 2026-08-12, exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5`, so a rehearsal render has an honest cheap tier to go to.
 
@@ -32,7 +32,7 @@ Those are ratios for warning the user, **not a rate card — never quote a credi
 
 Stay at `720p` unless someone asks for more: it is what Reels, TikTok and Stories re-encode to anyway. Reach for `1080p` or `4k` only for a client deliverable, a placement with a quality floor, or a render you plan to crop into.
 
-**Never send `resolution` on `seedance-2.0-mini`.** `POST /v1/estimates` will accept `720p` for mini and price it, which reads like permission and is not: mini's `POST /v1/videos` variant has no such property and answers `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — confirming it costs a paid render). Mini renders 720p, fixed.
+**Before API 2.34.0, never send `resolution` on `seedance-2.0-mini`** (from 2.34.0 read its `resolutions` in `GET /v1/models`; it lists `480p` and `720p`). `POST /v1/estimates` will accept `720p` for mini and price it, which reads like permission and is not: mini's `POST /v1/videos` variant has no such property and answers `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — confirming it costs a paid render). Mini renders 720p, fixed.
 
 Default output measured at `9:16`: 720x1280 (2026-08-02, at the `720p` default); do not carry that number to other models.
 
@@ -40,9 +40,9 @@ Default output measured at `9:16`: 720x1280 (2026-08-02, at the `720p` default);
 
 Every one of these comes back `400 (root): Unrecognized keys: …` — verified live, 2026-08-02, in one request each:
 
-`duration` (it is `durationSeconds`) · `referenceImages` (it is `referenceAssetIds`) · `referenceVideos` · `referenceAudios` · `startFrame` / `endFrame` (it is `startImageAssetId`) · `nbGenerations` · `projectId` (the API has products, not projects).
+`duration` (it is `durationSeconds`) · `referenceImages` (it is `referenceAssetIds`) · `referenceVideos` · `referenceAudios` (since API 2.35.0 they are `referenceVideoAssetIds` and `referenceAudioAssetIds`) · `startFrame` / `endFrame` (it is `startImageAssetId`) · `nbGenerations` · `projectId` (the API has products, not projects).
 
-**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `seedance-2.0-mini`, `sora-2` and `veo-3.1`, and on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
+**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `sora-2` (and on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0), and on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
 
 **`audioEnabled` is the one exception, and it is a mute switch, not an audio track.** It arrived in spec `2.2.0` on `seedance-2.0` and `seedance-2.0-mini` only — the other three video models still `400` on it, and so does `POST /v1/estimates` for every model, because it does not move the price. It defaults to `true`. Send `false` for a clip that is meant to be silent (a pipeline laying its own VO in post, a cutaway built to run muted); otherwise leave it alone.
 

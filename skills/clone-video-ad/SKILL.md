@@ -63,9 +63,9 @@ before any charge, and re-verified field-for-field against the deployed spec `2.
 
 | The old shape | Here |
 |---|---|
-| Chain clip 1 → clip 2 → clip 3 as reference **videos**, so each clip inherits the last | **There is no video-to-video path.** `referenceVideos` is `400 (root): Unrecognized key`, and references are images only. What holds a series together is passing the **same image `assetId`s to every clip** plus repeating the actor tag verbatim — see step 5 |
+| Chain clip 1 → clip 2 → clip 3 as reference **videos**, so each clip inherits the last | **Chaining a clip's output in is not how a series holds.** `referenceVideos` is `400 (root): Unrecognized key`; since API 2.35.0 the Seedance variants take mp4 references in `referenceVideoAssetIds` (see novoads-api), but this skill does not rely on them. What holds a series together is passing the **same image `assetId`s to every clip** plus repeating the actor tag verbatim — see step 5 |
 | `audioEnabled: true` to switch speech on, `false` for a silent clone | **`audioEnabled` exists here now, on the two Seedance variants only** (added in spec `2.2.0`; `400 Unrecognized key` on `omni-flash`, `veo-3.1` and `sora-2`). It defaults to `true`, so a clone with dialogue needs nothing. Send `false` only for a deliberately silent clone — and **still write the silence into the prose**, because the flag mutes the render while the prose is what stops the model staging a talking shot. It does not change the price, and `POST /v1/estimates` refuses the field |
-| Upload the source audio as `referenceAudios` to clone the voice | **There is no voice cloning on this API** (`400 Unrecognized key`). Describe the voice in the prompt — age, accent, pace, energy — and accept that it is a different person's voice. Do not offer the user a voice match you cannot deliver |
+| Upload the source audio as `referenceAudios` to clone the voice | **There is no voice cloning on this API** (`referenceAudios` is `400 Unrecognized key`; the Seedance `referenceAudioAssetIds` field from API 2.35.0 takes an mp3 reference, and nothing in this pack has verified it matches a voice). Describe the voice in the prompt — age, accent, pace, energy — and accept that it is a different person's voice. Do not offer the user a voice match you cannot deliver |
 
 Also gone, in the same probe: `endFrame`, `projectId` (this
 API has products, not projects), `duration` (it is `durationSeconds`) and `referenceImages`
@@ -395,7 +395,7 @@ each clip with `startImageAssetId`, a different mechanism from the shared-`refer
 series described below, so it does not measure this route at all.
 
 **A series is held by references, not by chaining.** The old pattern — render clip 1, feed
-its output in as clip 2's reference video — has no path here: references are images only.
+its output in as clip 2's reference video — is not how this skill holds a series: it passes the same image references to every clip.
 That is not a downgrade. This repo's own animation rule says the same thing on its own
 merits: *"Don't chain by using an animated end-frame as the next beat's anchor — drift
 compounds"* (`skills/claymation-ad/references/formulas.md`). Every clip
@@ -587,8 +587,8 @@ against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio
   pricing the wrong tier is a quote that disagrees with the invoice.
 - **Pass `resolution` whenever the tier is above the default.** It is the second price
   axis: the high tiers are their own credit schedules, not a surcharge on the low one.
-  Leave it out and you quote `720p` and invoice whatever you actually render. Never send it
-  on `seedance-2.0-mini`, which renders 720p only.
+  Leave it out and you quote `720p` and invoice whatever you actually render. On
+  `seedance-2.0-mini` send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on).
 - **`language` is recorded, not priced.** It does not change what the model is sent and it
   does not move the number — the spoken language comes from the quoted line in your prompt.
   Send it anyway: it is what makes "how do our Spanish ads perform?" answerable later.
@@ -668,8 +668,8 @@ charge. A source video's id in `referenceAssetIds` comes back:
                     Video and audio references are not available on this endpoint.
 ```
 
-Generation references are **images only**: `image/jpeg`, `image/png`, `image/webp`. There is
-no video-to-video path on this API, so a clone is never built by feeding the original in.
+`referenceAssetIds` takes **images only**: `image/jpeg`, `image/png`, `image/webp`. Since API 2.35.0
+the Seedance variants take mp4 and mp3 references in their own fields (`referenceVideoAssetIds`, `referenceAudioAssetIds`; see novoads-api), but a clone here is never built by feeding the original in.
 What carries a source's style into a clone is your reading of it, written into the prompt.
 
 ### Step 11: Generate
@@ -789,9 +789,9 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | Constraint | What it means here |
 |---|---|
 | `startImageAssetId` **XOR** `referenceAssetIds` | Separate modes on the model. A body with both is a `400` whose message says exactly that. Nothing is charged |
-| `referenceAssetIds` ≤ **9**, images only | Ten is `Too big: expected array to have <=9 items`. A video asset id is refused: references are images |
+| `referenceAssetIds` ≤ **9**, images only | Ten is `Too big: expected array to have <=9 items`. A video asset id is refused here; from API 2.35.0 Seedance video and audio go in `referenceVideoAssetIds` and `referenceAudioAssetIds` |
 | No `referenceVideos`, no `referenceAudios`, no `endFrame`, no `projectId` | All `400 Unrecognized key`. Nothing is charged, and no clone workflow can depend on them |
-| `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2.5x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈half** the base since the 2026-08-07 reprice (measured live 2026-08-12), so it is a real draft tier. `400 Unrecognized key` on `seedance-2.0-mini`, `sora-2` and `veo-3.1`, and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
+| `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2.5x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈half** the base since the 2026-08-07 reprice (measured live 2026-08-12), so it is a real draft tier. `400 Unrecognized key` on `sora-2` (and on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0, which gives mini `480p`/`720p` and Veo `720p`/`1080p`: read `resolutions` from `GET /v1/models`), and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
 | `audioEnabled` — **Seedance only**, optional, default `true` | Send `false` for a silent clone. `400 Unrecognized key` on the three non-Seedance video models, and on `POST /estimates` for every model |
 | `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5** |
 | `aspectRatio` `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | Default is **`16:9`**. Set it, or a vertical clone ships landscape |

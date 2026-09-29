@@ -428,7 +428,7 @@ The creative core. Working from step 3:
 - **The pace rule, in both routes:** words per shot (per line on a single render) within ±1 of the
   source's, the total within ±5%, syllables the tie-break when a brand name splits, phrase breaks on the same cuts.
   On a single render it is the target, and the fit ceiling stays: at most `2.0 × (D − 0.5)` words in a `D`-second clip.
-  The shot route adds speech start and end within 0.15 s of the source's, and `python3 skills/clone-video-ad/scripts/pace.py check outputs/<job>/shots.json outputs/<job>/SCRIPT.json` tests it.
+  The shot route adds speech start and end within 0.15 s of the source's, `python3 skills/clone-video-ad/scripts/pace.py check outputs/<job>/shots.json outputs/<job>/SCRIPT.json` tests the words, and `pace.py align` the start and end.
 - **Script variants.** If they asked for N *script variants* rather than N renders of one
   script (step 5), write N distinct adaptations that share the beat structure, the
   silent-beat placement and the per-line word counts, and differ in the hook angle, the
@@ -655,8 +655,8 @@ charge. A source video's id in `referenceAssetIds` comes back:
                     Video and audio references are not available on this endpoint.
 ```
 
-Generation references are **images only**: `image/jpeg`, `image/png`, `image/webp`. Seedance references are
-images only; omni-flash takes a reference video, but a clone never feeds the original in (step 10).
+Seedance's generation references are **images only** (`image/jpeg`, `image/png`, `image/webp`); omni-flash
+also takes a reference video, but a clone never feeds the original in (step 10).
 What carries a source's style into a clone is your reading of it, written into the prompt.
 
 ### Step 11: Generate

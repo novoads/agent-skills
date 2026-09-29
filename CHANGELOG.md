@@ -22,9 +22,10 @@ LIGHT or NONE behind a product-hue gate). The route lives in `references/shot-by
 `shots.json` as its resumable ledger, and runs three stdlib-plus-ffmpeg scripts in the skill's new
 `scripts/` directory: `shot_table.py`, `pace.py` and `assemble.py`. Their test,
 `test_shot_clone.py`, builds its own fixtures and runs in the `media` CI job and in `doctor.sh`.
-The scripts refuse, exit 2, instead of failing open: a LIGHT grade without the product photo or
-with a photo that is not a packshot, a take or still whose aspect is off the source's (unless
-`--allow-crop`), and `--resegment` once takes exist; a re-run of `shot_table.py` keeps the hand-edited
+The scripts refuse, exit 2, instead of failing open: a LIGHT grade without the product photo, with
+a photo that is not a packshot, or with one too pale to protect (unless `--allow-grey`), a take or
+still off the requested aspect that needs a crop (unless `--allow-crop`), and `--resegment` once
+takes exist; a re-run of `shot_table.py` keeps the hand-edited
 segmentation. Gate D's one yes states its bounds (still regenerations, second takes, the QC reels,
 the transcripts), and anything past them is a new priced yes. `evals.md` adds E7 to E10: the
 shot-by-shot clone, the per-shot render rules, the route gate, and resume.

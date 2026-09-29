@@ -4,7 +4,7 @@
   python3 skills/clone-video-ad/scripts/assemble.py check    TAKE.mp4 --still STILL.png --dur D
   python3 skills/clone-video-ad/scripts/assemble.py hue-gate GRADED.mp4 --ungraded TWIN.mp4 --photo PRODUCT [--windows a-b,c-d]
   python3 skills/clone-video-ad/scripts/assemble.py build    outputs/<job>/shots.json [--grade light|none] [--fps 24|30] [--vo VO.mp3 --vo-start S] [--bed BED.audio]
-                                                      [--photo PRODUCT] [--allow-crop] [--talker SH07=voice_changed.mp3 ...]
+                                                      [--photo PRODUCT] [--allow-grey] [--allow-crop] [--talker SH07=voice_changed.mp3 ...]
   python3 skills/clone-video-ad/scripts/assemble.py verify   outputs/<job>/master.mp4 outputs/<job>/shots.json
 
 check     opening lock (max SSIM of take frame 0 vs the still centre-cropped at 1.00-1.05,
@@ -14,7 +14,10 @@ check     opening lock (max SSIM of take frame 0 vs the still centre-cropped at 
 hue-gate  product mask from the photo's hue band, built on the ungraded twin (4 fps, 180x320);
           PASS when chroma kept >= 0.80 overall and per window and hue drift <= 6 deg.
           Exit 0 PASS, 1 FAIL, 2 NO_PRODUCT (also when the photo is not a packshot on a
-          white or neutral background: product share > 0.5 or band half-width > 30 deg).
+          white or neutral background: over half its edge ring is coloured, or the cluster
+          round its tallest hue peak holds < 50 % of its colour; and when the photo has too
+          little colour). The band is that one cluster: a label in a second colour is not
+          protected.
 build     per shot: the picked take trimmed to its slot, or a held still with a slight zoompan;
           transitions from cut_in.type (whip-left|whip-right -> xfade slide + horizontal blur
           centred on the cut, zoom-in -> xfade zoomin, flash_s -> a white blend, else hard);
@@ -22,8 +25,11 @@ build     per shot: the picked take trimmed to its slot, or a held still with a 
           +/-2) then the hue-protected chroma scale toward its SATAVG; NONE = no grade.
           Writes master_ungraded.mp4 (twin), master.mp4, assembly.json (with every command).
           Refuses (exit 2, nothing rendered): LIGHT without a product photo, a photo that is
-          not a packshot, and a take or still whose aspect is off the source's by > 2 %
-          unless --allow-crop (then the crop is recorded). A NO_PRODUCT or SKIPPED hue gate
+          not a packshot, LIGHT on a photo with too little colour unless --allow-grey (a
+          neutral product), and a take or still that needs a crop (> 2 % off the source's
+          aspect) and is not at shots.json `aspect` either, unless --allow-crop. One AT
+          `aspect` from a source no API aspect matches is cropped with a NOTICE line. Every
+          crop is recorded in assembly.json crops[]. A NO_PRODUCT or SKIPPED hue gate
           exits 0 with a WARNING line on stderr and is never reported as PASS.
           --talker ID=AUDIO (repeatable) puts that audio (a voice-changed talker take, timed
           from the take's frame 0) in shot ID's window instead of the voiceover, with short
@@ -54,10 +60,16 @@ import shot_table as st  # noqa: E402
 # ---- product-hue gate (measured on one test ad, 2026-09-29) ----
 PHOTO_FLOOR = 8.0            # photo chroma above which a pixel is product (white bg ~1.4)
 PHOTO_MIN_SHARE = 0.002      # fewer product pixels than this share -> band = none
-PACKSHOT_MAX_SHARE = 0.50    # more "product" than this share of the photo -> the backdrop is coloured
-PACKSHOT_MAX_HALF = 30.0     # a band wider than +/- this many degrees is not one product colour
+DOMINANT_MIN = 0.50          # the tallest hue peak's cluster must hold this share of the photo's chroma mass
+EDGE_FRAC = 0.02             # the photo's outer 2 % on each side samples the backdrop
+EDGE_MAX_COLOURED = 0.50     # more coloured edge pixels than this share -> a coloured backdrop
+HIST_SMOOTH = 2              # +/- 1-degree bins of circular box smoothing on the hue histogram
+CLUSTER_FLOOR = 0.02         # the peak's cluster ends where the smoothed mass drops under 2 % of the peak
+CLUSTER_VALLEY = 0.30        # ... or at a local minimum under 30 % of the peak (two touching colours)
 PACKSHOT_MSG = ("the product photo is not a packshot on a white or neutral background (or a cut-out); "
                 "use one, or --grade none")
+LOW_CHROMA_MSG = ("the product photo has too little colour to protect; use --grade none, or --allow-grey if "
+                  "the product itself is neutral (grey, black or white)")
 LIGHT_NO_PHOTO_MSG = "LIGHT grade needs the product photo (--photo); use --grade none to skip the grade"
 FLOOR_FRAC = 0.35            # clip chroma floor = 0.35 x the photo product's median chroma
 BAND_MARGIN = 6.0            # degrees added to the photo's 2-98 % hue spread
@@ -148,10 +160,37 @@ def raw_yuv444(inp_args, vf, w, h):
 
 
 # ------------------------------------------------------------------ product band
+def _hue_cluster(hist):
+    """The contiguous 1-degree bins around the tallest peak of a circular histogram (after
+    +/- HIST_SMOOTH smoothing): out from the peak until the smoothed mass drops under
+    CLUSTER_FLOOR x peak, or at a valley under CLUSTER_VALLEY x peak. None when it wraps."""
+    k = HIST_SMOOTH
+    sm = [sum(hist[(i + j) % 360] for j in range(-k, k + 1)) for i in range(360)]
+    p = max(range(360), key=lambda i: sm[i])
+    top = sm[p]
+    bins = {p}
+    for step in (1, -1):
+        cur = p
+        for _ in range(179):
+            nxt = (cur + step) % 360
+            if sm[nxt] < CLUSTER_FLOOR * top:
+                break
+            if sm[cur] < CLUSTER_VALLEY * top and sm[nxt] > sm[cur]:
+                break
+            bins.add(nxt)
+            cur = nxt
+    return None if len(bins) >= 359 else bins
+
+
 def product_band(photo):
-    """The product's hue band from the photo (type sniffed, decoded to 8-bit YUV 480x360):
-    pixels with chroma > PHOTO_FLOOR are product; band = chroma-weighted circular mean hue
-    +/- (the larger 2nd/98th percentile deviation + BAND_MARGIN). band None = grey product."""
+    """The product's hue band from the photo (type sniffed, decoded to 8-bit YUV 480x360).
+    Pixels with chroma > PHOTO_FLOOR are coloured. Too few of them: band None, low_chroma
+    (a neutral or pastel product). An edge ring (outer EDGE_FRAC) mostly coloured: a coloured
+    backdrop, not_packshot. Otherwise a chroma-weighted hue histogram of the coloured pixels;
+    the product is the contiguous cluster around its tallest peak, and it must hold at least
+    DOMINANT_MIN of the chroma mass (else not_packshot: no dominant product colour). band =
+    the cluster's chroma-weighted circular mean hue +/- (its larger 2nd/98th percentile
+    deviation + BAND_MARGIN). A second colour outside the cluster (a label) is not protected."""
     ch, hue = _luts()
     w, h = 480, 360
     n = w * h
@@ -161,8 +200,29 @@ def product_band(photo):
     prod = [i for i, k in enumerate(idx) if ch[k] > PHOTO_FLOOR]
     res = {"photo": str(photo), "mime": st.sniff_mime(photo), "photo_product_share": round(len(prod) / float(n), 3)}
     if len(prod) < max(1, PHOTO_MIN_SHARE * n):
-        res.update(band=None, reason="no product pixel above chroma %.1f in the photo" % PHOTO_FLOOR)
+        res.update(band=None, low_chroma=True,
+                   reason="no product pixel above chroma %.1f in the photo: too little colour to protect" % PHOTO_FLOOR)
         return res
+    e = max(2, int(round(EDGE_FRAC * min(w, h))))
+    edge = [y * w + x for y in range(h) for x in range(w) if y < e or y >= h - e or x < e or x >= w - e]
+    res["edge_coloured_share"] = round(sum(1 for i in edge if ch[idx[i]] > PHOTO_FLOOR) / float(len(edge)), 3)
+    if res["edge_coloured_share"] > EDGE_MAX_COLOURED:
+        res.update(band=None, not_packshot=True, reason="%s (%.0f%% of the photo's edge is coloured > %.0f%%: a "
+                   "coloured backdrop)" % (PACKSHOT_MSG, 100 * res["edge_coloured_share"], 100 * EDGE_MAX_COLOURED))
+        return res
+    hist = [0.0] * 360
+    for i in prod:
+        hist[int(hue[idx[i]]) % 360] += ch[idx[i]]
+    total = sum(hist)
+    bins = _hue_cluster(hist)
+    mass = sum(hist[i] for i in bins) if bins else total
+    res["dominant_share"] = round(mass / total, 3) if bins else None
+    if bins is None or mass < DOMINANT_MIN * total:
+        res.update(band=None, not_packshot=True, reason="%s (%s: no dominant product colour)" % (
+            PACKSHOT_MSG, "the hues spread round the whole circle" if bins is None else
+            "the largest colour holds %.0f%% of the photo's colour < %.0f%%" % (100.0 * mass / total, 100 * DOMINANT_MIN)))
+        return res
+    prod = [i for i in prod if int(hue[idx[i]]) % 360 in bins]
     su = sum(U[i] - 128 for i in prod)
     sv = sum(V[i] - 128 for i in prod)
     center = math.degrees(math.atan2(sv, su)) % 360.0
@@ -174,12 +234,6 @@ def product_band(photo):
                photo_chroma=round(chroma, 2), photo_luma=round(_median([Y[i] for i in prod]), 1),
                photo_rel=round(_median([ch[idx[i]] / max(Y[i], 1) for i in prod]), 4),
                chroma_floor=round(FLOOR_FRAC * chroma, 2))
-    if res["photo_product_share"] > PACKSHOT_MAX_SHARE or half > PACKSHOT_MAX_HALF:
-        # a coloured backdrop reads as "product": the band would protect (and the gate
-        # would measure) the backdrop, so there is no product band to trust
-        res.update(band=None, not_packshot=True,
-                   reason="%s (product share %.2f > %.2f or band half-width %.1f deg > %.0f)" % (
-                       PACKSHOT_MSG, res["photo_product_share"], PACKSHOT_MAX_SHARE, half, PACKSHOT_MAX_HALF))
     return res
 
 
@@ -578,10 +632,20 @@ def _media_size(mode, path):
     return _image_size(path)
 
 
-def preflight(doc, job, grade, photo, allow_crop):
+def _aspect_value(name):
+    try:
+        x, y = [float(v) for v in str(name).split(":")]
+        return x / y
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def preflight(doc, job, grade, photo, allow_crop, allow_grey=False):
     """Every refusal before a frame is rendered: LIGHT without a photo, a photo that is not
-    a packshot, a take or still whose aspect is off the source's. Returns (band, sources,
-    crops)."""
+    a packshot, a photo with too little colour to protect (unless --allow-grey), a take or
+    still off the aspect that was requested. A take or still AT shots.json `aspect` from a
+    source no API aspect matches is cropped to the source's frame without --allow-crop (a
+    NOTICE); one off `aspect` needs --allow-crop. Returns (photo, band, sources, crops)."""
     photo = photo or doc.get("product_photo")
     if grade == "light" and not photo:
         raise Refusal(LIGHT_NO_PHOTO_MSG)
@@ -590,29 +654,37 @@ def preflight(doc, job, grade, photo, allow_crop):
     band = product_band(_resolve(photo, job)) if photo else None
     if grade == "light" and band.get("not_packshot"):
         raise Refusal(band["reason"])
+    if grade == "light" and band.get("low_chroma") and not allow_grey:
+        raise Refusal(LOW_CHROMA_MSG)
     sources = [_shot_source(r, job) for r in doc["shots"]]
     W, H = [int(x) for x in doc["size"]]
     R = W / float(H)
+    A = _aspect_value(doc.get("aspect"))
     off = []
     for r, (mode, src) in zip(doc["shots"], sources):
         w, h = _media_size(mode, src)
         a = w / float(h)
         if abs(a / R - 1.0) > ASPECT_TOL:
+            at_req = A is not None and abs(a / A - 1.0) <= ASPECT_TOL
             off.append({"id": r["id"], "mode": mode, "src": str(src), "size": [w, h], "aspect": round(a, 4),
-                        "source_aspect": round(R, 4), "off_pct": round(100.0 * abs(a / R - 1.0), 1),
+                        "source_aspect": round(R, 4), "requested": doc.get("aspect"), "at_requested": at_req,
+                        "why": "source aspect not offered" if at_req else "--allow-crop",
+                        "off_pct": round(100.0 * abs(a / R - 1.0), 1),
                         "kept_pct": round(100.0 * min(a / R, R / a), 1)})
-    if off and not allow_crop:
-        raise Refusal("%s: the %s aspect differs from the source's %dx%d (%.4f) by more than %d%%, and build "
-                      "would centre-crop it to fit (keeping %s%% of the frame); make the stills and takes at "
-                      "shots.json aspect (%s), or pass --allow-crop to crop on purpose" % (
-                          ", ".join("%s %dx%d" % (o["id"], o["size"][0], o["size"][1]) for o in off),
-                          "/".join(sorted({o["mode"] for o in off})), W, H, R, int(ASPECT_TOL * 100),
-                          "/".join(str(o["kept_pct"]) for o in off), doc.get("aspect", "the nearest to the source")))
+    bad = [o for o in off if not o["at_requested"]]
+    if bad and not allow_crop:
+        raise Refusal("%s: the %s is not at the requested aspect (shots.json aspect %s) and differs from the "
+                      "source's %dx%d (%.4f) by more than %d%%, so build would centre-crop it (keeping %s%% of the "
+                      "frame); remake it at shots.json aspect (%s), or pass --allow-crop to crop on purpose" % (
+                          ", ".join("%s %dx%d" % (o["id"], o["size"][0], o["size"][1]) for o in bad),
+                          "/".join(sorted({o["mode"] for o in bad})), doc.get("aspect", "missing"), W, H, R,
+                          int(ASPECT_TOL * 100), "/".join(str(o["kept_pct"]) for o in bad),
+                          doc.get("aspect", "the nearest to the source")))
     return photo, band, sources, off
 
 
 def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, photo=None, talkers=None,
-          allow_crop=False):
+          allow_crop=False, allow_grey=False):
     shots_path = Path(shots_path).resolve()
     job = shots_path.parent
     with open(shots_path, encoding="utf-8") as fh:
@@ -622,7 +694,7 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
     D = float(doc["duration"])
     N = int(round(D * F))
     shots = doc["shots"]
-    photo, band, sources, crops = preflight(doc, job, grade, photo, allow_crop)
+    photo, band, sources, crops = preflight(doc, job, grade, photo, allow_crop, allow_grey)
     bdir = job / "build"
     bdir.mkdir(exist_ok=True)
     cmds = []
@@ -635,9 +707,19 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
     rec = {"version": 1, "shots_json": str(shots_path), "grade": grade, "fps": F, "size": [W, H],
            "frames": N, "duration_target": D, "photo": str(photo) if photo else None,
            "band": {k: band.get(k) for k in ("center", "half_width", "chroma_floor", "reason") if k in band} if band else None,
-           "allow_crop": bool(allow_crop), "crops": crops, "cuts": cuts[1:], "shots": []}
+           "allow_crop": bool(allow_crop), "crops": crops, "cuts": cuts[1:], "shots": [],
+           "allow_grey": bool(grade == "light" and band and band.get("low_chroma") and allow_grey)}
     warnings = ["%s (%s) centre-cropped from %dx%d: keeps %s%% of its frame (--allow-crop)" % (
-        c["id"], c["mode"], c["size"][0], c["size"][1], c["kept_pct"]) for c in crops]
+        c["id"], c["mode"], c["size"][0], c["size"][1], c["kept_pct"]) for c in crops if not c["at_requested"]]
+    if rec["allow_grey"]:
+        warnings.append("LIGHT on a neutral product (--allow-grey): the grade scales every hue's saturation alike, "
+                        "and no product hue is protected")
+    at_req = [c for c in crops if c["at_requested"]]
+    rec["notices"] = ["no API aspect is within %d%% of the source's %dx%d, so %d shot(s) made at shots.json aspect %s "
+                      "(%s) are centre-cropped to the source's frame, keeping %s%% (recorded in crops[])" % (
+                          int(ASPECT_TOL * 100), W, H, len(at_req), doc.get("aspect"),
+                          ", ".join(c["id"] for c in at_req), "/".join(sorted({str(c["kept_pct"]) for c in at_req})))
+                      ] if at_req else []
     ung, grd = [], []
     for s, r, (mode, src) in zip(segs, shots, sources):
         T = s["frames"]
@@ -905,6 +987,8 @@ def main(argv=None):
     b.add_argument("--vo-start", type=float, default=0.0)
     b.add_argument("--bed")
     b.add_argument("--photo", help="product photo (default: shots.json product_photo)")
+    b.add_argument("--allow-grey", action="store_true",
+                   help="LIGHT on a product photo with too little colour to protect (the product is grey, black or white)")
     b.add_argument("--allow-crop", action="store_true",
                    help="centre-crop takes or stills whose aspect is off the source's by more than 2%% "
                         "(recorded in assembly.json) instead of refusing")
@@ -931,13 +1015,15 @@ def main(argv=None):
                 ap.error("--talker takes ID=AUDIO, e.g. --talker SH07=outputs/job/talk/SH07_vc.mp3")
             talkers[sid.strip()] = path.strip()
         try:
-            rec = build(a.shots, a.grade, a.fps, a.vo, a.vo_start, a.bed, a.photo, talkers, a.allow_crop)
+            rec = build(a.shots, a.grade, a.fps, a.vo, a.vo_start, a.bed, a.photo, talkers, a.allow_crop, a.allow_grey)
         except (Refusal, ValueError, OSError) as e:
             print(json.dumps({"pass": False, "error": str(e)}, indent=1))
             print("ERROR: %s" % e, file=sys.stderr)
             return 2
         out = {k: rec[k] for k in ("grade", "fps", "frames", "master", "twin", "duration_ok", "warnings")}
         out["hue_gate"] = {k: rec["hue_gate"].get(k) for k in ("verdict", "chroma_retained", "hue_drift", "reasons")}
+        for w in rec.get("notices", []):
+            print("NOTICE: %s" % w, file=sys.stderr)
         for w in rec["warnings"]:
             print("WARNING: %s" % w, file=sys.stderr)
         out["shots"] = [{"id": s["id"], "mode": s["mode"], "frames": s["frames"],

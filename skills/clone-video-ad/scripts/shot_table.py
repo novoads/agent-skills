@@ -11,7 +11,7 @@ folded into the next shot as cut_in.flash_s, never counted as a shot (consecutiv
 add up). Any other segment under 0.2 s (the frames of a whip pan) folds into the next
 shot as cut_in.whip_s with cut_in.type_hint "whip"; at the very end it stays its own row
 (render_hint hold_candidate). shots.json `aspect` is the nearest
-of 9:16 and 16:9 to the source, for every still and take request.
+of 9:16, 16:9, 1:1 and 21:9 to the source, for every still and take request.
 
 Writes outputs/<job>/shots.json (the run's resumable ledger), frames/<id>_{in,mid,out}.jpg
 and strips/<id>_cut.jpg (one tile per frame available around the cut; row.strip is set
@@ -57,8 +57,8 @@ STRIP_TILE_W = 120
 EPS = 1e-6
 # The aspect values both the GPT image models and the Seedance video models accept (their
 # `aspectRatio` enums in GET /v1/openapi.json, as of 2026-09-29; omni-flash takes only 9:16
-# and 16:9). shots.json `aspect` is the nearest of these to the source; build refuses a take
-# whose aspect is off by > 2 %.
+# and 16:9). shots.json `aspect` is the nearest of these to the source; build crops a take
+# made at `aspect` to the source's frame, and refuses one off both by > 2 % (--allow-crop).
 ASPECTS = (("9:16", 9 / 16.0), ("16:9", 16 / 9.0), ("1:1", 1.0), ("21:9", 21 / 9.0))
 
 STAT_KEYS = ("YAVG", "SATAVG", "UAVG", "VAVG", "YLOW", "YHIGH")
@@ -634,9 +634,9 @@ def main(argv=None):
     if old is not None and a.resegment:
         taken = rows_with_takes(old)
         if taken:
-            return _fail("--resegment refused: %s already have takes in their ledger, and re-cutting would "
+            return _fail("--resegment refused: %s already %s takes in the ledger, and re-cutting would "
                          "orphan paid work; keep the table (run without --resegment) or start a new --job"
-                         % ", ".join(str(t) for t in taken))
+                         % (", ".join(str(t) for t in taken), "has" if len(taken) == 1 else "have"))
     ctx = detect(a.source, a.transcript)
     if old is not None and not a.resegment:
         problem = kept_rows_problem(old, ctx)

@@ -17,7 +17,10 @@ photo refused and NO_PRODUCT never a pass, a coloured-backdrop photo refused, an
 mismatch refused unless --allow-crop, a re-run keeping a hand merge and --resegment
 refusing once a take exists, a whip pan folded as whip_s, two flashes summed, strips near
 the end, the windowed motion floor, pace's JSON errors and silent shots, and verify's
-one-hit-per-cut rule.
+one-hit-per-cut rule. The re-review cases: a pastel photo refused under LIGHT (--allow-grey
+for a neutral product), takes at the requested aspect from a 4:5 source cropped with a
+NOTICE while takes off it are refused, and the packshot gate (a tight crop and a product
+with a second-colour label pass, a coloured backdrop and three equal colours are refused).
 Requires ffmpeg/ffprobe on PATH. Python stdlib only, no pytest.
 """
 
@@ -64,6 +67,10 @@ def case(name, fn):
         ok, detail = False, "%s: %s" % (type(e).__name__, str(e)[-300:])
     RESULTS.append(ok)
     print("%s  %s  %s" % ("PASS" if ok else "FAIL", name, detail))
+
+
+def circ(a, b):
+    return (a - b + 180.0) % 360.0 - 180.0
 
 
 def enc(out, *pre, fps=30):
@@ -366,6 +373,7 @@ def run_cases(d):
          lambda: (code_p == 0 and [(s["words_min"], s["words_max"]) for s in out_p["shots"]] == [(2, 4), (2, 4), (0, 0), (2, 4)],
                   "targets=%s" % [(s["id"], s["words_min"], s["words_max"]) for s in (out_p or {}).get("shots", [])]))
     review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p)
+    rereview_fix_cases(d, sj, grey)
 
 
 def review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p):
@@ -392,14 +400,15 @@ def review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p):
         jf = d / "fa_grey"
         jf.mkdir()
         shutil.copyfile(str(sj), str(jf / "shots.json"))
-        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "light", "--photo", grey)
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "light", "--photo", grey, "--allow-grey")
         rec = load(jf / "assembly.json") if (jf / "assembly.json").exists() else {}
         v = (rec.get("hue_gate") or {}).get("verdict")
         ok = (c == 0 and v == "NO_PRODUCT" and ((out or {}).get("hue_gate") or {}).get("verdict") == "NO_PRODUCT"
+              and rec.get("allow_grey") is True and any("--allow-grey" in w for w in rec.get("warnings", []))
               and any(ln.startswith("WARNING: hue gate NO_PRODUCT") for ln in e.splitlines())
               and any("NO_PRODUCT" in w for w in rec.get("warnings", [])))
         return ok, "exit=%d verdict=%s stderr=%s" % (c, v, e.strip()[-160:])
-    case("F-a: a NO_PRODUCT hue gate exits 0 with a WARNING line and is never reported as PASS", fa_noproduct)
+    case("F-a: a NO_PRODUCT hue gate (grey product, --allow-grey) exits 0 with a WARNING line, never a PASS", fa_noproduct)
 
     # ---- F-b: a packshot on a coloured backdrop is not a product band
     bad = make_photo(d, PINK, "photo_pink_on_blue.png", bg="0x2050B0")
@@ -637,6 +646,111 @@ def review_fix_cases(d, sj, src, still, frozen, grey, prot, ung, vo_ok, out_p):
         ok = (c == 1 and len(cuts) == 2 and len(hit) == 1 and any("claimed by SH02" in (x.get("note") or "") for x in cuts))
         return ok, "exit=%d cuts=%s" % (c, [(x["id"], x.get("measured"), x["ok"], x.get("note")) for x in cuts])
     case("F-j: verify never lets two table cuts claim the same measured hit", fj_claims)
+
+
+def rereview_fix_cases(d, sj, grey):
+    """N1 (a low-chroma photo under LIGHT), N2 (a source no API aspect matches), N3 (the
+    packshot gate: an edge-ring backdrop test plus a dominant-hue cluster)."""
+    def load(p):
+        return json.loads(Path(p).read_text())
+
+    def photo(name, fc):
+        p = d / name
+        ffmpeg("-f", "lavfi", "-i", "color=c=white:s=480x360,format=yuv420p," + fc if not fc.startswith("color=") else fc,
+               "-frames:v", "1", p)
+        return p
+
+    # ---- N1: a pastel product is refused under LIGHT; --allow-grey is recorded
+    pastel = photo("photo_pastel.png", "drawbox=x=140:y=80:w=200:h=200:color=0xF0E4E8:t=fill")
+
+    def n1_refuse():
+        jf = d / "n1_pastel"
+        jf.mkdir()
+        shutil.copyfile(str(sj), str(jf / "shots.json"))
+        c, out, e = script("assemble.py", "build", jf / "shots.json", "--grade", "light", "--photo", pastel)
+        err = (out or {}).get("error") or ""
+        c2, out2, _ = script("assemble.py", "build", jf / "shots.json", "--grade", "none", "--photo", pastel)
+        b = asm.product_band(pastel)
+        ok = (c == 2 and err == asm.LOW_CHROMA_MSG and b.get("low_chroma") is True and c2 == 0)
+        return ok, "light exit=%d error=%s | none exit=%d" % (c, err[-90:], c2)
+    case("N1: build --grade light refuses a pastel product photo (exit 2); --grade none builds", n1_refuse)
+
+    # ---- N2: a 4:5 source; shots.json aspect is 1:1
+    def n2_setup(tag, tw, th):
+        src = colors(d, "n2_src_%s.mp4" % tag, [("0x303030", 30), ("0xC0C0C0", 30)], w=288, h=360)
+        jn = d / ("n2_" + tag)
+        script("shot_table.py", src, "--job", jn, "--no-frames")
+        dn = load(jn / "shots.json")
+        tk = d / ("n2_take_%s.mp4" % tag)
+        enc(tk, "-f", "lavfi", "-i", "testsrc2=s=%dx%d:r=24:d=2" % (tw, th), fps=24)
+        for r in dn["shots"]:
+            r["render"] = "take"
+            r["new"]["takes"] = [{"path": str(tk), "pick": True}]
+        (jn / "shots.json").write_text(json.dumps(dn))
+        return jn, dn
+
+    def n2_at_requested():
+        jn, dn = n2_setup("sq", 288, 288)
+        c, out, e = script("assemble.py", "build", jn / "shots.json", "--grade", "none")
+        rec = load(jn / "assembly.json") if (jn / "assembly.json").exists() else {}
+        crops = rec.get("crops") or []
+        notes = [ln for ln in e.splitlines() if ln.startswith("NOTICE:")]
+        ok = (dn.get("aspect") == "1:1" and dn.get("aspect_off_pct") == 20.0 and c == 0 and len(notes) == 1
+              and len(crops) == 2 and all(x["why"] == "source aspect not offered" and abs(x["kept_pct"] - 80.0) < 0.5
+                                          for x in crops)
+              and not any("centre-cropped" in w for w in rec.get("warnings", [])))
+        return ok, "aspect=%s off=%s exit=%d notices=%s crops=%s" % (
+            dn.get("aspect"), dn.get("aspect_off_pct"), c, notes, [(x["id"], x["why"], x["kept_pct"]) for x in crops])
+    case("N2: 1:1 takes for a 4:5 source (aspect 1:1) build without --allow-crop, one NOTICE, crops recorded",
+         n2_at_requested)
+
+    def n2_off_requested():
+        jn, dn = n2_setup("tall", W, H)
+        c, out, e = script("assemble.py", "build", jn / "shots.json", "--grade", "none")
+        err = (out or {}).get("error") or ""
+        c2, _, e2 = script("assemble.py", "build", jn / "shots.json", "--grade", "none", "--allow-crop")
+        ok = (c == 2 and "not at the requested aspect (shots.json aspect 1:1)" in err and "--allow-crop" in err
+              and c2 == 0 and "centre-cropped" in e2)
+        return ok, "exit=%d error=%s | --allow-crop exit=%d" % (c, err[-120:], c2)
+    case("N2: 9:16 takes for a 4:5 source (aspect 1:1) are refused as off the requested aspect; --allow-crop builds",
+         n2_off_requested)
+
+    # ---- N3: the packshot gate
+    def n3_band(p):
+        b = asm.product_band(p)
+        return b, {k: b.get(k) for k in ("band", "center", "half_width", "photo_product_share",
+                                          "edge_coloured_share", "dominant_share", "not_packshot")}
+
+    base = asm.product_band(photo("n3_base.png", "drawbox=x=140:y=80:w=200:h=200:color=%s:t=fill" % PINK))
+
+    def n3_tight():
+        b, info = n3_band(photo("n3_tight.png", "drawbox=x=20:y=15:w=440:h=330:color=%s:t=fill" % PINK))
+        ok = (b.get("band") is True and b["photo_product_share"] > 0.8
+              and abs(circ(b["center"], base["center"])) < 2 and abs(b["half_width"] - base["half_width"]) < 2)
+        return ok, "%s base centre=%s" % (info, base.get("center"))
+    case("N3: a tight crop (product 84% of the frame, white margin) keeps its band", n3_tight)
+
+    def n3_label():
+        b, info = n3_band(photo("n3_label.png", "drawbox=x=140:y=80:w=200:h=200:color=%s:t=fill,"
+                                "drawbox=x=190:y=150:w=100:h=40:color=0x2050B0:t=fill" % PINK))
+        ok = b.get("band") is True and abs(circ(b["center"], base["center"])) < 2 and b["half_width"] < 15
+        return ok, "%s" % info
+    case("N3: a pink product with a small saturated blue label passes, band = the pink", n3_label)
+
+    def n3_backdrop():
+        b, info = n3_band(make_photo(d, PINK, "n3_on_blue.png", bg="0x2050B0"))
+        ok = b.get("not_packshot") is True and "coloured backdrop" in b.get("reason", "")
+        return ok, "%s" % info
+    case("N3: pink on a saturated blue backdrop is refused (edge ring coloured)", n3_backdrop)
+
+    def n3_two():
+        # with two colours the peak always holds >= half the mass, so no dominant colour takes three
+        b, info = n3_band(photo("n3_three.png", "drawbox=x=90:y=80:w=100:h=200:color=%s:t=fill,"
+                                "drawbox=x=190:y=80:w=100:h=200:color=0x30B040:t=fill,"
+                                "drawbox=x=290:y=80:w=100:h=200:color=0x2050B0:t=fill" % PINK))
+        ok = b.get("not_packshot") is True and "no dominant product colour" in b.get("reason", "")
+        return ok, "%s" % info
+    case("N3: three colours of similar weight on white are refused (no dominant product colour)", n3_two)
 
 
 if __name__ == "__main__":

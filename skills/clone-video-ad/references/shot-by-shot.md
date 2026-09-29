@@ -54,8 +54,8 @@ The scripts are stdlib Python plus `ffmpeg`/`ffprobe`, called from the pack root
   - the stills (casting stills, room plates, one per shot), plus at most 2 regenerations per shot;
   - take 1 for every rendered shot, plus the adaptive second takes (every rendered shot at most);
   - the voiceover;
-  - the voice changes for the talker shots;
-  - the QC analysis calls, one per reel (§ QC);
+  - the voice changes for the talker shots, a second-take talker's included;
+  - the QC analysis calls, one per reel (§ QC), plus one reel for the second takes;
   - the voiceover transcripts, the align loop bounded at 3 of them;
   - the final-diff transcript of the master.
 
@@ -83,15 +83,18 @@ re-run. Then `outputs/<job>/shots.json`:
 
 - Top level: `version`, `source`, `duration`, `fps`, `size`, `aspect`, `cuts_025`, `cuts_012`,
   `shots[]`, plus `flashes[]`, `format_duration`, `source_start`, `transcript`,
-  `transcript_language`, and `orphaned_rows` when a re-run finds rows that no longer match.
+  `transcript_language`, `aspect_off_pct`, and `orphaned_rows` when a `--resegment` finds rows that no longer match.
   **`duration` is the video stream's length** and the reference for every later check; the
   container's (longer when the audio runs on) is `format_duration`. **`aspect`** is the nearest of
-  the API's `aspectRatio` values to `size`, and every still and take request sends it. Add
+  the API's `aspectRatio` values to `size` (`aspect_off_pct` how far off), and every still and take
+  request sends it. When `aspect_off_pct` is over 2 (a 4:5, 3:4 or 4:3 source), say at gate A that
+  the clone is made at `aspect` and centre-cropped to the source's frame, keeping about
+  `100 − aspect_off_pct`%. Add
   `product_photo` (the photo's path) yourself: `build` reads it when no `--photo` is given, and a
   re-run keeps it.
 - Each row, measured: `id` (`SH01`), `in`, `out`, `dur` (to 0.01 s; show it at 0.1),
   `cut_in {score, seen_at, flash_s, type}` (plus `group` and `merged_012` when hits were
-  merged, `whip_s` and `type_hint` when a pan was folded), `confirm_cut`, `grade {...}` (the
+  merged; `whip_s` and `type_hint`, 0.0 and null unless a pan was folded), `confirm_cut`, `grade {...}` (the
   shot's `YAVG SATAVG UAVG VAVG YLOW YHIGH`), `speech {text, n_words, n_syll, start, end, wps}`
   or null, `frames[]`, `strip` (the strip's path, kept out of `frames[]`, and set only when the
   file was written), `render_hint` (`hold_candidate` under 1.0 s, else `take`).
@@ -199,8 +202,11 @@ the row's `new.still_path` beside `still_assetId`: `check --still` and a `hold` 
 
 **Aspect.** Every still and take sends `shots.json` `aspect`. Where a model does not list that
 value (read its `aspectRatio` enum in `GET /v1/openapi.json`; `omni-flash` takes only `9:16` and
-`16:9`), use a model that does. `build` refuses (exit 2) a take or still whose aspect is more than
-2% off the source's; `--allow-crop` accepts the centre crop and records it in `assembly.json`.
+`16:9`), use a model that does. `build` compares each take and still with `aspect`, the aspect that
+was requested. One at `aspect` from a source no API aspect matches is centre-cropped to the source's
+frame with one NOTICE line. One off `aspect` that needs a crop (more than 2% off the source's) is
+refused (exit 2, "not at the requested aspect"); remake it at `aspect`, or `--allow-crop` accepts the
+crop. Every crop is recorded in `assembly.json` `crops[]` with its `why`.
 
 The still prompt, one flowing paragraph, its first words following `aspect` (vertical, horizontal
 or square):
@@ -452,9 +458,17 @@ Hand over **both masters** either way.
 **LIGHT needs the product photo** (`--photo`, or the ledger's `product_photo`), and it must be a
 packshot on a white or neutral background, or a cut-out. `build --grade light` refuses, exit 2,
 without one ("LIGHT grade needs the product photo (--photo); use --grade none to skip the
-grade"), and refuses a photo whose product band is not a product ("the product photo is not a
-packshot on a white or neutral background (or a cut-out); use one, or --grade none"); `hue-gate`
-reports that photo as NO_PRODUCT with the reason. The remedy is the photo, or `--grade none`.
+grade"), and refuses a photo that is not a packshot ("the product photo is not a packshot on a
+white or neutral background (or a cut-out); use one, or --grade none", with which test tripped):
+over half of the photo's outer edge is coloured (a coloured backdrop), or the colour around the
+photo's tallest hue peak holds under half of its colour (no dominant product colour). The band
+is that one colour: a label in a second colour is not protected. A tight crop passes while a
+margin of backdrop shows at the edge. `hue-gate` reports such a photo as NO_PRODUCT with the
+reason. The remedy is the photo, or `--grade none`. **A photo with too little colour to protect**
+(a pastel, grey, black or white product) is refused under LIGHT too ("the product photo has too
+little colour to protect; use --grade none, or --allow-grey if the product itself is neutral
+(grey, black or white)"): a pastel product would be greyed. `--allow-grey` is for a neutral
+product only; it is recorded in `assembly.json` and warned.
 **A NO_PRODUCT gate is never a pass**: `build` writes it to `assembly.json`, prints a WARNING
 line and still exits 0, so report the graded master as unchecked and offer the NONE master.
 
@@ -468,8 +482,8 @@ python3 skills/clone-video-ad/scripts/assemble.py verify outputs/<job>/master.mp
 ```
 
 `build` takes each row's picked take trimmed to `[0, dur]` (or its still held with a slight zoompan
-for a `hold` row), scales it to the source's size (refusing, exit 2, one whose aspect is more than
-2% off the source's unless `--allow-crop` is given: § Shot stills), makes each transition locally
+for a `hold` row), scales it to the source's size (cropping one at `aspect`, refusing one off it
+unless `--allow-crop` is given: § Shot stills), makes each transition locally
 from `cut_in.type` (a whip is an xfade slide of about 0.25 s centred on the cut with a horizontal blur, `whip-right`
 sliding the new shot in from the right; `zoom-in` a zoom; a flash a white blend of `flash_s`;
 `hard` a cut; a slot too short for a slide cuts hard, noted in `assembly.json`), grades, and muxes
@@ -480,7 +494,7 @@ drop the flag when no shot talks. It writes `master.mp4` (graded, with the audio
 per-shot grade, the hue gate and the audio plan) and a `build/` scratch folder. The output runs
 the source's video-stream `duration` within one frame. It exits 1 when the hue gate FAILs or the
 length misses, and both masters are written either way; it exits 2, writing nothing, on the
-refusals above (the photo, the aspect).
+refusals above (the photo, its colour, the aspect).
 
 - **fps.** 24 keeps the takes' native rate and is the default. `--fps 30` duplicates frames, which
   judders measurably; offer it only when the user asks for 30.

@@ -27,7 +27,14 @@ Omni's resolutions from `GET /v1/models` (send `resolution` only when that list 
 value) and document its reference images, reference video, first and last frames and seed. On
 `omni-flash`, `startImageAssetId` is a reference image, not a first frame.
 
-**`change-voice` can hand back the finished video.** `POST /v1/voice-changes` takes an optional
+**`change-voice` bills by the second (API 2.32.0).** Voice changes are priced from the seconds of
+source above a minimum charge, no longer from whole started minutes, the same on every door; the
+response adds `billedSeconds` and keeps `billedMinutes` as deprecated. The skill stops saying "per
+minute" for voice change and never types a price: quote with `POST /v1/estimates`. A workspace
+also has a daily allowance of voice-change source audio (`429 voice_change_daily_cap`) and a busy
+state (`503 voice_change_capacity`), both refused before anything is charged.
+
+**`change-voice` can hand back the finished video (API 2.33.0).** `POST /v1/voice-changes` takes an optional
 `output`: `"audio"` stays the default and unchanged (a synchronous `200` with the mp3), and
 `"video"` answers `202` with a job to poll at `GET /v1/generations/{jobId}`, whose `outputUrl` is
 the new mp4; the `202`'s `status` is the job's lifecycle (`queued`, `running`, or `succeeded` with nothing

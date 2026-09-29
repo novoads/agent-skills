@@ -70,8 +70,8 @@ curl -sS -X POST https://api.novoads.ai/v1/transcripts ... -d '{"assetId":"<outp
 | Call | Result |
 |---|---|
 | `POST /estimates` `{kind:"voice-change", assetId}` | `credits: 1`, `sufficient: true`. Free. |
-| `POST /estimates` `{kind:"voice-change"}`, no source | also `credits: 1` — a 15s source and a sourceless quote agree, because both land on the one-minute minimum |
-| `POST /voice-changes` | `creditsCharged: 1`, `billedMinutes: 1`, `200` in **7.1s** |
+| `POST /estimates` `{kind:"voice-change"}`, no source | also `credits: 1` — a 15s source and a sourceless quote agree, because both land on the one-minute minimum (the per-minute price before API 2.32.0) |
+| `POST /voice-changes` | `creditsCharged: 1`, `billedMinutes: 1`, `200` in **7.1s** (measured before API 2.32.0, when voice change billed whole started minutes; it now bills seconds of source above a minimum and also returns `billedSeconds`) |
 | **the same call again, same source and voice** | **`creditsCharged: 0`**, byte-identical `jobId` and `assetId`, a freshly minted `url`, `200` in 1.9s |
 | `POST /voice-changes` with a made-up `voiceId` | `404 not_found`, naming the id. **No substitute voice, nothing charged** |
 | `POST /transcripts` × 2 (source, then output) | `creditsCharged: 0.1` each |
@@ -322,7 +322,8 @@ source.
 **Assertions.**
 
 - The response is A's: a synchronous `200` with `jobId`, `assetId`, `url`,
-  `expiresInSeconds`, `creditsCharged`, `billedMinutes`, `voiceId`, and nothing to poll.
+  `expiresInSeconds`, `creditsCharged`, `billedSeconds`, `billedMinutes` (deprecated), `voiceId`,
+  and nothing to poll.
 - Gate 6's local assembly runs as written, fences included.
 - Where the workspace does not have video out, a run that sent `output` and got the `400`
   saying to omit it lands here: same body without the field, the same result done locally.

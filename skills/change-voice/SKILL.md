@@ -155,9 +155,10 @@ curl -sS -X POST https://api.novoads.ai/v1/estimates -A novoads-skill/change-voi
 `assetId`, in both the estimate and the conversion. At most one of the two, in either
 body.
 
-**Name the source in the estimate.** The price is per minute of source audio, so a quote
-with no source is the one-minute minimum and says nothing about a four-minute file. The
-transcript arm bills per minute the same way, so the same rule applies to it.
+**Name the source in the estimate.** The voice-change price follows the length of the source
+audio, by the second above a minimum charge (since API 2.32.0), so a quote with no source is
+that minimum and says nothing about a four-minute file. The transcript arm bills per minute of
+source, so the same rule applies to it. Never carry a number from here into a message: quote.
 
 **Announce the whole run, not just the conversion.** The conversion is the large charge
 and it is not the only one: **the verification in Gate 7 is a charged call too**, and
@@ -264,7 +265,8 @@ that band the choice is listening.
 curl -sS -X POST https://api.novoads.ai/v1/voice-changes -A novoads-skill/change-voice \
   -H "Authorization: Bearer $NOVOADS_API_KEY" -H 'Content-Type: application/json' \
   -d '{"assetId":"<assetId>","voiceId":"<the one the human picked>"}'
-# → 200 { jobId, assetId, url, expiresInSeconds, creditsCharged, billedMinutes, voiceId }
+# → 200 { jobId, assetId, url, expiresInSeconds, creditsCharged, billedSeconds, billedMinutes, voiceId }
+#   billedSeconds is the probed length the price read; billedMinutes is deprecated (API 2.32.0).
 ```
 
 Fifteen seconds of source came back in about seven on the acceptance run. **Download
@@ -384,7 +386,7 @@ POST /v1/estimates      { kind: "voice-change" | "transcript", assetId | jobId }
                         Both arms are used here, and both are free. Price the
                         conversion and the read-backs, not just the conversion.
                         → { credits, balance, sufficient, shortBy?, topUpUrl? }
-                          Strict. At most one source. No source = the one-minute minimum.
+                          Strict. At most one source. No source = the arm's minimum charge.
 
 GET  /v1/voices         ?gender=&age=&accent=&language=&limit=
                         → { voices: [{ id, name, source, previewUrl?, languages?,
@@ -393,7 +395,8 @@ GET  /v1/voices         ?gender=&age=&accent=&language=&limit=
 POST /v1/voice-changes  { assetId | jobId, voiceId (REQUIRED), productId?,
                           output?: "audio" (default) | "video" }
                         output "audio" → 200 { jobId, assetId, url, expiresInSeconds,
-                            creditsCharged, billedMinutes, voiceId }
+                            creditsCharged, billedSeconds, billedMinutes (deprecated),
+                            voiceId }
                           ALREADY DONE — nothing to poll. Audio out; you mux.
                         output "video" → 202 { jobId, status, credits,
                             output: "video" }

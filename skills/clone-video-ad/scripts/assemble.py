@@ -4,6 +4,7 @@
   python3 skills/clone-video-ad/scripts/assemble.py check    TAKE.mp4 --still STILL.png --dur D
   python3 skills/clone-video-ad/scripts/assemble.py hue-gate GRADED.mp4 --ungraded TWIN.mp4 --photo PRODUCT [--windows a-b,c-d]
   python3 skills/clone-video-ad/scripts/assemble.py build    outputs/<job>/shots.json [--grade light|none] [--fps 24|30] [--vo VO.mp3 --vo-start S] [--bed BED.audio]
+                                                      [--photo PRODUCT] [--talker SH07=voice_changed.mp3 ...]
   python3 skills/clone-video-ad/scripts/assemble.py verify   outputs/<job>/master.mp4 outputs/<job>/shots.json
 
 check     opening lock (max SSIM of take frame 0 vs the still centre-cropped at 1.00-1.05,
@@ -18,6 +19,9 @@ build     per shot: the picked take trimmed to its slot, or a held still with a 
           LIGHT grade = eq brightness to the source shot's YAVG (contrast 1.0, iterated to
           +/-2) then the hue-protected chroma scale toward its SATAVG; NONE = no grade.
           Writes master_ungraded.mp4 (twin), master.mp4, assembly.json (with every command).
+          --talker ID=AUDIO (repeatable) puts that audio (a voice-changed talker take, timed
+          from the take's frame 0) in shot ID's window instead of the voiceover, with short
+          crossfades, level-matched to the voiceover before the shared loudnorm. Needs --vo.
 verify    duration within one frame, measured cuts (both thresholds) within 0.05 s of the
           table's, per-shot Y and SAT against the source. Exit 0 on a pass.
 
@@ -67,6 +71,8 @@ LUMA_AIM = 1.28              # half of one eq brightness step
 EQ_LEVELS_PER_STEP = 2.555   # vf_eq: brightness enters as int(100*b + 100) * 511/200 levels
 LUMA_ITERS = 4
 FLASH_ALPHA = 0.85
+TALKER_FADE_S = 0.04        # crossfade between the voiceover and a talker window
+TALKER_GAIN_MAX_DB = 12.0   # level-match clamp for a talker window against the voiceover
 CUT_TOL_S = 0.05
 XFADE = {"whip-right": "slideleft", "whip-left": "slideright", "zoom-in": "zoomin"}
 SEG_ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p"]
@@ -489,7 +495,35 @@ def assembly_graph(nseg, cuts, F, N, W):
     return ";".join(parts)
 
 
-def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, photo=None):
+def mean_db(path, start=None, dur=None):
+    """volumedetect's mean_volume in dB over [start, start+dur], or None for silence."""
+    cmd = ["ffmpeg", "-hide_banner", "-nostats"]
+    if start is not None:
+        cmd += ["-ss", "%.3f" % start]
+    if dur is not None:
+        cmd += ["-t", "%.3f" % dur]
+    cmd += ["-i", path, "-vn", "-af", "volumedetect", "-f", "null", "-"]
+    m = re.search(r"mean_volume:\s*(-?[0-9.]+) dB", st.run(cmd).stderr)
+    return float(m.group(1)) if m else None
+
+
+def talker_plan(shots, K, segs, F, talkers, job):
+    """Where each --talker audio goes: shot window [a, b] in the master, and the matching
+    span of the talker file, which is timed from the take's frame 0 (the segment starts
+    `head` frames before the cut when an xfade pulls it early)."""
+    ids = {r["id"]: i for i, r in enumerate(shots)}
+    plan = []
+    for sid, p in talkers.items():
+        if sid not in ids:
+            raise ValueError("--talker %s: no such shot in shots.json" % sid)
+        i = ids[sid]
+        s = segs[i]
+        plan.append({"id": sid, "path": str(_resolve(p, job)), "a": K[i] / float(F), "b": K[i + 1] / float(F),
+                     "src_a": s["head"] / float(F), "src_b": (s["head"] + s["nominal"]) / float(F)})
+    return sorted(plan, key=lambda t: t["a"])
+
+
+def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, photo=None, talkers=None):
     shots_path = Path(shots_path).resolve()
     job = shots_path.parent
     with open(shots_path, encoding="utf-8") as fh:
@@ -600,6 +634,8 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
         cmds.append({"tag": "assemble_graded", "cmd": ["copy", str(twin), str(graded_video)]})
     master = job / "master.mp4"
     Dout = N / float(F)
+    if talkers and not vo:
+        raise ValueError("--talker needs --vo: the talker audio replaces the voiceover inside its shot's window")
     if vo:
         vo = _resolve(vo, job)
         cmd = ["ffmpeg", "-y", "-v", "error", "-i", graded_video, "-i", vo]
@@ -607,10 +643,33 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
             a = "[1:a]adelay=%d:all=1," % int(round(vo_start * 1000))
         else:
             a = "[1:a]atrim=start=%.3f,asetpts=PTS-STARTPTS," % (-vo_start)
+        tk = talker_plan(shots, K, segs, F, talkers, job) if talkers else []
+        if tk:
+            # Cut the voiceover to silence inside each talker window (crossfading over
+            # TALKER_FADE_S at both edges), lay each talker span in its window, then one
+            # loudnorm over the mix so both voices leave at the same loudness target.
+            f = TALKER_FADE_S
+            duck = "*".join("(1-clip(min((t-%.6f)/%.3f,(%.6f-t)/%.3f),0,1))" % (t["a"], f, t["b"], f) for t in tk)
+            a += "aresample=48000,asetnsamples=n=240,volume='%s':eval=frame[vod]" % duck
+            vo_db = mean_db(vo)
+            for j, t in enumerate(tk):
+                cmd += ["-i", t["path"]]
+                t_db = mean_db(t["path"], t["src_a"], t["src_b"] - t["src_a"])
+                gain = 0.0 if vo_db is None or t_db is None else \
+                    max(-TALKER_GAIN_MAX_DB, min(TALKER_GAIN_MAX_DB, vo_db - t_db))
+                t["gain_db"] = round(gain, 2)
+                span = t["src_b"] - t["src_a"]
+                a += (";[%d:a]atrim=start=%.6f:end=%.6f,asetpts=PTS-STARTPTS,aresample=48000,volume=%.2fdB,"
+                      "afade=t=in:st=0:d=%.3f,afade=t=out:st=%.6f:d=%.3f,adelay=%d:all=1[tk%d]"
+                      % (2 + j, t["src_a"], t["src_b"], gain, f, max(0.0, span - f), f,
+                         int(round(t["a"] * 1000)), j))
+            a += ";[vod]%samix=inputs=%d:duration=longest:normalize=0," % (
+                "".join("[tk%d]" % j for j in range(len(tk))), 1 + len(tk))
         a += "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,apad[vo]"
         if bed:
             cmd += ["-i", _resolve(bed, job)]
-            a += ";[2:a]aresample=48000,volume=-20dB,apad[bd];[vo][bd]amix=inputs=2:duration=first:normalize=0,"
+            a += (";[%d:a]aresample=48000,volume=-20dB,apad[bd];[vo][bd]amix=inputs=2:duration=first:normalize=0,"
+                  % (2 + len(tk)))
         else:
             a += ";[vo]"
         a += "atrim=0:%.6f,asetpts=PTS-STARTPTS[a]" % Dout
@@ -618,7 +677,9 @@ def build(shots_path, grade="light", fps=24, vo=None, vo_start=0.0, bed=None, ph
                 "-movflags", "+faststart", master]
         run("mux_audio", cmd)
         rec["audio"] = {"vo": str(vo), "vo_start": vo_start, "bed": str(bed) if bed else None,
-                        "loudnorm": "I=-14:TP=-1.5:LRA=11", "bed_gain_db": -20 if bed else None}
+                        "loudnorm": "I=-14:TP=-1.5:LRA=11", "bed_gain_db": -20 if bed else None,
+                        "talkers": [{k: t[k] for k in ("id", "path", "a", "b", "src_a", "src_b", "gain_db")}
+                                    for t in tk]}
     else:
         shutil.copyfile(str(graded_video), str(master))
         rec["audio"] = None
@@ -733,6 +794,9 @@ def main(argv=None):
     b.add_argument("--vo-start", type=float, default=0.0)
     b.add_argument("--bed")
     b.add_argument("--photo", help="product photo (default: shots.json product_photo)")
+    b.add_argument("--talker", action="append", default=[], metavar="ID=AUDIO",
+                   help="repeatable: a voice-changed talker take's audio for shot ID, replacing the voiceover "
+                        "inside that shot's window (needs --vo)")
     v = sub.add_parser("verify")
     v.add_argument("master")
     v.add_argument("shots")
@@ -746,7 +810,13 @@ def main(argv=None):
         print(json.dumps(res, indent=1))
         return {"PASS": 0, "FAIL": 1}.get(res["verdict"], 2)
     if a.cmd == "build":
-        rec = build(a.shots, a.grade, a.fps, a.vo, a.vo_start, a.bed, a.photo)
+        talkers = {}
+        for spec in a.talker:
+            sid, sep, path = spec.partition("=")
+            if not sep or not sid or not path:
+                ap.error("--talker takes ID=AUDIO, e.g. --talker SH07=outputs/job/talk/SH07_vc.mp3")
+            talkers[sid.strip()] = path.strip()
+        rec = build(a.shots, a.grade, a.fps, a.vo, a.vo_start, a.bed, a.photo, talkers)
         out = {k: rec[k] for k in ("grade", "fps", "frames", "master", "twin", "duration_ok")}
         out["hue_gate"] = {k: rec["hue_gate"].get(k) for k in ("verdict", "chroma_retained", "hue_drift", "reasons")}
         out["shots"] = [{"id": s["id"], "mode": s["mode"], "frames": s["frames"],

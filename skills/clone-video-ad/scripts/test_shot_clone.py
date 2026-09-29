@@ -11,12 +11,14 @@ shot, frames and strips, re-running shot_table keeps the `new` ledger, the hue g
 (PASS on a hue-protected grade, FAIL on eq=saturation=0.4 and on a +10 deg rotation,
 NO_PRODUCT on a grey product), the opening lock (>= 0.90 on a 2 % centre zoom, < 0.90 on
 another image), the frozen and invented-cut checks, build at 24 and 30 fps (duration
-within one frame, twin written), verify, and pace check/align on canned words[].
+within one frame, twin written), verify, a --talker window replacing the voiceover in
+its shot, and pace check/align on canned words[].
 Requires ffmpeg/ffprobe on PATH. Python stdlib only, no pytest.
 """
 
 import argparse
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -272,6 +274,45 @@ def run_cases(d):
         return c == 0 and out.get("pass") and out.get("duration_ok"), "exit=%d cuts=%s %s" % (
             c, [(x["id"], x.get("measured"), x.get("err"), x["ok"]) for x in out.get("cuts", [])], e[-150:])
     case("verify: duration within a frame and every table cut matched (24 fps)", vcase)
+
+    def tones(path, a, b):
+        """Goertzel magnitude of the 440 Hz (voiceover) and 1000 Hz (talker) tones in the
+        master's audio over [a, b], mono 48 kHz: which voice is audible there."""
+        r = subprocess.run(["ffmpeg", "-v", "error", "-ss", "%.3f" % a, "-t", "%.3f" % (b - a), "-i", str(path),
+                            "-vn", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"], capture_output=True)
+        pcm = [int.from_bytes(r.stdout[i:i + 2], "little", signed=True) for i in range(0, len(r.stdout) - 1, 2)]
+        mags = {}
+        for f in (440, 1000):
+            w = 2 * math.cos(2 * math.pi * f / 48000.0)
+            s1 = s2 = 0.0
+            for x in pcm:
+                s1, s2 = x + w * s1 - s2, s1
+            mags[f] = math.sqrt(max(0.0, s1 * s1 + s2 * s2 - w * s1 * s2)) / max(1, len(pcm))
+        return mags
+
+    def talker_case():
+        jt = d / "build_talker"
+        jt.mkdir()
+        shutil.copyfile(str(sj), str(jt / "shots.json"))
+        vo_wav, talk_wav = d / "vo_440.wav", d / "talker_1000.wav"
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=4", vo_wav)
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=3", talk_wav)
+        c, out, e = script("assemble.py", "build", jt / "shots.json", "--grade", "none",
+                           "--vo", vo_wav, "--vo-start", 0, "--talker", "SH02=%s" % talk_wav)
+        m = jt / "master.mp4"
+        if not m.exists():
+            return False, "exit=%d no master %s" % (c, e[-300:])
+        # SH02 is the 1.0-2.0 s window (hard cuts both sides): talker inside, voiceover outside.
+        win = {"before": tones(m, 0.2, 0.8), "inside": tones(m, 1.15, 1.85), "after": tones(m, 2.2, 2.8)}
+        ratio = {k: round(v[1000] / max(v[440], 1e-9), 2) for k, v in win.items()}  # talker / voiceover
+        rec = json.loads((jt / "assembly.json").read_text())
+        tk = (rec.get("audio") or {}).get("talkers") or []
+        ok = (c == 0 and ratio["inside"] > 20 and ratio["before"] < 0.05 and ratio["after"] < 0.05
+              and len(tk) == 1 and tk[0]["id"] == "SH02"
+              and abs(tk[0]["a"] - 1.0) < 1e-6 and abs(tk[0]["b"] - 2.0) < 1e-6)
+        return ok, "exit=%d talker/vo=%s window=%s %s" % (c, ratio, [(t["a"], t["b"], t["gain_db"]) for t in tk], e[-150:])
+    case("build --talker SH02=...: the shot's window carries the talker audio, the rest the voiceover",
+         talker_case)
 
     # ---- pace
     good = d / "script_good.json"

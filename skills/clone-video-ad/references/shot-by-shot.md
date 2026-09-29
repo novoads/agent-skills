@@ -60,14 +60,22 @@ python3 skills/clone-video-ad/scripts/shot_table.py SOURCE.mp4 --job outputs/<jo
 
 It finds cuts at two scene thresholds (0.25 and 0.12) and merges them, folds a white flash of up to
 0.15 s into the next shot as `cut_in.flash_s` (a flash is not a shot), assigns the transcript's
-`words[]` to shots, and writes `frames/<id>_in.jpg`, `_mid.jpg`, `_out.jpg` plus
-`strips/<id>_cut.jpg` (0.5 s around each incoming transition). Then `outputs/<job>/shots.json`:
+`words[]` to shots, and writes `frames/<id>_in.jpg`, `_mid.jpg`, `_out.jpg` (only `_mid.jpg` for a
+shot under 0.4 s; a flash-folded shot's frames and stats start after the flash) plus
+`strips/<id>_cut.jpg` (0.5 s around each incoming transition, so none for `SH01`). `--no-frames`
+skips both folders for a fast re-run. Then `outputs/<job>/shots.json`:
 
-- Top level: `version`, `source`, `duration`, `fps`, `size`, `cuts_025`, `cuts_012`, `shots[]`.
+- Top level: `version`, `source`, `duration`, `fps`, `size`, `cuts_025`, `cuts_012`, `shots[]`,
+  plus `flashes[]`, `format_duration`, `source_start`, `transcript`, `transcript_language`, and
+  `orphaned_rows` when a re-run finds rows that no longer match. **`duration` is the video
+  stream's length** and the reference for every later check; the container's (longer when the
+  audio runs on) is `format_duration`. Add `product_photo` (the photo's path) yourself: `build`
+  reads it when no `--photo` is given, and a re-run keeps it.
 - Each row, measured: `id` (`SH01`), `in`, `out`, `dur` (to 0.01 s; show it at 0.1),
-  `cut_in {score, seen_at, flash_s, type}`, `confirm_cut`, `grade {...}` (the shot's
-  `YAVG SATAVG UAVG VAVG YLOW YHIGH`), `speech {text, n_words, n_syll, start, end, wps}` or null,
-  `frames[]`, `render_hint` (`hold_candidate` under 1.0 s, else `take`).
+  `cut_in {score, seen_at, flash_s, type}` (plus `group` and `merged_012` when hits were
+  merged), `confirm_cut`, `grade {...}` (the shot's `YAVG SATAVG UAVG VAVG YLOW YHIGH`),
+  `speech {text, n_words, n_syll, start, end, wps}` or null, `frames[]`, `strip` (the strip's
+  path, kept out of `frames[]`), `render_hint` (`hold_candidate` under 1.0 s, else `take`).
 - Each row, **yours to fill at S2**: `framing`, `subject_fill_pct`, `subject_pos`, `camera`,
   `action`, `people`, `speaks_on_camera`, `room_id`, `light_words`, `product`,
   `on_screen_text_style`, `render` (`take` or `hold`), and `cut_in.type` (`hard`, `whip-left`,
@@ -76,16 +84,29 @@ It finds cuts at two scene thresholds (0.25 and 0.12) and merges them, folds a w
   `motion_prompt`, `still_assetId`, `still_path`, `takes[]` of
   `{jobId, status, path, checks, qc, pick, sensor}`.
 
-**A row with `confirm_cut: true` was seen at the low threshold only.** Confirm it on its strip. If
-no cut is visible, merge it into the row before (that row's `out` becomes this row's `out`) and say
-so at gate A. **`render: hold`** is for a static shot under about 1 s: it is its own still (or the
-next shot's) held with a slight zoompan at assembly, never a take.
+**A row with `confirm_cut: true` was seen at the low threshold only**; its `in` is the first hit
+of its group. Confirm it on its strip. If no cut is visible, merge it into the row before (that
+row's `out` becomes this row's `out`) and say so at gate A. **A bright segment longer than 0.15 s
+is never folded as a flash**: it stays a row, often a short `confirm_cut` one, and your read
+decides. If its frames show a white flash, fold it by hand after the last `shot_table.py` run (a
+re-run recomputes the rows): delete the row, move the next row's `in` back to its `in`, and set
+that row's `cut_in.flash_s` to its length. **`render: hold`** is for a static shot under about
+1 s: `build` holds whatever the row's `new.still_path` names (its own still, or the next shot's)
+with a slight zoompan, never a take.
 
 **`shots.json` is the run's resumable ledger.** Write each field the moment it exists: the still's
 `assetId` when `POST /v1/images` answers, each take's `jobId` **before the first poll**. A resumed
 session reads the file, polls every `jobId` that is not terminal, and submits only rows that have no
 take. It never resubmits a row that already has a `jobId`. Re-running `shot_table.py` on the same
-job merges into the file and keeps `new` and every field you filled.
+job merges into the file and keeps `new` and every field you filled. `build` reads the picked take
+from `new.takes[]` (`pick: true`, its `path`) and a hold's `new.still_path`; a relative path
+resolves against `outputs/<job>/`, then the working directory.
+
+**The job folder.** The scripts write only `shots.json`, `frames/` and `strips/` (`shot_table.py`)
+and `build/` (per-shot segments and the silent graded cut), `master.mp4`, `master_ungraded.mp4`
+and `assembly.json` (`build`). Every other name in this file (`stills/`, `takes/`, `qc/`,
+`sheets/`, `talk/`, `vo.mp3`, `vo_fit.mp3`, `vo_probe.mp4`, `SCRIPT.json`, the two transcripts) is
+this file's convention: the scripts take those paths from the ledger or the command line.
 
 ## Pricing, and the one yes at gate D
 
@@ -236,16 +257,26 @@ the default sampling sees every moment, and join the windows into one reel. Keep
 ffmpeg -y -i outputs/<job>/takes/SH01_t1.mp4 -t 2.4 -vf "setpts=3*PTS" -an outputs/<job>/qc/SH01_t1.mp4
 ```
 
-Upload the joined reel (SKILL step 2) and send **one** `POST /v1/analyses`, priced at gate D. Set
-`maxSeconds` to the reel's length. Ask a forensic `question` where the analysis request schema in
-`GET /v1/openapi.json` publishes that field (the body is strict; an unknown key is a free `400`):
+Upload the joined reel (SKILL step 2) and send **one** `POST /v1/analyses`, priced at gate D. The
+body is strict (an unknown key is a free `400`) and, in spec 2.31.0, takes `assetId`, `maxSeconds`
+(1 to 120, default 20: set it to the reel's length) and an optional `question` (1 to 500
+characters), which the spec calls an instruction that steers what the breakdown emphasises and
+never changes the price. The forensic ask goes there:
+
+```bash
+curl -sS -X POST "${NOVOADS_BASE_URL:-https://api.novoads.ai}/v1/analyses" \
+  -H "Authorization: Bearer $NOVOADS_API_KEY" -H "Content-Type: application/json" \
+  -d '{"assetId":"<the reel assetId>","maxSeconds":<reel seconds>,"question":"<the ask below>"}'
+```
 
 > Second by second, list every defect with its timestamp: a hand or finger that appears, vanishes
 > or doubles; an object that moves on its own; a face or product that morphs; a label or colour
 > that changes; text that appears; a cut; motion that freezes. Say "clean" for a clean stretch.
 
-Map each timestamp back through the reel index. If the slowed reel runs past the longest
-`maxSeconds` the schema allows, slow it 2x rather than splitting it; a second call is a second fee.
+The answer is a breakdown the question steers, not a promised defect list: a take whose stretch
+comes back with no timestamps you can map is read on contact sheets instead. Map each timestamp
+back through the reel index. If the slowed reel runs past 120 s, slow it 2x rather than splitting
+it; if it still does not fit, a second call is a second fee, priced at gate D.
 
 **The fallback sensor is contact sheets**, a frame every 0.25 s over the used window, read by you:
 
@@ -270,11 +301,15 @@ curl -sS -X POST "${NOVOADS_BASE_URL:-https://api.novoads.ai}/v1/voice-changes" 
   -d '{"jobId":"<the picked take jobId>","voiceId":"<the voiceover voiceId>"}'
 ```
 
-It keeps the take's timing and returns the audio. Splice it over that shot's window in the
-voiceover track (the take trimmed to `dur`, placed at the row's `in`) before `build`, so the lips
-and the voice agree. **Where that endpoint is not published, or the splice drifts audibly**, fall
-back to a silent reaction: re-take the shot silent with a listening or reacting action, and let the
-voiceover carry the words over it.
+It answers `200` with the converted audio (nothing to poll, and never video), timed from the
+take's frame 0. Save it as `outputs/<job>/talk/<id>_vc.mp3` and give it to `build` as
+`--talker <id>=<path>`, once per talker shot (§ Assembly and verify). `build` silences the
+voiceover inside that shot's window, lays the matching span of the talker audio there with 0.04 s
+crossfades at both edges, matches its level to the voiceover, and runs one loudnorm over the mix,
+so the lips and the voice agree. Keep the talker's line in the voiceover script anyway: `pace.py`
+aligns every spoken shot, and `build` replaces that window. **Where that endpoint is not
+published, or the converted take drifts audibly**, fall back to a silent reaction: re-take the
+shot silent with a listening or reacting action, and let the voiceover carry the words over it.
 
 ## Voice and pace
 
@@ -312,13 +347,23 @@ ffmpeg -y -f lavfi -i color=black:s=320x568:r=24 -i outputs/<job>/vo.mp3 -shorte
 Upload it, transcribe it, save the response as `outputs/<job>/vo_transcript.json`, then align:
 
 ```bash
-python3 skills/clone-video-ad/scripts/pace.py align outputs/<job>/shots.json outputs/<job>/vo_transcript.json
+python3 skills/clone-video-ad/scripts/pace.py align outputs/<job>/shots.json \
+  outputs/<job>/vo_transcript.json --vo-start 0 --script outputs/<job>/SCRIPT.json
 ```
 
-It reports speech start and end against the source (within 0.15 s passes), the per-shot phrase
-offsets, a suggested `atempo` (0.85 to 1.15) and the phrases more than 0.2 s off. Fit the speed with
-`ffmpeg -i vo.mp3 -filter:a atempo=<a> vo_fit.mp3`, split each late or early phrase at the pause
-before it and shift it, then transcribe and align again until start and end pass.
+`--vo-start` is where the voiceover file starts in the master (default 0); `--script` cuts the
+voiceover's words into per-shot phrases by the approved lines (without it, by the source's counts
+scaled to the new total). It prints JSON: `start_err` and `end_err` against the source at that
+`--vo-start` (exit 0 when both are within 0.15 s), `phrases[]` with each `offset`, `suggest
+{atempo, atempo_raw, clamped, vo_start, end_err_after}` and `phrases_off[]`, the phrases still
+more than 0.2 s off after the suggestion, each with its shift.
+
+**`S`, the `--vo-start` that `build` takes, is `suggest.vo_start`**: the source's first spoken
+word less the voiceover's first word divided by the suggested atempo (`source.start - vo.start /
+atempo`). It can be negative; `build` then trims the voiceover's head. Fit the speed with
+`ffmpeg -i vo.mp3 -filter:a atempo=<suggest.atempo> vo_fit.mp3`, split each phrase in
+`phrases_off` at the pause before it and shift it, then transcribe `vo_fit.mp3` (muxed, as above)
+and align again with `--vo-start <S>` until it exits 0.
 
 ## Captions
 
@@ -354,30 +399,43 @@ python3 skills/clone-video-ad/scripts/assemble.py hue-gate outputs/<job>/master.
 
 Exit 0 is PASS (the product keeps at least 0.80 of its chroma overall and in every window, and its
 hue drifts 6° or less), 1 is FAIL, 2 is NO_PRODUCT (too little of the photo's product hue in frame
-to measure: neither a pass nor a fail, and reported as such). On a FAIL, rebuild with
-`--grade none`. Hand over **both masters** either way.
+to measure: neither a pass nor a fail, and reported as such). Add `--windows a-b,c-d` (the shots'
+`in`-`out` pairs) to check every window as `build` does. On a FAIL, rebuild with `--grade none`.
+Hand over **both masters** either way. **Always give `build` the product photo** (`--photo`, or
+the ledger's `product_photo`): without one, LIGHT falls back to a uniform saturation scale and the
+hue gate is recorded as `SKIPPED`.
 
 ## Assembly and verify
 
 ```bash
 python3 skills/clone-video-ad/scripts/assemble.py build outputs/<job>/shots.json --grade light --fps 24 \
-  --vo outputs/<job>/vo_fit.mp3 --vo-start <S>
+  --photo <the product photo> --vo outputs/<job>/vo_fit.mp3 --vo-start <S> \
+  --talker SH07=outputs/<job>/talk/SH07_vc.mp3
 python3 skills/clone-video-ad/scripts/assemble.py verify outputs/<job>/master.mp4 outputs/<job>/shots.json
 ```
 
 `build` takes each row's picked take trimmed to `[0, dur]` (or its still held with a slight zoompan
 for a `hold` row), scales it to the source's size, makes each transition locally from `cut_in.type`
-(a whip is a slide with a horizontal blur, `zoom-in` a zoom, a flash a white blend of `flash_s`,
-`hard` a cut), grades, and muxes the voiceover at `--vo-start` (the source's first spoken word less
-the voiceover's own lead-in, both in `align`'s report) with loudness normalized and an optional
-`--bed`. It writes `master.mp4`, `master_ungraded.mp4` and `assembly.json` with the exact ffmpeg
-commands. The output runs the source's length within one frame.
+(a whip is an xfade slide of about 0.25 s centred on the cut with a horizontal blur, `whip-right`
+sliding the new shot in from the right; `zoom-in` a zoom; a flash a white blend of `flash_s`;
+`hard` a cut; a slot too short for a slide cuts hard, noted in `assembly.json`), grades, and muxes
+the voiceover at `--vo-start` (`S`, from the last `align`) with loudness normalized and an
+optional `--bed`. Each `--talker` replaces the voiceover inside its shot (§ On-camera talkers);
+drop the flag when no shot talks. It writes `master.mp4` (graded, with the audio),
+`master_ungraded.mp4` (the twin: same frames, silent), `assembly.json` (every ffmpeg command, the
+per-shot grade, the hue gate and the audio plan) and a `build/` scratch folder. The output runs
+the source's video-stream `duration` within one frame. It exits 1 when the hue gate FAILs or the
+length misses; both masters are written either way.
 
 - **fps.** 24 keeps the takes' native rate and is the default. `--fps 30` duplicates frames, which
   judders measurably; offer it only when the user asks for 30.
-- **`verify`** exits 0 when the duration is within one frame and every measured cut sits within
-  0.05 s of the table's, and it reports per-shot saturation and brightness against the source.
-  A failing cut names the shot to look at.
+- **`verify`** exits 0 when the duration is within one frame and every table cut has a measured
+  hit (either threshold) within 0.05 s. **A whip or `zoom-in` cut also passes when a hit falls
+  inside its transition window**: the detector fires at the slide's onset, up to about 0.1 s
+  early, so the row is marked `in_transition` with its raw error still reported. That rule reads
+  the build's `assembly.json` beside `shots.json`, at the same fps. Per-shot brightness and
+  saturation against the source, and `extra_025` (unexplained hard hits), are reported and never
+  fail it; the ±2 brightness check lives in `build` (`luma_ok`). A failing cut names the shot.
 
 Then burn captions, and run SKILL step 12's transcript diff on the finished master.
 
@@ -386,6 +444,8 @@ Then burn captions, and run SKILL step 12's transcript diff on the finished mast
 Into `outputs/<job>/`, then open the folder (SKILL step 12):
 
 - **Both masters**, graded and ungraded (captioned, when the source was), and which grade each is.
+  The twin is silent; give it the master's audio with
+  `ffmpeg -i master_ungraded.mp4 -i master.mp4 -map 0:v -map 1:a -c copy master_ungraded_audio.mp4`.
 - `shots.json`, the ledger: every still prompt, motion prompt, `jobId`, check and pick.
 - The contact sheets, and the QC reel's verdicts with the sensor that made each pick.
 - **The source copy** beside them (`source-<what-it-is>.mp4`, SKILL step 12).

@@ -427,8 +427,8 @@ The creative core. Working from step 3:
 - Replace product-specific references with the user's product name, features and claims.
 - **The pace rule, in both routes:** words per shot (per line on a single render) within ±1 of the
   source's, the total within ±5%, syllables the tie-break when a brand name splits, phrase breaks
-  on the same cuts, and speech start and end within 0.15 s of the source's. `scripts/pace.py check`
-  tests it wherever step 1 wrote `shots.json`.
+  on the same cuts, and speech start and end within 0.15 s of the source's. Where step 1 wrote
+  `shots.json`, `scripts/pace.py check outputs/<job>/shots.json SCRIPT.json` tests it.
 - **Script variants.** If they asked for N *script variants* rather than N renders of one
   script (step 5), write N distinct adaptations that share the beat structure, the
   silent-beat placement and the per-line word counts, and differ in the hook angle, the

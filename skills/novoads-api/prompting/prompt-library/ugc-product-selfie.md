@@ -242,5 +242,5 @@ are preserved from frame one. This is the correct path for animating UGC stills.
 
 ### Veo 3.1 and Sora 2
 
-Not on this API. Their prompt libraries sit in this folder for if and when they land. Say so
-plainly rather than routing a user toward an endpoint that does not exist.
+Both are on this API (`veo-3.1` and `sora-2`); read [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md)
+for their grids. Neither takes `referenceAssetIds`, so a product reference goes to Seedance or `omni-flash`.

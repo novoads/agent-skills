@@ -91,7 +91,7 @@ user as the only option without at least one retry (unless they explicitly waive
 
 ### Regeneration loop
 
-1. **Inspect** the image from the `images[].url` in the response (the URL is presigned and expires — `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
+1. **Inspect** the image from the `images[].url` in the response, or in the polled job if it answered `running` (the URL is presigned and expires: `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
 2. If **defective:** compose a **new prompt** that names the fix (e.g. "exactly two hands visible, five fingers each," "single coherent face," "product label sharp and readable"). Keep the creative intent; add corrective constraints rather than resending the identical body.
 3. Call `POST /v1/images` again with the same `model`, `aspectRatio`, `referenceAssetIds` and `productId` as before unless you are intentionally changing them.
 4. **Cap:** at most **2** regeneration attempts after the first image (**3** total per deliverable). After that, describe the remaining issues, show the best attempt, and ask the user how to proceed.

@@ -949,7 +949,7 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 | Field | |
 |---|---|
 | `actorId` | **Required.** An actor from `GET /actors`: the only face this endpoint animates. An uploaded face is not accepted. |
-| `drivingVideoAssetId` | **Required.** The driving clip from `POST /uploads`: MP4, MOV or, since API 2.44.0, WebM. `POST /uploads` does not take M4V; re-encode it to MP4 first. Its measured length is the output's length and the price. |
+| `drivingVideoAssetId` | **Required.** The driving clip from `POST /uploads`: MP4 or MOV. A WebM clip does not render (the provider refuses the container) and `POST /uploads` does not take M4V; re-encode either to MP4 first. Its measured length is the output's length and the price. |
 | `characterOrientation` | `video` (default) takes a driving clip up to 30 seconds, `image` up to 10. Does not move the price. |
 | `resolution` | `1080p` (default) or `720p`. Moves the per-second price. |
 | `keepOriginalSound` | Default: the driving clip's audio is kept. `false` renders the result without it (API 2.44.0; it was refused before). Does not move the price. |
@@ -958,7 +958,7 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 | `productId` | Optional. Files the result under a product. |
 
 - **The server measures the clip; a duration you send is never read.** Quote with `POST /estimates` and `kind: "motion-control"` with the same inputs, and the charge equals the quote.
-- Every refusal (an actor you cannot use, a clip that is not MP4, MOV or WebM, size, the length bounds per orientation, aspect ratio, prompt length) happens before the charge. A WebM recorded in a browser can lack the duration the server measures; if it is refused as unreadable, re-encode it to MP4.
+- Every refusal (an actor you cannot use, a clip that is not MP4 or MOV, size, the length bounds per orientation, aspect ratio, prompt length) happens before the charge. Send MP4 or MOV only: a WebM clip does not render, so convert it to MP4 before uploading it.
 
 ## GET /generations
 

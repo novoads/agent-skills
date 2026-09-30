@@ -502,7 +502,7 @@ or Seedance clip is the b-roll path.
 tools on one photo (`preset` on `POST /v1/images`), background removal on a video up to 30 seconds
 (`POST /v1/background-removals`), your product in a library actor's hands on the Seedance family
 (`productSwap`), and a library actor moved by a clip you upload (`POST /v1/videos/animate-actor`:
-MP4, MOV or WebM, with or without the clip's own sound).
+MP4 or MOV, with or without the clip's own sound).
 Each is quoted by `POST /v1/estimates` before anything is spent.
 
 ## What's in the box

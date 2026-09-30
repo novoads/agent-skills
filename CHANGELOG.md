@@ -20,10 +20,11 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 charged what it quoted, and polled like any image when it answers `running`. The image-ad overview
 says when to reach for one.
 
-**Kling end frame, motion-control sound and WebM (API 2.44.0).** `kling-v3-pro` takes
+**Kling end frame and motion-control sound (API 2.44.0).** `kling-v3-pro` takes
 `lastFrameAssetId` beside `startImageAssetId`; `POST /v1/videos/animate-actor` takes
-`keepOriginalSound: false` and a WebM driving clip (`POST /v1/uploads` still takes no M4V). Neither
-changes how the job is priced. The `novoads-api` routing row for Kling keeps its original trigger,
+`keepOriginalSound: false`. Neither changes how the job is priced. The driving clip is MP4 or MOV
+only: a WebM clip does not render (the provider refuses the container), so convert it to MP4
+first, and `POST /v1/uploads` takes no M4V. The `novoads-api` routing row for Kling keeps its original trigger,
 and the row for editing an existing MP4 is back to its original wording, with background removal
 on a row of its own.
 

@@ -24,7 +24,8 @@ says when to reach for one.
 `lastFrameAssetId` beside `startImageAssetId`; `POST /v1/videos/animate-actor` takes
 `keepOriginalSound: false`. Neither changes how the job is priced. The driving clip is MP4 or MOV
 only: a WebM clip does not render (the provider refuses the container), so convert it to MP4
-first, and `POST /v1/uploads` takes no M4V. The `novoads-api` routing row for Kling keeps its original trigger,
+first, and `POST /v1/uploads` takes no M4V. API 2.45.0 refuses a WebM driving clip with a `400`
+before the charge. The `novoads-api` routing row for Kling keeps its original trigger,
 and the row for editing an existing MP4 is back to its original wording, with background removal
 on a row of its own.
 

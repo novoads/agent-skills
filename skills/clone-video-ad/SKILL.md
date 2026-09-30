@@ -208,7 +208,7 @@ curl -sS -X POST https://api.novoads.ai/v1/transcripts \
   -d '{"assetId":"<the source assetId>"}'
 ```
 
-`POST /v1/uploads` takes `video/mp4`, `video/quicktime` and `video/webm` — the three
+`POST /v1/uploads` takes `video/mp4`, `video/quicktime` and `video/webm`: the three
 formats step 0 accepts. The transcript comes back in the **same response**, not polled for:
 `text`, `words[]` with `start`/`end`, `segments[]`, an `srt`, and the detected `language`.
 

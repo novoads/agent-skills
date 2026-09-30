@@ -107,7 +107,7 @@ Once the user approves the prompt:
    - `aspectRatio` — match the reference image or user preference. **It defaults to `1:1`**, so set it explicitly.
    - `referenceAssetIds` — `[original_assetId]`, up to **14** total on `nano-banana-pro` (spec 2.7.0)
    - `productId` (optional — organizational only)
-6. **Post-generation QA:** the response already carries the image, so inspect immediately (see [nano-banana.md](nano-banana.md) — Post-generation QA and Regeneration loop). If you see defects (extra fingers, bad hands, etc.), regenerate with a refined prompt — up to **2** retries after the first attempt, each billed. **Do not show the user a still as "the result" until QA passes or retries are exhausted** (if still bad after retries, explain and show attempts).
+6. **Post-generation QA:** the response carries the image only when the render finishes in time; one still going after about 105 s answers `status: "running"` with no images, so poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there, and never resubmit it (that job is already paid). Inspect the image as soon as you have it (see [nano-banana.md](nano-banana.md) — Post-generation QA and Regeneration loop). If you see defects (extra fingers, bad hands, etc.), regenerate with a refined prompt — up to **2** retries after the first attempt, each billed. **Do not show the user a still as "the result" until QA passes or retries are exhausted** (if still bad after retries, explain and show attempts).
 7. **Show the QA-passed (or best-effort) still next to the original reference**, and report the cumulative `creditsCharged`.
 
 ### Step 5: User approves the still image

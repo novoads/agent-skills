@@ -209,7 +209,7 @@ Pick the formula that matches the goal, then read its file before composing:
 
 If none fits, compose a custom prompt directly from the platform rules above, following Subject + Action + Camera + Style + Constraints.
 
-Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in this folder is a **cross-model** UGC guide whose formulas target Veo 3.1, Sora 2 and Kling 3.0. Two of those are now live — see [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md) — but Kling is not, and neither Veo nor Sora takes `referenceAssetIds`, so for Seedance UGC use [seedance-2-ugc.md](seedance-2-ugc.md) rather than porting a cross-model formula across. The other video model here is `omni-flash`: narrower grids, references since API 2.30.0, and a 20,000-character prompt ceiling, guide at `shared/skills/gemini-omni-flash/prompting/guide.md`.
+Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in this folder is a **cross-model** UGC guide whose formulas target Veo 3.1, Sora 2 and Kling 3.0. All three are on this API: Veo and Sora with the grids in [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md), Kling 3.0 as `kling-v3-pro` since API 2.38.0. None of the three takes `referenceAssetIds`, so for Seedance UGC use [seedance-2-ugc.md](seedance-2-ugc.md) rather than porting a cross-model formula across. The other video model here is `omni-flash`: narrower grids, references since API 2.30.0, and a 20,000-character prompt ceiling, guide at `shared/skills/gemini-omni-flash/prompting/guide.md`.
 
 ## Adaptation checklist (all styles)
 

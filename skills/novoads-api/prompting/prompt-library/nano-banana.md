@@ -126,8 +126,9 @@ source .env && curl -sS -X POST \
   "https://api.novoads.ai/v1/images"
 ```
 
-The response is the finished job — `images[]` with presigned URLs, plus `creditsCharged` and the
-`model` that ran. Price it first:
+The response is the finished job only when the render finishes in time: `images[]` with presigned URLs, plus `creditsCharged` and the
+`model` that ran. One still going after about 105 s answers `status: "running"` with no images (API 2.39.0): poll
+`GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Price it first:
 
 ```bash
 source .env && curl -sS -X POST \

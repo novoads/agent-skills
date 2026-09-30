@@ -432,7 +432,7 @@ POST /v1/uploads (product photo) → PUT the bytes with the returned `headers` V
       │
       ▼
 POST /v1/images  cast sheet   1:1   ref [product]
-      │  ← returns images[].assetId. Pass it straight to the next call.
+      │  ← images[].assetId (a `running` answer: poll it first). Pass it straight to the next call.
       ▼
 POST /v1/images  beat 1       9:16  ref [castSheet, product]
 POST /v1/images  beat 2       9:16  ref [castSheet, beat1]

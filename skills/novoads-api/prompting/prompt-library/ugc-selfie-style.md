@@ -1,6 +1,6 @@
 # UGC selfie-style video — cross-model prompting guide
 
-> **Two of the three models this guide targets are now live on this API.** `veo-3.1` and
+> **All three models this guide targets are on this API.** `veo-3.1` and
 > `sora-2` ship as of spec `2.1.0` — their per-model sections below are callable, subject to
 > the grids and field limits in [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md), which are
 > the authority for what those bodies accept. **Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0)**; its

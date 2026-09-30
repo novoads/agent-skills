@@ -69,7 +69,7 @@ curl -sS -X POST https://api.novoads.ai/v1/transcripts ... -d '{"assetId":"<outp
 
 | Call | Result |
 |---|---|
-| `POST /estimates` `{kind:"voice-change", assetId}` | `credits: 1`, `sufficient: true`. Free. |
+| `POST /estimates` `{kind:"voice-change", assetId}` | `credits: 1`, `sufficient: true`. Charges nothing. |
 | `POST /estimates` `{kind:"voice-change"}`, no source | also `credits: 1` — a 15s source and a sourceless quote agree, because both land on the one-minute minimum (the per-minute price before API 2.32.0) |
 | `POST /voice-changes` | `creditsCharged: 1`, `billedMinutes: 1`, `200` in **7.1s** (measured before API 2.32.0, when voice change billed whole started minutes; it now bills seconds of source above a minimum and also returns `billedSeconds`) |
 | **the same call again, same source and voice** | **`creditsCharged: 0`**, byte-identical `jobId` and `assetId`, a freshly minted `url`, `200` in 1.9s |

@@ -11,7 +11,7 @@
 # Features:
 #   - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 #   - Upload ONCE, reuse the assetIds across every prompt in the batch
-#   - Synchronous generation (no polling — POST /v1/images returns the image)
+#   - POST /v1/images returns the image, or answers "running" and is polled (API 2.39.0)
 #   - Bounded parallelism that respects the API's concurrency ceiling
 #
 # Requires:
@@ -147,8 +147,11 @@ print(' '.join('-H ' + shlex.quote(f'{k}: {v}') for k, v in h.items()))
   echo "$asset_id"
 }
 
-# Generate one thumbnail. Synchronous: the POST blocks for the render
-# (typically 60-90s) and returns the finished image. Nothing to poll.
+POLL_INTERVAL_S=15
+POLL_DEADLINE_S=900
+
+# Generate one thumbnail. The POST blocks for the render (typically 60-90s)
+# and usually returns the finished image; a slow one answers "running" and is polled.
 generate_one() {
   local idx=$1
   local prompt=$2
@@ -184,17 +187,54 @@ print(json.dumps(body))
 
   echo "$response" > "$OUTPUT_DIR/${idx}_job.json"
 
-  local url credits
+  # creditsCharged comes from the POST: read it before a poll replaces $response.
+  local url credits status job_id waited=0
+  credits=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False).get('creditsCharged',''))" 2>/dev/null || echo "?")
+  status=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False).get('status',''))" 2>/dev/null || echo "")
+  job_id=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False).get('jobId',''))" 2>/dev/null || echo "")
+
+  # Since API 2.39.0 a render still going after about 105 s answers 200 with
+  # status "running", the same jobId and no images. It is paid and still
+  # rendering: poll GET /v1/generations/{jobId} to a terminal status and read
+  # images[] there. Never resubmit it.
+  while [ -n "$job_id" ] && { [ "$status" = "queued" ] || [ "$status" = "running" ] || [ "$status" = "finalizing" ]; }; do
+    if [ "$waited" -ge "$POLL_DEADLINE_S" ]; then
+      echo "[#$idx] still $status after ${waited}s. Fetch it later with GET /v1/generations/$job_id; do not resubmit."
+      return 1
+    fi
+    echo "[#$idx] $status (jobId=$job_id), polling in ${POLL_INTERVAL_S}s..."
+    sleep "$POLL_INTERVAL_S"
+    waited=$((waited + POLL_INTERVAL_S))
+    # Retry only what can clear on its own (429, 5xx, no answer). Any other 4xx
+    # (a bad key, an unknown jobId) will not change in 900 s: stop and say so.
+    local code
+    code=$(curl -sS --max-time 60 -o "$OUTPUT_DIR/${idx}_poll.tmp" -w '%{http_code}' \
+      -H "Authorization: Bearer $NOVOADS_API_KEY" \
+      "$API/v1/generations/$job_id" 2>/dev/null) || code="000"
+    response=$(cat "$OUTPUT_DIR/${idx}_poll.tmp" 2>/dev/null || true)
+    rm -f "$OUTPUT_DIR/${idx}_poll.tmp"
+    case "$code" in
+      2??) ;;
+      429|5??|000)
+        echo "[#$idx] poll failed (HTTP $code), retrying: $response"
+        continue ;;
+      *)
+        echo "[#$idx] poll refused (HTTP $code): $response. Fetch it later with GET /v1/generations/$job_id; do not resubmit."
+        return 1 ;;
+    esac
+    echo "$response" > "$OUTPUT_DIR/${idx}_job.json"
+    status=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False).get('status',''))" 2>/dev/null || echo "")
+  done
+
   url=$(echo "$response" | python3 -c "
 import json,sys
-d=json.load(sys.stdin)
+d=json.loads(sys.stdin.read(), strict=False)
 imgs=d.get('images') or []
 print(imgs[0].get('url','') if imgs else '')
 " 2>/dev/null || echo "")
-  credits=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('creditsCharged',''))" 2>/dev/null || echo "?")
 
   if [ -z "$url" ]; then
-    echo "[#$idx] FAILED — no image in response"
+    echo "[#$idx] FAILED: no image (status=$status, jobId=$job_id)"
     return 1
   fi
 

@@ -73,7 +73,7 @@ charge. Send the prompt you are about to render:
 {"kind":"video","model":"seedance-2.5","durationSeconds":8,"resolution":"720p","prompt":"<the full prompt>"}
 ```
 
-The estimate is free. There are no rates in this file on purpose: a written price rots
+The estimate charges nothing. There are no rates in this file on purpose: a written price rots
 silently and a quote that disagrees with the invoice is worse than no quote. **N takes is N
 charges** — say the multiplication out loud before it happens.
 
@@ -251,7 +251,7 @@ a **terminal** status, then `GET /v1/generations/{jobId}/watch` for the file int
 unknown rather than lending it `seedance-2.0`'s range. Full sequence in
 [`novoads-api/SKILL.md`](../novoads-api/SKILL.md).
 
-If the still needs building or rebuilding first, generate it before animating. A crisp, correctly-composed, correctly-lettered source frame is the foundation of the whole shot — the video stage carries forward what it is handed. Both [`chatgpt-image-ad`](../chatgpt-image-ad/SKILL.md) (`gpt-image-2`) and [`nano-banana-image-ad`](../nano-banana-image-ad/SKILL.md) (`nano-banana-pro`) are available, and the decision tree between them is in [OVERVIEW.md](../../shared/skills/image-ad-prompting/OVERVIEW.md); when it matters, run the same prompt through both and compare rather than assuming. `POST /v1/images` is synchronous, and the `assetId` it returns goes straight into `startImageAssetId` with no download-and-re-upload hop.
+If the still needs building or rebuilding first, generate it before animating. A crisp, correctly-composed, correctly-lettered source frame is the foundation of the whole shot — the video stage carries forward what it is handed. Both [`chatgpt-image-ad`](../chatgpt-image-ad/SKILL.md) (`gpt-image-2`) and [`nano-banana-image-ad`](../nano-banana-image-ad/SKILL.md) (`nano-banana-pro`) are available, and the decision tree between them is in [OVERVIEW.md](../../shared/skills/image-ad-prompting/OVERVIEW.md); when it matters, run the same prompt through both and compare rather than assuming. `POST /v1/images` usually answers with the finished still. One still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it: that job is already paid, and a resubmit is a second charge. Either way, the finished image's `assetId` goes straight into `startImageAssetId` with no download-and-re-upload hop.
 
 Both of those generators auto-append three always-on guard clauses to whatever prompt you
 hand them — no platform chrome, an 84% edge-safe zone, no glyph soup inside body text — so do

@@ -70,7 +70,7 @@ Anchor image. All 9 other angles will reference it. **Use a full-body shot as th
    - `aspectRatio`: **`9:16`** (on gpt-image-2's grid; note it does **not** take `3:2`, `3:4`, `4:3` or `5:4`)
    - `productId` (optional — organizational only; omit to use the default product)
 
-3. **The call is synchronous** — it blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. Nothing to poll.
+3. **The call usually returns the image**: it blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 4. **Post-generation QA:** Inspect for anatomy defects per [nano-banana.md](nano-banana.md) (the QA checklist applies to any image model). gpt-image-2-specific watch-outs:
    - **Hands and fingers** — gpt-image-2 still occasionally renders extra fingers or warped hands; check both visible hands carefully on the full-body shot.
@@ -170,7 +170,7 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
 ```
 
 Multiply by 10, present the total against the user's `balance`, and get one explicit yes for the
-run. The estimate is free and is the **only** legitimate source of a price — **not**
+run. The estimate charges nothing and is the **only** legitimate source of a price — **not**
 `logs/novoads-api.jsonl` and **not** `MASTER_CONTEXT.md`. Neither holds credit numbers; the log
 is observability only.
 
@@ -178,7 +178,7 @@ Report the **actual** total afterwards, summed from each response's `creditsChar
 
 `gpt-image-2` is the cheaper of the two character-sheet models, which cuts the other way from
 how this file used to read — the extra retries it needs are the real cost, not the per-image
-rate. Pricing both models is two free calls if the choice is close.
+rate. If the choice is close, price both models: two estimates, and neither charges anything.
 
 ## Using a gpt-image-2 character sheet for subsequent workflows
 

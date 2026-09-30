@@ -153,7 +153,7 @@ a product shot, so an empty listing means "ask", not "there is nothing to use".
 **No photo? Three routes, in this order — and the last one is the expensive one.**
 
 1. **A real photo of the real product.** Always the best clone. Ask for it first.
-2. **Generate a still with `POST /v1/images`** — one synchronous call, priced through
+2. **Generate a still with `POST /v1/images`**: one call (a slow render answers `running`: poll `GET /v1/generations/{jobId}` for its `images[]`), priced through
    `POST /v1/estimates` and consented to like any other spend. Its response carries an
    **`assetId`** that goes straight into `referenceAssetIds` (step 10). This is the right
    answer for a concept product, a product that does not exist yet, or a user who simply
@@ -597,8 +597,8 @@ against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio
   substring matches and they **do false-positive** — read each against the prompt, and say
   so when you override one. Step 6's checklist is what actually stands between the two.
 - **Price every clip and every variant, each with its own call.** A 3-clip series at 2
-  script variants is 6 estimates and 6 charges. The estimates are free and fire
-  concurrently, and they are also the per-model length check and the free lint — a prompt
+  script variants is 6 estimates and 6 charges. The estimates charge nothing and fire
+  concurrently, and they are also the per-model length check and the prompt lint — a prompt
   that skipped one is a prompt nobody checked, and there is no second chance at submit
   time. Show the per-call number, the count and the total.
 - **Warn when the total exceeds `balance`**, and quote `shortBy` and `topUpUrl` when they
@@ -660,7 +660,7 @@ set. Then generate.
 generation input.** It is input to your eyes and to the transcriber; it is never input to
 the model that renders.
 
-This is not a convention you have to remember — the API enforces it, for free, before any
+This is not a convention you have to remember — the API enforces it before any
 charge. A source video's id in `referenceAssetIds` comes back:
 
 ```

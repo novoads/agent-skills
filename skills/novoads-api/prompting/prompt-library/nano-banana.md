@@ -7,9 +7,9 @@
 **Image generation:** `POST /v1/images`. One endpoint serves every image model; you pick
 with `model`.
 
-It is **synchronous** — the call blocks for the render (typically 60–90 seconds) and comes back
+It usually answers with the images: the call blocks for the render (typically 60–90 seconds) and comes back
 with the finished images in `images[]`, along with `creditsCharged` and the `model` that ran.
-There is no job to poll and no asset endpoint to wait on.
+A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 Use it for:
 - Influencer recreation stills (see [influencer-recreation.md](influencer-recreation.md))
@@ -44,8 +44,8 @@ moving between them is a one-word change that does not re-price the call.
 quote a figure from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md` — none of
 them hold prices, deliberately. Report what actually happened from `creditsCharged` on the
 response. **Name the model in the estimate body:** the schedules differ by more than 3× across
-the five, so an estimate that omits `model` prices `gpt-image-2.5-sunburst`, the cheapest
-schedule on the list.
+the image models, so an estimate that omits `model` prices `gpt-image-2.5-sunburst`, the
+default.
 
 ## Request body
 
@@ -91,7 +91,7 @@ user as the only option without at least one retry (unless they explicitly waive
 
 ### Regeneration loop
 
-1. **Inspect** the image from the `images[].url` in the response (the URL is presigned and expires — `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
+1. **Inspect** the image from the `images[].url` in the response, or in the polled job if it answered `running` (the URL is presigned and expires: `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
 2. If **defective:** compose a **new prompt** that names the fix (e.g. "exactly two hands visible, five fingers each," "single coherent face," "product label sharp and readable"). Keep the creative intent; add corrective constraints rather than resending the identical body.
 3. Call `POST /v1/images` again with the same `model`, `aspectRatio`, `referenceAssetIds` and `productId` as before unless you are intentionally changing them.
 4. **Cap:** at most **2** regeneration attempts after the first image (**3** total per deliverable). After that, describe the remaining issues, show the best attempt, and ask the user how to proceed.
@@ -126,8 +126,9 @@ source .env && curl -sS -X POST \
   "https://api.novoads.ai/v1/images"
 ```
 
-The response is the finished job — `images[]` with presigned URLs, plus `creditsCharged` and the
-`model` that ran. Price it first:
+The response is the finished job only when the render finishes in time: `images[]` with presigned URLs, plus `creditsCharged` and the
+`model` that ran. One still going after about 105 s answers `status: "running"` with no images (API 2.39.0): poll
+`GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Price it first:
 
 ```bash
 source .env && curl -sS -X POST \

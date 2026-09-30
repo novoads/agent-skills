@@ -59,14 +59,14 @@ Say which model each leg prices at — the schedules differ by more than 3× acr
 a cross-model Phase 8 on `reve-2.1` costs meaningfully more than the same call on `gpt-image-2`.
 
 A **batch** (several references in one conversation) prices once, up front: the estimate
-validates the prompt it is given, so run one free estimate per distinct final prompt, present
+validates the prompt it is given, so run one estimate (it charges nothing) per distinct final prompt, present
 one combined range covering every reference, and get ONE yes for the whole batch.
 
 A batch also needs a **ledger, not a tally**. Summing each response's `creditsCharged` is
 correct per call and silently under-reports across a batch — one response that scrolled past
 instead of landing in the log is enough, and a 2026-08-05 nine-call run reported 3.00 credits
 across 8 calls when the truth was 3.5 across 9. So read the `balance` that `POST /v1/estimates`
-returns **before the first charged call and again after the last** (the estimate is free; this
+returns **before the first charged call and again after the last** (the estimate charges nothing; this
 adds no cost), and report both: the summed `creditsCharged` and the balance delta.
 
 **When they disagree, the delta wins only if you are the sole spender on the organization.** The
@@ -80,7 +80,7 @@ So: report both numbers, prefer the delta when the brackets are tight and the or
 prefer the per-call `creditsCharged` when other work is in flight, and **say which one you chose
 and why** — a number reported without that context is the failure mode this rule exists to stop.
 
-The estimate is free and it is the **only** legitimate source of a price. It says nothing about
+The estimate charges nothing and it is the **only** legitimate source of a price. It says nothing about
 the prompt — no endpoint here does — so re-read the clone prompt against the template rules
 yourself before pricing. It is going to be run six times, which makes a flaw in it six times as
 expensive as anywhere else in the ecosystem.
@@ -182,8 +182,7 @@ shell-quoting hell. Name the directory: `prompts/` is gitignored and is where co
 belong, so the six or so drafts Phase 5 goes through stay out of the user's `git status`. This
 line used to say "a temp file" and nothing more, and a session that took it at its word invented
 a top-level `prompts/` of its own — correct instinct, untracked directory, a diff the user had to
-explain.) The call is synchronous and
-blocks for the render, typically 60–90 seconds — there is nothing to poll. Read the generated
+explain.) The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Read the generated
 image when it returns.
 
 The reference cap is per model — 4 on `gpt-image-2`, 14 on `nano-banana-pro`, 8 on `reve-2.1`
@@ -334,7 +333,7 @@ If the save target already has T1–T42, continue with T43, T44, … Use semanti
 
 - **Generating real ads / uploading to Meta.** The `meta-ad-builder` skill. This skill produces templates only.
 - **Reverse-engineering video ads.** Image only. Refuse with: *"This skill is for static image ads. Video reverse-engineering isn't supported in this version."*
-- **Multi-template extraction in one run.** One reference → one template per skill invocation. A folder of N references is N independent runs — and they may run in parallel: since deployed spec `2.12.0` images have their **own** concurrency budget of **12** in flight per organization (`429`, `details.reason` `image_concurrency_limit`), counted separately from the 5-video budget in both directions, so a clone batch may run twelve wide and never blocks a render. Stagger only beyond 12. (Before `2.12.0` images spent video slots and the number here was 5 — if a `429` says `concurrency_limit` rather than `image_concurrency_limit`, you are reading the video queue.) Price the whole batch up front per the Cost section — one free estimate per distinct final prompt, one combined range, ONE consent before the first charged call.
+- **Multi-template extraction in one run.** One reference → one template per skill invocation. A folder of N references is N independent runs — and they may run in parallel: since deployed spec `2.12.0` images have their **own** concurrency budget of **12** in flight per organization (`429`, `details.reason` `image_concurrency_limit`), counted separately from the 5-video budget in both directions, so a clone batch may run twelve wide and never blocks a render. Stagger only beyond 12. (Before `2.12.0` images spent video slots and the number here was 5 — if a `429` says `concurrency_limit` rather than `image_concurrency_limit`, you are reading the video queue.) Price the whole batch up front per the Cost section — one estimate per distinct final prompt (it charges nothing), one combined range, ONE consent before the first charged call.
 - **Modifying existing templates in the library.** If the user wants to revise T3, treat it as a new run pointed at the same library entry — show the diff and ask before overwriting.
 - **Editing the source image *as the way to build the template*.** There IS an image-edit path — `sourceAssetId` on `POST /v1/images`, `gpt-image-2` only — but a template is a *prompt*, and an edit produces a picture without producing the prompt that made it. Use it where it belongs (Phase 7) and never as a shortcut past Phases 3-6. An earlier version of this file said flatly that no edit path existed; that stopped being true at deployed spec `2.10.0`.
 

@@ -14,6 +14,42 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ### Changed
 
+**Image presets (API 2.40.0).** `novoads-api` documents `preset: "image-to-ad" | "product-to-ad" |
+"upscale"` on `POST /v1/images`: the dashboard's three one-photo tools, run on the photo in
+`imageAssetId` with no `model` or `prompt`. Quoted by `POST /v1/estimates` with the same `preset`,
+charged what it quoted, and polled like any image when it answers `running`. The image-ad overview
+says when to reach for one.
+
+**Kling end frame, motion-control sound and WebM (API 2.44.0).** `kling-v3-pro` takes
+`lastFrameAssetId` beside `startImageAssetId`; `POST /v1/videos/animate-actor` takes
+`keepOriginalSound: false` and a WebM driving clip (`POST /v1/uploads` still takes no M4V). Neither
+changes how the job is priced. The `novoads-api` routing row for Kling keeps its original trigger,
+and the row for editing an existing MP4 is back to its original wording, with background removal
+on a row of its own.
+
+**Images can answer `running` (API 2.39.0).** `POST /v1/images` still usually returns the
+finished images, but a render still going after about 105 seconds now answers `200` with
+`status: "running"`, the same `jobId` and no images. The three image scripts (`chatgpt-image-ad`,
+`nano-banana-image-ad`, `clone-image-ad`) and the YouTube thumbnail batch now poll
+`GET /v1/generations/{jobId}` to a terminal status and read `images[]` there, instead of reporting
+a paid render as an empty result, and never resubmit it. Every skill, prompt library, guide and
+README line that said images are synchronous now says this. Seedream 5 (`seedream-5-lite`,
+`seedream-5-pro`) is documented beside the other image models.
+
+**Kling 3.0 on the API (2.38.0).** `kling-v3-pro` is on `POST /v1/videos` where `GET /v1/models`
+lists it: 3 to 15 seconds, `16:9`, `9:16` or `1:1`, one resolution, audio on or off, text or a
+start frame. The Kling prompt library is no longer parked, and the lines saying Kling is not on the
+API are gone. The shortest `durationSeconds` the API publishes is now 3; each model still refuses
+what its own grid does not list.
+
+**Background removal, product swap and motion control (API 2.41.0 to 2.43.0).** `novoads-api`
+documents `POST /v1/background-removals` (a job or an uploaded video up to 30 seconds),
+`productSwap: { actorId, productAssetId }` on the Seedance family (an actor from `GET /v1/actors`,
+never an uploaded face), and `POST /v1/videos/animate-actor` (an actor moved by a driving clip you
+upload, priced by the clip's measured length). Each is quoted by `POST /v1/estimates`
+(`kind: "background-removal"`, `productSwap: true`, `kind: "motion-control"`) and charged what it
+quoted.
+
 **`omni-flash` `4k` on API 2.31.0.** `novoads-api`, the Omni Flash prompting guide and the README
 add `4k` to Omni's possible resolutions, only where `GET /v1/models` lists it: the server
 publishes that tier in some configurations and not others, so read the live list and never assume

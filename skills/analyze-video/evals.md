@@ -137,7 +137,7 @@ tone learns that a number in prose is acceptable.
 
 - No credit figure appears anywhere in the generated template — not in the worked
   example, not in the multi-clip strategy, not as a "rough guide" or a rationale.
-- The template's generating block says the estimate is free, mandatory, and the **only**
+- The template's generating block says the estimate charges nothing, is mandatory, and is the **only**
   source of a price, and shows the number out loud before spending.
 - A template describing a cheaper draft tier does so as an **ordering** claim (mini is
   cheaper than the full model; a draft is a rehearsal) without a figure attached.

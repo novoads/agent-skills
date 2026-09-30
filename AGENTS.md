@@ -148,7 +148,7 @@ steamrolling. A `dirty_unresolvable` block there is the guard working, not a bug
 
 ## Cost policy
 
-Every credit number shown to a user must come from a live `POST /v1/estimates` call made in the current session, and the user approves it before anything is generated. There are no rate tables in this repo — not in `MASTER_CONTEXT.md`, not in `logs/`. The estimate is free and runs the same structural validation the paid call runs, so there is no reason to skip it. It also returns an advisory `warnings` array of craft notes on a video prompt (verified live 2026-08-04) — the generation endpoints do not. Those warnings never refuse a call or change the price, and they false-positive on substring matches, so read them, judge each one against the prompt, and say so when you override one.
+Every credit number shown to a user must come from a live `POST /v1/estimates` call made in the current session, and the user approves it before anything is generated. There are no rate tables in this repo — not in `MASTER_CONTEXT.md`, not in `logs/`. The estimate charges nothing and runs the same structural validation the paid call runs, so there is no reason to skip it. It also returns an advisory `warnings` array of craft notes on a video prompt (verified live 2026-08-04) — the generation endpoints do not. Those warnings never refuse a call or change the price, and they false-positive on substring matches, so read them, judge each one against the prompt, and say so when you override one.
 
 For any video where the model speaks, the spoken line gets its own approval before the cost gate. The two gates are separate and neither implies the other.
 
@@ -177,7 +177,7 @@ Quick map:
 
 - **API:** Novoads REST API (`https://api.novoads.ai/v1`). Public spec: <https://api.novoads.ai/v1/openapi.json> — the authority whenever a file in this repo disagrees with it.
 - **Auth:** `Authorization: Bearer $NOVOADS_API_KEY`. The key is `novo_` plus 64 hex characters, created at <https://novoads.ai/dashboard/settings?tab=api>. No quoting needed in `.env`. Optional `NOVOADS_BASE_URL` overrides the **host only** — callers append `/v1/…`.
-- **Shape of the API:** videos are asynchronous (`POST /v1/videos` → `202` + `jobId` → poll `GET /v1/generations/{jobId}` to a **terminal** status → `…/watch` for the file). Images are **synchronous** — `POST /v1/images` returns the finished images in the response body, so there is nothing to poll.
+- **Shape of the API:** videos are asynchronous (`POST /v1/videos` → `202` + `jobId` → poll `GET /v1/generations/{jobId}` to a **terminal** status → `…/watch` for the file). Images usually come back in the `POST /v1/images` response body; a render still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0), and you poll `GET /v1/generations/{jobId}` to a terminal status for its `images[]`, never resubmitting.
 - **Skills:**
   - `novoads-api` — the spine: endpoints, auth, the two gates, uploads, polling, error branching, and the prompt libraries.
   - `generate-youtube-thumbnail` — YouTube thumbnail batch workflow on top of the image endpoint.

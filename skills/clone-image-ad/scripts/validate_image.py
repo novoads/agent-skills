@@ -17,8 +17,10 @@ image while leaving the rest of the frame alone. That is Phase 7's second instru
 — see the guide. It is mutually exclusive with --aspect-ratio, because an edit's
 output tracks the source's shape.
 
-Novoads generates images synchronously — the POST blocks for the render (typically
-60-90 seconds) and returns the finished images. There is nothing to poll.
+Novoads usually returns the finished images from the POST itself, which blocks for
+the render (typically 60-90 seconds). Since API 2.39.0 a render still going after
+about 105 seconds answers status "running" with no images; generate() then polls
+GET /v1/generations/{jobId} to a terminal status. It never resubmits: that job is paid.
 
 Output contract:
   stdout: one JSON object per generated image, one per line
@@ -38,6 +40,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -366,6 +369,56 @@ def build_prompt(
     return final
 
 
+# Since API 2.39.0 an image render still going after about 105 seconds answers
+# 200 with status "running", the same jobId and images: []. That job is paid and
+# still rendering, so it is polled to a terminal status and never resubmitted.
+POLL_INTERVAL_S = 15
+POLL_DEADLINE_S = 900
+TERMINAL_STATUSES = {"succeeded", "failed", "blocked", "canceled"}
+
+
+def http_get_json(url: str, headers: dict, timeout: int = 60) -> dict:
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        # strict=False: the echoed prompt can carry raw newlines.
+        return json.loads(resp.read().decode("utf-8"), strict=False)
+
+
+def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
+    """Poll GET /v1/generations/{jobId} until a `running` image job is terminal.
+
+    A job that is already terminal (the usual case) comes back untouched. The
+    poll payload is merged over the POST response, so creditsCharged and model
+    from the POST survive a poll that omits them.
+    """
+    job_id = job.get("jobId")
+    status = job.get("status")
+    if not job_id or status in TERMINAL_STATUSES:
+        return job
+    log(f"jobId={job_id} status={status}: still rendering, polling every {POLL_INTERVAL_S}s (not resubmitting)")
+    poll_headers = {k: v for k, v in headers.items() if k != "Content-Type"}
+    url = f"{base_url}/v1/generations/{job_id}"
+    deadline = time.monotonic() + POLL_DEADLINE_S
+    while time.monotonic() < deadline:
+        time.sleep(POLL_INTERVAL_S)
+        try:
+            polled = http_get_json(url, poll_headers)
+        except urllib.error.HTTPError as e:
+            if e.code >= 500 or e.code == 429:
+                log(f"poll answered HTTP {e.code}, retrying")
+                continue
+            raise _api_error(e, url) from None
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            log(f"poll failed, retrying: {e}")
+            continue
+        status = polled.get("status")
+        if status in TERMINAL_STATUSES:
+            return {**job, **{k: v for k, v in polled.items() if v is not None}}
+    log(f"jobId={job_id} still {status} after {POLL_DEADLINE_S}s. Fetch it later with "
+        f"GET /v1/generations/{job_id}; do not resubmit.")
+    return {**job, "status": status}
+
+
 def generate(
     model: str,
     prompt: str,
@@ -377,7 +430,7 @@ def generate(
     auth_hdr: str,
     source_asset_id: str | None = None,
 ) -> dict:
-    """One synchronous POST /v1/images. Returns the finished ImageJob."""
+    """One POST /v1/images, polled to a terminal status if it answers `running`. Returns the ImageJob."""
     body: dict = {
         "model": model,
         "prompt": prompt,
@@ -399,9 +452,10 @@ def generate(
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
-    return http_post_json(
+    job = http_post_json(
         f"{base_url}/v1/images", headers, body, timeout=GENERATE_TIMEOUT_S
     )
+    return wait_for_images(job, base_url, headers)
 
 
 # Scaffolding that must never reach a render. A finished ad with "Placeholder

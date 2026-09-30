@@ -14,8 +14,8 @@
 
 **Image route:** `POST /v1/images` with `model: "nano-banana-pro"`. The original photo is
 uploaded via `POST /v1/uploads` and cited in `referenceAssetIds` — there is no base64 field on
-this API. The call is **synchronous**: it blocks for the render (typically 60–90 seconds) and
-returns the finished image. Nothing to poll.
+this API. The call usually returns the images: it blocks for the render (typically 60–90 seconds) and
+returns the finished image. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 **Video route (after approval):** upload the approved still → pass its `assetId` as
 `startImageAssetId` on a Seedance video. See the `novoads-api` skill's SKILL.md for the call.
@@ -98,7 +98,7 @@ Show the user:
 Once the user approves the prompt:
 
 1. Read **[nano-banana.md](nano-banana.md)** and follow the vendor guide's formula.
-2. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show the user `credits` against their `balance`, and get an explicit yes. Free, and the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
+2. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show the user `credits` against their `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
 3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable: reuse it for every later generation of this person instead of re-uploading.
 4. Optionally upscale a small reference first (good practice for likeness; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 5. Call `POST /v1/images` with:
@@ -107,7 +107,7 @@ Once the user approves the prompt:
    - `aspectRatio` — match the reference image or user preference. **It defaults to `1:1`**, so set it explicitly.
    - `referenceAssetIds` — `[original_assetId]`, up to **14** total on `nano-banana-pro` (spec 2.7.0)
    - `productId` (optional — organizational only)
-6. **Post-generation QA:** the response already carries the image, so inspect immediately (see [nano-banana.md](nano-banana.md) — Post-generation QA and Regeneration loop). If you see defects (extra fingers, bad hands, etc.), regenerate with a refined prompt — up to **2** retries after the first attempt, each billed. **Do not show the user a still as "the result" until QA passes or retries are exhausted** (if still bad after retries, explain and show attempts).
+6. **Post-generation QA:** the response carries the image only when the render finishes in time; one still going after about 105 s answers `status: "running"` with no images, so poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there, and never resubmit it (that job is already paid). Inspect the image as soon as you have it (see [nano-banana.md](nano-banana.md) — Post-generation QA and Regeneration loop). If you see defects (extra fingers, bad hands, etc.), regenerate with a refined prompt — up to **2** retries after the first attempt, each billed. **Do not show the user a still as "the result" until QA passes or retries are exhausted** (if still bad after retries, explain and show attempts).
 7. **Show the QA-passed (or best-effort) still next to the original reference**, and report the cumulative `creditsCharged`.
 
 ### Step 5: User approves the still image
@@ -122,7 +122,7 @@ Only after the user says the still looks good:
 
 1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
 2. Pass it as `startImageAssetId` on a Seedance video (`POST /v1/videos`). Note `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
-3. Video is **asynchronous**, unlike images: the call returns `202` with a `jobId`; poll `GET /v1/generations/{jobId}` for a **terminal** status, then `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, including its own cost gate.
+3. Video is **asynchronous**, unlike an image call (which usually answers in its response): the call returns `202` with a `jobId`; poll `GET /v1/generations/{jobId}` for a **terminal** status, then `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, including its own cost gate.
 
 ## Example
 

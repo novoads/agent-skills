@@ -29,7 +29,7 @@ three variations.
 **Observed gap.** Step 11 defines a variation as *"the identical payload fired N times"* —
 seed-level variety. The chapter this skill replicates writes **distinct scripts** on the
 same beat structure, which is a different thing and the more useful one. And because the
-estimate doubles as the per-model length check and the free prompt lint, a variant prompt
+estimate doubles as the per-model length check and the prompt lint, a variant prompt
 that never gets its own estimate is a prompt nobody checked: there is no second chance at
 submit time.
 

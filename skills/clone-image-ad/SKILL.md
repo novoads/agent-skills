@@ -385,7 +385,7 @@ A clone is **six or more charged generations**: Phase 4, up to four Phase 5 iter
 Phase 7 test fill, and an optional Phase 8 cross-model run. Every one is billed and there are
 no free re-rolls.
 
-Price the run once, up front, with `POST /v1/estimates` (free), and present a **range** — floor
+Price the run once, up front, with `POST /v1/estimates` (it charges nothing), and present a **range** — floor
 is two calls, ceiling is the full iteration cap. Get one explicit yes covering the run. Do not
 ask six separate times, and do not surface the cost only at the end.
 
@@ -402,7 +402,7 @@ Report the **actual total** from each response's `creditsCharged` when the run f
 `creditsCharged` by hand across many calls is right per call and wrong in aggregate the moment
 one response goes missing (a retry that printed to stdout instead of the log is enough). Read
 the `balance` that `POST /v1/estimates` returns **before the first charged call and again after
-the last** — the estimate is free, so this costs nothing — and report both numbers: the summed
+the last** — the estimate charges nothing, so this adds no cost — and report both numbers: the summed
 `creditsCharged` and the balance delta. When they disagree, **the delta is the truth** and your
 sum is missing a call; say so rather than reporting the smaller number.
 
@@ -430,7 +430,7 @@ Phase 0 above runs first in both modes. Phases 7 and 10 are where the two diverg
 1. **Phase 1: Preflight + model choice.** Reference image resolves; `.env` has `NOVOADS_API_KEY`; validator located. **Ask which model to validate against** (or auto-detect).
 2. **Phase 2: Visual analysis.** Describe the reference structurally — aspect ratio, format type, layout, typography, color palette, photography style, every text string verbatim, decorative elements, chrome to strip, and `[BRAND]` vs `[STRUCTURE]` for each.
 3. **Phase 3: Draft v1 prompt** (brand-specifics intact). The three always-on safety suffixes take 1,575 characters off whatever the chosen model's cap is, leaving **30,425 on `gpt-image-2`, 48,425 on `nano-banana-pro`, 2,425 on `reve-2.1`**. On the first two, write the prompt the clone needs and stop thinking about length. On `reve-2.1`, 2,425 is the whole budget on default flags, and a faithful six-panel clone wants more than that. The validator prints the exact number when you overflow.
-4. **Phase 4: Generate with reference.** Price the run and get a yes first. Pass `--image-ref <reference>` and the matched ratio. Synchronous; blocks 60–90s.
+4. **Phase 4: Generate with reference.** Price the run and get a yes first. Pass `--image-ref <reference>` and the matched ratio. Blocks 60–90s; a render that answers `running` is polled by the script, never resubmitted.
 5. **Phase 5: Compare and iterate.** Refine on the deltas. Cap 4 iterations. Track running credits.
 6. **Phase 6: Generalize into placeholders** (`{brand.name}`, `{brand.color_primary}`, etc.).
 7. **Phase 7: Fill the template and render.** **Ads mode:** fill with the user's own

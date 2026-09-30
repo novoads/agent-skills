@@ -74,7 +74,7 @@ every plan can generate through the API:
 [Security](#security) · [Support](#support) · [License](#license)
 
 Twelve skills, plus the shared steps they call, make the ad and the things around it. The generated
-creative runs on [eleven models](#supported-models), six for video and five for stills: UGC video,
+creative runs on [the models `GET /v1/models` lists](#supported-models), video and stills alike: UGC video,
 static Meta creatives, Pixar and claymation storyboards, and YouTube thumbnails. The narrator
 voice-over, a replacement voice for an ad already made, a music bed, burned-in captions, a
 competitor swipe file and a paused Meta ad come from their own endpoints and APIs instead.
@@ -84,7 +84,7 @@ billing API:
 
 - **No price is ever quoted from memory.** Every credit number comes from a live
   `POST /v1/estimates` call in the session that is about to spend, shown to you and approved first.
-  That call is free, and there is no rate table anywhere in this repo to fall back on.
+  That call charges nothing, and there is no rate table anywhere in this repo to fall back on.
 - **The spoken line is approved on its own**, before the cost gate. Seedance renders the dialogue
   and the lip-sync in the same call, so the sentence in the prompt is the sentence in the finished
   ad. Approving a concept is not approving a sentence, and approving a sentence is not approving
@@ -320,9 +320,11 @@ which is Google DeepMind's own guide with the parts this API cannot reach marked
 
 ### 🖼️ Stills — people, products, characters
 
-`POST /v1/images` is **synchronous**: the finished images come back in the response body, so there
-is nothing to poll. Up to 4 images per call; reference images are capped per model: 4 on each of
-the three GPT models, 14 on `nano-banana-pro`, 8 on `reve-2.1`.
+`POST /v1/images` usually hands the finished images back in the response body. A render still
+going after about 105 seconds answers `running` with no images instead (API 2.39.0): the skills
+poll `GET /v1/generations/{jobId}` for it and never resubmit. Up to 4 images per call; reference
+images are capped per model: 4 on each of the three GPT models, 14 on `nano-banana-pro`, 8 on
+`reve-2.1`, 10 on each Seedream 5 model (`seedream-5-lite`, `seedream-5-pro`, API 2.39.0).
 
 - **`gpt-image-2.5-sunburst`**: the API default when `model` is omitted. Slower than Flare, and
   it keeps fine detail and labels exact.
@@ -427,7 +429,7 @@ Instead, before anything is generated, the agent calls `POST /v1/estimates` and 
 back: the credits for that exact configuration, your balance, and — when the batch would exceed the
 balance — how short you are and where to top up. You approve the number, then it generates.
 
-The estimate is free, and what it does *not* do is worth stating:
+The estimate charges nothing, and what it does *not* do is worth stating:
 
 - **The estimate lints a video prompt, advisorily.** It returns a `warnings` array of craft notes
   (`{rule, message}`) — verified live 2026-08-04. `POST /v1/videos` and `POST /v1/images` do not
@@ -437,7 +439,7 @@ The estimate is free, and what it does *not* do is worth stating:
   and never paste in a suggested fix that does not fit. The prompt libraries in this repo remain
   the real quality gate — which is why the skills treat them as mandatory reading rather than
   reference material.
-- **It refuses malformed requests for free**, including a prompt over the named model's character
+- **It refuses malformed requests at no charge**, including a prompt over the named model's character
   ceiling.
 - **Its quote cannot disagree with the invoice**, with one caveat worth knowing: the estimate skips
   moderation, which the paid call runs, so a prompt priced clean can still be refused as
@@ -448,7 +450,7 @@ want to compare models yourself.
 
 ## Supported models
 
-All eleven are live on `api.novoads.ai/v1`. Grids below come from `GET /v1/models`. That endpoint
+Every model below is live on `api.novoads.ai/v1`, and `GET /v1/models` is the list of record. Grids below come from `GET /v1/models`. That endpoint
 is the current answer, this table is a map.
 
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
@@ -459,24 +461,28 @@ is the current answer, this table is a map.
 | **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | `4` `8` `12` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Measured with **no leading silence** where Seedance front-loads 3–5s, and ~123s to render. Coarse grid: no 6s, no 10s. |
-| **`gpt-image-2.5-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default**: omit `model` and this renders. Slower, keeps fine detail and labels exact. Synchronous. |
-| **`gpt-image-2.5-flare`** | Image | — | same six | **32,000 chars** | Fast, for most images. Synchronous. |
-| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 arrivals. Synchronous. |
+| **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | read `GET /v1/models` | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`gpt-image-2.5-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default**: omit `model` and this renders. Slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
+| **`gpt-image-2.5-flare`** | Image | — | same six | **32,000 chars** | Fast, for most images. Can answer `running`: poll it. |
+| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 arrivals. Can answer `running`: poll it. |
 | **`nano-banana-pro`** | Image | — | 10 ratios incl. `3:2` `4:3` `5:4` | **50,000 chars** | Photoreal people and products; strongest identity lock across references. The most prompt room on the API. |
 | **`reve-2.1`** | Image | — | same 10 ratios | **4,000 chars** | Third look / second opinion on a still. The one image model still on the old tight budget. |
+| **`seedream-5-lite`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Lite (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
+| **`seedream-5-pro`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Pro (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
 
 Image calls take `numImages` 1–4. Two of their limits are **per model** and neither is one
 number across the set. The `referenceAssetIds` cap is 14 on `nano-banana-pro`, 8 on
-`reve-2.1`, 4 on each of the three GPT models. The prompt ceiling is 50,000, 4,000 and 32,000 in
+`reve-2.1`, 4 on each of the three GPT models, 10 on each Seedream 5 model. The prompt ceiling is 50,000, 4,000 and 32,000 in
 that same order, split apart by deployed spec 2.16.0 from what used to be 4,000 everywhere. So a
 prompt written for one image model may be too long for another, and switching to `reve-2.1` for a
 second opinion is the case that hits it. The three GPT models are the case that does not, because
 they share one grid. Images have no start-frame concept. Videos are
-asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body.
+asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body,
+or answer `running` and are polled the same way.
 
-`audioEnabled` is a Seedance-only boolean (default `true`) — all three variants take it; send
-`false` for a clip meant to run silent. The other three video models are strict and `400` on it, as
-does `POST /v1/estimates` for every model — it does not move the price.
+`audioEnabled` (default `true`) is on the three Seedance variants and, since API 2.38.0,
+`kling-v3-pro`; send `false` for a clip meant to run silent. `omni-flash`, `veo-3.1` and `sora-2` are
+strict and `400` on it, as does `POST /v1/estimates` for every model: it does not move the price.
 
 `resolution` is on **`seedance-2.0`, `seedance-2.5`, and `omni-flash` where `GET /v1/models` lists
 more than one tier for it**, and it is the one output-shape field
@@ -485,10 +491,19 @@ Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, w
 draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`,
 `720p` and `1080p`, plus `4k` where the server publishes it: read the live list, never assume `4k`.
 
-**Kling 3 is not on this API and is not queued for it.** Its prompt library sits in
-`skills/novoads-api/prompting/prompt-library/` as craft only; the agent will say so plainly rather
-than routing you somewhere else. There is likewise no b-roll or scene endpoint — a silent
-`omni-flash` or Seedance clip is the b-roll path.
+**Kling 3.0 is on this API as `kling-v3-pro` since API 2.38.0**, where `GET /v1/models` lists it:
+any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, audio on or off, text or a start frame, and
+since 2.44.0 an end frame beside the start frame. Its
+prompt library in `skills/novoads-api/prompting/prompt-library/` is vendor craft; the request body
+comes from the skill's `reference.md`. There is no b-roll or scene endpoint: a silent `omni-flash`
+or Seedance clip is the b-roll path.
+
+**Also on the API since 2.40.0 to 2.44.0:** the dashboard's image to ad, product to ad and upscale
+tools on one photo (`preset` on `POST /v1/images`), background removal on a video up to 30 seconds
+(`POST /v1/background-removals`), your product in a library actor's hands on the Seedance family
+(`productSwap`), and a library actor moved by a clip you upload (`POST /v1/videos/animate-actor`:
+MP4, MOV or WebM, with or without the clip's own sound).
+Each is quoted by `POST /v1/estimates` before anything is spent.
 
 ## What's in the box
 

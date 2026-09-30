@@ -44,7 +44,13 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 # on, so there is nothing local to assert a cap against for a model no script
 # here will send. Section 1 is the half that matters for them anyway, because the
 # claim this repo makes about them is a DOCUMENTED cap and that is what drifts.
-EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000'
+#
+# The two Seedream 5 ids join in API 2.39.0 and are section-1 only for the same
+# reason. Their caps (10 references, 10,000 prompt characters) are read off the
+# API's source (seedream-async: kie-image-reference-caps.ts, image-models.ts),
+# not yet off a deployed spec: until 2.39.0 deploys, section 1 reports them as
+# drift, which is the signal that the pack is ahead of the API.
+EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000 seedream-5-lite=10:10000 seedream-5-pro=10:10000'
 
 STATUS=0
 problem() {

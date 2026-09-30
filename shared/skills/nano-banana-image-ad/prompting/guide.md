@@ -164,7 +164,7 @@ can still come back `422`.
   --env-file .env
 ```
 
-The call is synchronous and blocks for the render, typically 60–90 seconds. Nothing to poll.
+The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 Each line on stdout is JSON for one image (`variant`, `path`, `job_id`, `width`, `height`,
 `aspect_ratio`, `model`, `credits_charged`). Display the paths to the user.

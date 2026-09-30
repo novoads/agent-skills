@@ -146,7 +146,7 @@ Reuse ids you already have. The character hero and product photo almost certainl
 ### Step 4: Generate
 
 **Price it first.** `POST /v1/estimates` with
-`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":3}` — free, and the only
+`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":3}`. It charges nothing, and it is the only
 legitimate source of a price. Show `credits` against the user's `balance` and get an explicit
 yes. Every variation is charged.
 
@@ -162,8 +162,8 @@ Default to **3 variations** so the user can compare. `numImages` does this in **
 do not fire three separate requests. Same price, one third of the calls, and it leaves your
 concurrency slots free.
 
-The call is **synchronous**: it blocks for the render (typically 60–90 seconds) and returns all
-three images in `images[]`, with `creditsCharged` for the whole call.
+The call usually returns the images: it blocks for the render (typically 60–90 seconds) and returns all
+three images in `images[]`, with `creditsCharged` for the whole call. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 
 ### Step 5: Present and iterate
 
@@ -231,7 +231,7 @@ are preserved from frame one. This is the correct path for animating UGC stills.
 1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
 2. `POST /v1/videos` with a Seedance model, `startImageAssetId: <assetId>`, and the dialogue in `prompt`. Note `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
 3. **Take the `720p` default and move on.** `seedance-2.0` *does* have a `resolution` field (`480p`, `720p`, `1080p`, `4k`, default `720p` — verified live 2026-08-04; this step used to say the field did not exist, which was true of an older deployment), but there is still nothing to ask the user about on a UGC selfie: it ships to Reels and TikTok, which re-encode anyway, and `1080p`/`4k` cost ≈2.5x/≈5x the base for a difference the feed discards. `seedance-2.0-mini` takes `resolution` only where `GET /v1/models` lists more than one tier for it (API 2.34.0 on); leave it at the default here.
-4. Video is **asynchronous**, unlike images: `202` + `jobId` → poll `GET /v1/generations/{jobId}` for a **terminal** status → `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, the spoken-line approval gate, and its own cost gate.
+4. Video is **asynchronous**, unlike an image call (which usually answers in its response): `202` + `jobId` → poll `GET /v1/generations/{jobId}` for a **terminal** status → `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, the spoken-line approval gate, and its own cost gate.
 5. **Human motion cues (CRITICAL):** Always include at least 3-4 natural movement cues in the prompt. Without these, the video will look like a frozen mannequin staring at camera. Pick from:
    - Eye behavior: "briefly breaks eye contact, glances down at the product, then looks back at camera"
    - Head/face: "slight head tilts while talking, nods along with own words, raises eyebrows for emphasis"
@@ -242,5 +242,5 @@ are preserved from frame one. This is the correct path for animating UGC stills.
 
 ### Veo 3.1 and Sora 2
 
-Not on this API. Their prompt libraries sit in this folder for if and when they land. Say so
-plainly rather than routing a user toward an endpoint that does not exist.
+Both are on this API (`veo-3.1` and `sora-2`); read [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md)
+for their grids. Neither takes `referenceAssetIds`, so a product reference goes to Seedance or `omni-flash`.

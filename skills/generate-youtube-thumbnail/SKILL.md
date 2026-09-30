@@ -128,7 +128,7 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
   -d '{"kind":"image","model":"nano-banana-pro","prompt":"<one composed prompt>","numImages":1}'
 ```
 
-Free, and the **only** legitimate source of a price. Multiply by the number of variations and
+It charges nothing, and it is the **only** legitimate source of a price. Multiply by the number of variations and
 show the user the total against their `balance` before firing anything. Wait for an explicit
 yes.
 
@@ -191,7 +191,7 @@ and modify:
 The script handles:
 - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 - **Upload once, reuse the assetIds for every prompt in the batch**
-- Synchronous generation — no polling; each call blocks ~60–90s and returns the image
+- Each call blocks ~60–90s and returns the image; one still going after about 105 s answers `running` and the script polls it (API 2.39.0)
 - Bounded parallelism (4 in flight, under the API's concurrency ceiling of 5)
 - Per-run credit total from each response's `creditsCharged`
 
@@ -279,7 +279,7 @@ There is no cost table in this file, deliberately. Every price comes from a live
 generated (see step 3). Report the real total from `creditsCharged` when the run finishes.
 
 `nano-banana-pro` costs more per image than `gpt-image-2`. If a batch is exploratory and the
-concept doesn't depend on photoreal likeness, pricing both is worth the two free calls.
+concept doesn't depend on photoreal likeness, pricing both is worth the two estimates, which charge nothing.
 
 ## See also
 

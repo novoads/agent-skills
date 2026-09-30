@@ -174,7 +174,7 @@ balance that covers this conversion but not a second one is worth one clause, be
 **a different voice is a different conversion and a new charge**.
 
 Never state a price from memory, and never estimate one of these calls by reasoning from
-another. There are no rate tables in this repo, the estimate is free on every arm, and it
+another. There are no rate tables in this repo, the estimate charges nothing on every arm, and it
 is the only legitimate source of a number.
 
 ### Gate 3 — the casting brief

@@ -1,10 +1,10 @@
 # UGC selfie-style video — cross-model prompting guide
 
-> **Two of the three models this guide targets are now live on this API.** `veo-3.1` and
+> **All three models this guide targets are on this API.** `veo-3.1` and
 > `sora-2` ship as of spec `2.1.0` — their per-model sections below are callable, subject to
 > the grids and field limits in [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md), which are
-> the authority for what those bodies accept. **Kling 3.0 is not on this API** and its section
-> is kept as prompt craft only. There is still no scene or b-roll endpoint.
+> the authority for what those bodies accept. **Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0)**; its
+> section is vendor prompt craft, and the request body comes from `reference.md`. There is still no scene or b-roll endpoint.
 >
 > **The aesthetic advice in *Core principles* is model-agnostic and transfers to Seedance.**
 > The per-model *formulas* do not: do not port a Veo or Kling formula to Seedance by
@@ -131,11 +131,12 @@ Dialogue: "Guys, I swear this is the best thing I've ever tasted."
 Sound: Raw phone audio, slight room echo, background hiss intact.
 ```
 
-### Kling 3.0 — motion operator · **NOT on this API**
+### Kling 3.0 — motion operator · **`kling-v3-pro` on this API**
 
-> There is no Kling route on `api.novoads.ai`. This section is prompt craft only. Its physics-first
-> phrasing does transfer usefully to Seedance — describe motion as consequence, anchor hands to
-> objects — but the formula itself has nothing to call.
+> Kling 3.0 is on `api.novoads.ai` as `kling-v3-pro` since API 2.38.0 (3 to 15 seconds, `startImageAssetId`,
+> an end frame beside it since 2.44.0, no `referenceAssetIds`). The formula below is prompt craft for it; the body comes from `reference.md`.
+> Its physics-first phrasing also transfers usefully to Seedance: describe motion as consequence,
+> anchor hands to objects.
 
 **Formula:** Think physics engine: `[Environment] -> [Lighting] -> [Camera Movement] -> [Subject/Product Behavior]`
 

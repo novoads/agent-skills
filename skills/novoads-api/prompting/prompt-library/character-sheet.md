@@ -78,7 +78,7 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
 ```
 
 Multiply by 10 and present the total against the user's `balance`. Get one explicit yes covering
-the run. The estimate is free and is the **only** legitimate source of a price — never quote
+the run. The estimate charges nothing and is the **only** legitimate source of a price — never quote
 credits from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md`.
 
 The call says nothing about the prompt itself — no endpoint here does. Re-read the base prompt
@@ -95,7 +95,7 @@ This is the anchor image that defines the character. All other angles will refer
    - `prompt`: the hero prompt
    - `aspectRatio`: `9:16`
    - `productId` (optional — organizational only; omit to use the default product)
-3. **The call is synchronous.** It blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. There is nothing to poll.
+3. **The call usually returns the image.** It blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 4. **Post-generation QA:** Inspect for anatomy defects per [nano-banana.md](nano-banana.md). Regenerate with a refined prompt if needed (up to 2 retries — each is charged).
 5. Download the image to the character's `references/influencers/` folder and **open it for the user** (`open <path>` on macOS, `xdg-open` on Linux) so they can review it at full resolution.
 6. **Wait for explicit user approval.** This is the character — if they don't like it, iterate before generating 9 more images. Do NOT proceed without approval.

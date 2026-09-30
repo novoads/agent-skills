@@ -336,7 +336,10 @@ Gates 2 through 8 are `pixar-ad`'s, unchanged, including:
 - **Gate 3** — every still before any clip, each chained on the cast sheet and
   the previous still by the `assetId` that `POST /v1/images` returns, then
   **STOP at the board gate**. At eight beats there are eight clips waiting behind
-  it. This gate is worth more here than anywhere else in the family.
+  it. This gate is worth more here than anywhere else in the family. A still that
+  answers `status: "running"` (API 2.39.0) is polled at `GET /v1/generations/{jobId}` to a
+  terminal status, its `assetId` read from `images[]` there, and never resubmitted: a
+  resubmit is a second charge.
 - **Gate 4** — clips in waves of at most five. **Eight beats is two waves**, five
   then three, because a sixth concurrent `POST /v1/videos` comes back `429` with
   `details.reason: concurrency_limit`, and that is a real refusal, not a queue.

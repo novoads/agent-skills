@@ -184,14 +184,14 @@ tighter of the two. Write the fill the concept needs.
 **23 of the 40 templates** have room for the standard pin block on `reve-2.1`; the rest need a
 trim first, and T8, T11 and T14 are over 2,425 and so are refused there before any brand fill.
 That model is reachable only from the `clone-image-ad` validator, so this is a cross-check
-constraint rather than a production one. The refusal is free either way: the scripts measure
+constraint rather than a production one. The refusal costs nothing either way: the scripts measure
 the final prompt against the model you named and die pre-network, naming the exact overage.
 Run `python3 ../scripts/check_library.py --verbose` for every template's current headroom per
 model, and read [evals.md](../evals.md) L1 for why the
 long ones have not simply been shortened.
 
-Every generation is charged and there are no free re-rolls, so price the run with a live
-`POST /v1/estimates` and get the user's OK first. That call is free and it is the only
+Every generation is charged, re-rolls included, so price the run with a live
+`POST /v1/estimates` and get the user's OK first. That call charges nothing and it is the only
 legitimate source of a price. It will not check your prompt — nothing on the API does.
 
 **Variable conventions:**

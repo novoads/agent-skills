@@ -61,7 +61,7 @@ Follow the template below. The prompt should describe:
 
 ### 3. Generate the still image
 
-1. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show `credits` against the user's `balance`, and get an explicit yes. Free, and the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
+1. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show `credits` against the user's `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
 2. Upload the product photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable, so the same product photo is uploaded once and reused across every shoot.
 3. Optionally upscale a small product image first (good practice for fidelity; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 4. Call `POST /v1/images` with:
@@ -85,7 +85,7 @@ Follow the template below. The prompt should describe:
 1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
 2. Pass it as `startImageAssetId` on `POST /v1/videos` with a Seedance model. `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
 3. Include dialogue/script in the video prompt. The spoken line gets its **own** approval gate before the cost gate — see the `novoads-api` skill's SKILL.md.
-4. Video is **asynchronous**, unlike images: `202` + `jobId` → poll `GET /v1/generations/{jobId}` for a **terminal** status → `…/watch` for the download. That skill owns the sequence and its own cost gate.
+4. Video is **asynchronous**, unlike an image call (which usually answers in its response): `202` + `jobId` → poll `GET /v1/generations/{jobId}` for a **terminal** status → `…/watch` for the download. That skill owns the sequence and its own cost gate.
 
 ## Prompt template
 
@@ -115,7 +115,7 @@ Once the starting frame is approved and video generation begins, the video model
 
 - Reference the starting frame ("continues from the still image")
 - Add **motion and dialogue** — what the person says about the product
-- Follow the Seedance prompt library ([seedance-2.md](seedance-2.md) and the format-specific files alongside it). **Veo 3.1 and Sora 2 are live** — see [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md) — but neither takes `referenceAssetIds`, so a showcase built on reference images stays on Seedance. Kling 3.0 is **not** on this API.
+- Follow the Seedance prompt library ([seedance-2.md](seedance-2.md) and the format-specific files alongside it). **Veo 3.1 and Sora 2 are live** — see [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md) — but neither takes `referenceAssetIds`, so a showcase built on reference images stays on Seedance. Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0), but it takes no `referenceAssetIds` either, so a showcase built on reference images stays on Seedance.
 - Pull product context from `MASTER_CONTEXT.md` or the product's fields (`description`, `mainFeatures`, `painPoint`)
 
 ### Video prompt template

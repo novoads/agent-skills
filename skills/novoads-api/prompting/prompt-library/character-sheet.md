@@ -78,7 +78,7 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
 ```
 
 Multiply by 10 and present the total against the user's `balance`. Get one explicit yes covering
-the run. The estimate is free and is the **only** legitimate source of a price — never quote
+the run. The estimate charges nothing and is the **only** legitimate source of a price — never quote
 credits from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md`.
 
 The call says nothing about the prompt itself — no endpoint here does. Re-read the base prompt

@@ -12,7 +12,7 @@ and it is cheaper to argue with than any render.
 `POST /v1/images` on `gpt-image-2`, `aspectRatio: "1:1"`, the product photo in
 `referenceAssetIds`. On one canvas: the lead in three emotional states readable
 in the eyes, any secondary character, the product in 2 to 3 views, and a scale
-line-up at true relative size.
+line-up at true relative size. The call usually answers with the board; one still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there, never resubmit, because a resubmit is a second charge.
 
 This single image is what makes five separately-rendered beats look like one
 film. Every beat still references it. Skipping it is the most expensive shortcut

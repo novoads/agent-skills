@@ -389,7 +389,7 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    sessions — upload once and keep the id.
 
 2. **Price it — gate 2.** `POST /v1/estimates` with `kind: "video"`, the `prompt`, the
-   `model` and `durationSeconds`. It is free and it is the only source of a price. It also
+   `model` and `durationSeconds`. It charges nothing and it is the only source of a price. It also
    returns an advisory `warnings` array of craft notes (verified live 2026-08-04) — read them,
    but they are substring matches that false-positive, and the checklist above is still the
    real quality gate. Show the number and get a yes before spending.
@@ -439,7 +439,7 @@ sequence:
 
 1. Upload the product photo: `POST /v1/uploads` → `assetId` (durable, reuse it).
 2. Price it: `POST /v1/estimates` with `kind: "video"`, `model`, `durationSeconds`,
-   `prompt`. Free, mandatory, and the only source of a price — show the number out loud
+   `prompt`. It charges nothing, it is mandatory, and it is the only source of a price — show the number out loud
    before spending.
 3. Confirm the spoken line with the user if the clip speaks (`SKILL.md` gate 1).
 4. Generate: `POST /v1/videos`

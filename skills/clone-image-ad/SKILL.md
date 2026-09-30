@@ -385,7 +385,7 @@ A clone is **six or more charged generations**: Phase 4, up to four Phase 5 iter
 Phase 7 test fill, and an optional Phase 8 cross-model run. Every one is billed and there are
 no free re-rolls.
 
-Price the run once, up front, with `POST /v1/estimates` (free), and present a **range** — floor
+Price the run once, up front, with `POST /v1/estimates` (it charges nothing), and present a **range** — floor
 is two calls, ceiling is the full iteration cap. Get one explicit yes covering the run. Do not
 ask six separate times, and do not surface the cost only at the end.
 
@@ -402,7 +402,7 @@ Report the **actual total** from each response's `creditsCharged` when the run f
 `creditsCharged` by hand across many calls is right per call and wrong in aggregate the moment
 one response goes missing (a retry that printed to stdout instead of the log is enough). Read
 the `balance` that `POST /v1/estimates` returns **before the first charged call and again after
-the last** — the estimate is free, so this costs nothing — and report both numbers: the summed
+the last** — the estimate charges nothing, so this adds no cost — and report both numbers: the summed
 `creditsCharged` and the balance delta. When they disagree, **the delta is the truth** and your
 sum is missing a call; say so rather than reporting the smaller number.
 

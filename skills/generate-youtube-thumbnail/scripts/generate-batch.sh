@@ -205,9 +205,23 @@ print(json.dumps(body))
     echo "[#$idx] $status (jobId=$job_id), polling in ${POLL_INTERVAL_S}s..."
     sleep "$POLL_INTERVAL_S"
     waited=$((waited + POLL_INTERVAL_S))
-    response=$(curl -sS --fail-with-body --max-time 60 \
+    # Retry only what can clear on its own (429, 5xx, no answer). Any other 4xx
+    # (a bad key, an unknown jobId) will not change in 900 s: stop and say so.
+    local code
+    code=$(curl -sS --max-time 60 -o "$OUTPUT_DIR/${idx}_poll.tmp" -w '%{http_code}' \
       -H "Authorization: Bearer $NOVOADS_API_KEY" \
-      "$API/v1/generations/$job_id" 2>&1) || { echo "[#$idx] poll failed, retrying: $response"; continue; }
+      "$API/v1/generations/$job_id" 2>/dev/null) || code="000"
+    response=$(cat "$OUTPUT_DIR/${idx}_poll.tmp" 2>/dev/null || true)
+    rm -f "$OUTPUT_DIR/${idx}_poll.tmp"
+    case "$code" in
+      2??) ;;
+      429|5??|000)
+        echo "[#$idx] poll failed (HTTP $code), retrying: $response"
+        continue ;;
+      *)
+        echo "[#$idx] poll refused (HTTP $code): $response. Fetch it later with GET /v1/generations/$job_id; do not resubmit."
+        return 1 ;;
+    esac
     echo "$response" > "$OUTPUT_DIR/${idx}_job.json"
     status=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False).get('status',''))" 2>/dev/null || echo "")
   done

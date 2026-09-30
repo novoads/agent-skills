@@ -170,7 +170,7 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
 ```
 
 Multiply by 10, present the total against the user's `balance`, and get one explicit yes for the
-run. The estimate is free and is the **only** legitimate source of a price — **not**
+run. The estimate charges nothing and is the **only** legitimate source of a price — **not**
 `logs/novoads-api.jsonl` and **not** `MASTER_CONTEXT.md`. Neither holds credit numbers; the log
 is observability only.
 
@@ -178,7 +178,7 @@ Report the **actual** total afterwards, summed from each response's `creditsChar
 
 `gpt-image-2` is the cheaper of the two character-sheet models, which cuts the other way from
 how this file used to read — the extra retries it needs are the real cost, not the per-image
-rate. Pricing both models is two free calls if the choice is close.
+rate. If the choice is close, price both models: two estimates, and neither charges anything.
 
 ## Using a gpt-image-2 character sheet for subsequent workflows
 

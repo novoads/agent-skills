@@ -12,7 +12,7 @@
 #
 # It is not fixed by "keeping the numbers up to date". Nothing can tell you a
 # rate rotted; that is the whole problem. It is fixed by never writing the rate
-# down: every one of these endpoints has a free `POST /v1/estimates` arm whose
+# down: every one of these endpoints has a `POST /v1/estimates` arm, charging nothing, whose
 # entire job is to answer this question at the moment it is asked. Quote the
 # tool at spend, not the file.
 #
@@ -86,12 +86,12 @@ ALLOW=(
   'skills/clone-video-ad/evals\.md::5 segments, an .srt., for \*\*0\.1 credits\*\*'
   'skills/clone-video-ad/evals\.md::synchronously for \*\*0\.3 credits\*\*'
 
-  # B3 — change-voice's eval table, asserting what the FREE estimate arm returns.
+  # B3 — change-voice's eval table, asserting what the estimate arm (it charges nothing) returns.
   #      Closer to legitimate than the rest of §B: the assertion is that a
   #      sourceless quote and a 15s quote agree, which is a statement about the
   #      one-minute minimum rather than about the price. It still pins a number
   #      that will move, so it is recorded rather than exempted.
-  'skills/change-voice/evals\.md::.credits: 1., .sufficient: true.\. Free\.'
+  'skills/change-voice/evals\.md::.credits: 1., .sufficient: true.\. Charges nothing\.'
   'skills/change-voice/evals\.md::also .credits: 1. . a 15s source and a sourceless quote agree'
 
   # B4 — the clone-image-ad prompting guide. Dated MEASUREMENTS from named runs
@@ -190,7 +190,7 @@ while IFS=$'\t' read -r file lineno label content; do
       echo "quoting a number that stopped being true and the user is told one" >&2
       echo "price and charged another." >&2
       echo "" >&2
-      echo "Remedy: delete the figure and point at the free quote instead —" >&2
+      echo "Remedy: delete the figure and point at the live quote instead —" >&2
       echo "'price it with the <kind> arm of POST /v1/estimates and quote that'." >&2
       echo "Keep the METER (per minute, rounded up, one-minute minimum, flat per" >&2
       echo "call) and keep ordering claims ('the stills are a fraction of the" >&2

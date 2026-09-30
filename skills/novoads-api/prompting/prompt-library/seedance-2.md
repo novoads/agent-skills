@@ -66,7 +66,7 @@ Which mode a formula wants:
 
 ## Prompt craft
 
-These rules are about how Seedance reads a prompt. None of them is enforced anywhere: the API renders and bills whatever you send. `POST /v1/estimates` flags a subset for free (see *What the estimate flags*), and the rest only you can check.
+These rules are about how Seedance reads a prompt. None of them is enforced anywhere: the API renders and bills whatever you send. `POST /v1/estimates` flags a subset at no charge (see *What the estimate flags*), and the rest only you can check.
 
 ### Length
 

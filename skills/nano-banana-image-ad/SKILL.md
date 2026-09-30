@@ -71,7 +71,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 
 - **Base URL:** `https://api.novoads.ai` (or `NOVOADS_BASE_URL`). That is the **host only** — callers append `/v1/...`.
 - **Auth:** `Authorization: Bearer $NOVOADS_API_KEY`.
-- **Endpoint:** `POST /v1/images` : the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+- **Endpoint:** `POST /v1/images`: the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
 - **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` is **durable and reusable**: upload a character or product shot once and pass the same id on every later call. That is what makes cross-run identity consistency cheap here.
 
 ## What this model takes
@@ -143,7 +143,7 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
   -d '{"kind":"image","model":"nano-banana-pro","prompt":"<final prompt>","numImages":<N>}'
 ```
 
-Free, and the only legitimate source of a price. **Name the model in the estimate body** — the
+It charges nothing, and it is the only legitimate source of a price. **Name the model in the estimate body** — the
 image models' schedules differ by more than 3×, so pricing the wrong one is a quote that
 disagrees with the invoice. Show the user `credits`, and whether `sufficient` is true against
 their `balance`. If it is false, say so and stop — the response carries `shortBy` and
@@ -151,7 +151,7 @@ their `balance`. If it is false, say so and stop — the response carries `short
 
 Three things to know about this call:
 
-- **It reads the image prompt too, and says so in `warnings`.** `POST /v1/estimates` returns the same advisory `warnings` array of craft notes on a `kind: "image"` call as it does on video, with rules of its own — `banned_polish` and `blank_label` both observed live on deployed spec 2.19.0 (verified live 2026-08-12). The older note here, that an image estimate came back with no `warnings` key at all, described the 2026-08-04 deployment and is retired. They are still **advisory**: none refuses the call, none changes `credits`, and they match substrings, so read each one, judge it against what your prompt actually says, and state your reasoning if you override it — never paste a suggested fix into a prompt it does not fit, and never drop one silently. The rewrite rules in Phase 3 remain the real check; this is a free second opinion on a call you were making anyway.
+- **It reads the image prompt too, and says so in `warnings`.** `POST /v1/estimates` returns the same advisory `warnings` array of craft notes on a `kind: "image"` call as it does on video, with rules of its own — `banned_polish` and `blank_label` both observed live on deployed spec 2.19.0 (verified live 2026-08-12). The older note here, that an image estimate came back with no `warnings` key at all, described the 2026-08-04 deployment and is retired. They are still **advisory**: none refuses the call, none changes `credits`, and they match substrings, so read each one, judge it against what your prompt actually says, and state your reasoning if you override it — never paste a suggested fix into a prompt it does not fit, and never drop one silently. The rewrite rules in Phase 3 remain the real check; this is a second opinion that costs nothing, on a call you were making anyway.
 - **The body is strict.** Only `kind`, `prompt`, `model`, `numImages`, `language` are accepted. Sending `aspectRatio` or `referenceAssetIds` is a `400 Unrecognized key` — the estimate never sees them, and neither affects the price.
 - **Its length check happens to match this model's.** The estimate's own request schema caps `prompt` at 50,000 characters for every image model, which is exactly this model's ceiling on `POST /v1/images` (deployed spec 2.16.0, verified 2026-08-08). The agreement is a coincidence of this being the roomiest model on the API: on `gpt-image-2` (32,000) and `reve-2.1` (4,000) the estimate is the looser of the two and will price a prompt the generation then refuses. It does **not** run moderation either, so a prompt it blessed can still come back `422 content_policy`.
 

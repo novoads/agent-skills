@@ -144,8 +144,8 @@ a markdown file**, including this one, which carries none.
 
 ## One endpoint, three models
 
-Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which usually answers with the finished images already in the response. There is no job to poll
-and no asset to wait on. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
+Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which usually answers with the finished images already in the response. One still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): the scripts poll it; a hand-rolled call polls
+`GET /v1/generations/{jobId}` to a terminal status, reads `images[]` there and never resubmits, because a resubmit is a second charge. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
 the `novoads-api` skill's `reference.md`; this table is only what differs *between the models*.
 
 | | `gpt-image-2` | `nano-banana-pro` | `reve-2.1` |
@@ -308,7 +308,7 @@ This is the workflow inside any chat session where the user wants to make an ad:
    with the user's brand. Show the rewritten prompt and ask for approval.
 
 4. **Price it with a live estimate, and show the user.** `POST /v1/estimates` with
-   `{"kind":"image","model":"<model>","prompt":"<final prompt>","numImages":<N>}`. It is free,
+   `{"kind":"image","model":"<model>","prompt":"<final prompt>","numImages":<N>}`. It charges nothing,
    it returns `credits`, `balance` and `sufficient`, and **it is the only place a price may
    come from** — never quote a credit cost from memory, from a log file, or from
    `MASTER_CONTEXT.md`. Wait for explicit confirmation before generating. If `sufficient` is

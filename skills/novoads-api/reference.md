@@ -150,16 +150,17 @@ Response `201`:
 
 Discriminated on `kind`, and strict. Any field not listed is a 400.
 
-**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers` and `kind: "voice-change"` prices `POST /voice-changes` — see those sections for their fields and for the reason a sourceless quote is the one-minute minimum on the three that are billed per minute. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
+**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the one-minute minimum on the three that are billed per minute. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
 
-**An arm's `kind` names the OPERATION, and the job it prices names its OUTPUT.** You estimate `voiceover` and `voice-change`; you poll a job whose `kind` is `"audio"`, exactly as with `music`. Neither is a typo to be fixed.
+**An arm's `kind` names the OPERATION, and the job it prices names its OUTPUT.** You estimate `voiceover` and `voice-change`; you poll a job whose `kind` is `"audio"`, exactly as with `music`. Neither is a typo to be fixed. `motion-control` works the same way: its job polls as `kind: "video"`.
 
 | Field | `kind: "video"` | `kind: "image"` |
 |---|---|---|
 | `kind` | required, `"video"` | required, `"image"` |
-| `prompt` | required | required, except on a `preset` quote (API 2.40.0) |
+| `prompt` | required | required, and refused beside a `preset`, which takes none (API 2.40.0) |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `sora-2`, `kling-v3-pro` (API 2.38.0) | `gpt-image-2.5-sunburst` (default), `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `reve-2.1`, `seedream-5-lite`, `seedream-5-pro` (API 2.39.0) |
-| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0); with `numImages`, the quote of that preset's render. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
+| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0): the quote of that preset's render. `numImages` on `image-to-ad` and `product-to-ad`; `upscale` takes none. `prompt`, `model`, `quality`, `resolution` and `outputFormat` beside a `preset` are a `400`. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
+| `productSwap` | `true` prices the swap and the render together, Seedance family only, refused on any other model (API 2.42.0). See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420) | n/a |
 | `durationSeconds` | 3 to 30 (3 since API 2.38.0) | n/a |
 | `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K` spelled exactly (`4k` is a `400`), `nano-banana-pro` only at 2.36.0, default `2K`; **moves the price** (API 2.36.0) |
 | `numImages` | n/a | 1 to 4 |
@@ -177,7 +178,7 @@ There is **no `styleFamily`** on either arm. The field was deleted from the whol
 
 There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, and this endpoint takes only fields that do. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
 
-**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: `{"model":"sora-2","durationSeconds":11}` comes back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` prices cleanly (verified live, 2026-08-02). So the free call catches an out-of-grid duration before the paid one does — one more reason to run it every time.
+**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: `{"model":"sora-2","durationSeconds":11}` comes back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` prices cleanly (verified live, 2026-08-02). So the call that charges nothing catches an out-of-grid duration before the paid one does — one more reason to run it every time.
 
 Response:
 
@@ -195,7 +196,7 @@ Response:
 
 Pass `model` explicitly. **At the same length the video schedules span more than 10x across the set, and more than 28x across every cell the deployment publishes** once length and resolution are counted too (both figures are derived by the API itself and printed in the `model` field's description — they moved when `seedance-2.5`'s thirty-second grid landed). Image schedules differ by more than 3x. Pricing the wrong model is a quote that disagrees with the invoice.
 
-**The schema's 20,000-character `prompt` ceiling is not the one that binds.** The service applies the *named model's* limit here too, so a 5,000-character prompt priced as `seedance-2.0` is rejected at the estimate, for free, exactly as the paid call would reject it. Omit `model` and it is judged as `seedance-2.0`. Only `omni-flash` genuinely accepts 20,000.
+**The schema's 20,000-character `prompt` ceiling is not the one that binds.** The service applies the *named model's* limit here too, so a 5,000-character prompt priced as `seedance-2.0` is rejected at the estimate, which charges nothing, exactly as the paid call would reject it. Omit `model` and it is judged as `seedance-2.0`. Only `omni-flash` genuinely accepts 20,000.
 
 This endpoint refuses a churned organization with a 403, on purpose. `sufficient` is a claim that the generation would go through, so answering `true` to an account whose generation would then be refused is a quote that disagrees with the invoice.
 
@@ -421,7 +422,7 @@ The dashboard's Image to Ad, Product to Ad and Upscale tools, on `POST /images`.
 
 - **Read every enum from the OpenAPI document** (`GET /v1/openapi.json`: styles, scene types, lighting, templates, ratios) rather than from the dashboard. Where the dashboard falls back silently on a value it does not know, the API answers `400 invalid_input`, and nothing is charged for a refused body.
 - **Strict bodies.** `model`, `prompt`, `quality`, `resolution`, `outputFormat`, `referenceAssetIds` or `sourceAssetId` beside a `preset` is a `400`. `productId` is accepted on all three and only files the result under a product; the preset reads nothing from it.
-- **Price:** `POST /estimates` with `kind: "image"`, the same `preset` and `numImages` (a preset quote takes no `prompt`), and the charge equals the quote.
+- **Price:** `POST /estimates` with `kind: "image"`, the same `preset` and, on `image-to-ad` and `product-to-ad`, the same `numImages` (`upscale` takes none, and a preset quote refuses `prompt`), and the charge equals the quote.
 - **It can answer `running`** like any image render: poll as [above](#a-slow-render-answers-running-poll-it-api-2390), never resubmit.
 - Image to ad and product to ad share an hourly limit per organization with the dashboard's own two tools; past it, `429 rate_limited` and nothing is charged.
 
@@ -1108,7 +1109,7 @@ Concurrency detail worth knowing: the count covers the organization's **API surf
 
 The video and image budgets are counted by two queries that cannot see each other's rows, and that separation runs **both ways**: a batch of images in flight never refuses a `POST /videos`, and five videos rendering never refuse a `POST /images`. Before `2.12.0` images spent video slots and both halves of that were false. So do not treat a `429` on one as a reason to stop calling the other — branch on `details.reason`, which is exactly what it is for.
 
-Cloudflare's edge timeout of roughly 100 seconds is the real ceiling on any single request, which is why video generation is asynchronous, and why since API 2.39.0 an image render still going after about 105 seconds answers `running` and is collected by polling instead of holding the request open.
+Cloudflare's edge timeout of roughly 125 seconds is the real ceiling on any single request, which is why video generation is asynchronous, and why since API 2.39.0 an image render still going after about 105 seconds answers `running`, before the edge would cut it, and is collected by polling instead of holding the request open.
 
 ---
 

@@ -44,8 +44,8 @@ moving between them is a one-word change that does not re-price the call.
 quote a figure from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md` — none of
 them hold prices, deliberately. Report what actually happened from `creditsCharged` on the
 response. **Name the model in the estimate body:** the schedules differ by more than 3× across
-the five, so an estimate that omits `model` prices `gpt-image-2.5-sunburst`, the cheapest
-schedule on the list.
+the image models, so an estimate that omits `model` prices `gpt-image-2.5-sunburst`, the
+default.
 
 ## Request body
 

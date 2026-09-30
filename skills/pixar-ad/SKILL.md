@@ -289,7 +289,7 @@ and it is cheaper to argue with than any render.
 `POST /v1/images` on `gpt-image-2`, `aspectRatio: "1:1"`, the product photo in
 `referenceAssetIds`. On one canvas: the lead in three emotional states readable
 in the eyes, any secondary character, the product in 2 to 3 views, and a scale
-line-up at true relative size.
+line-up at true relative size. The call usually answers with the board; one still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there, never resubmit, because a resubmit is a second charge.
 
 This single image is what makes five separately-rendered beats look like one
 film. Every beat still references it. Skipping it is the most expensive shortcut
@@ -459,7 +459,7 @@ curl -sS -X POST https://api.novoads.ai/v1/images \
        "aspectRatio":"9:16","referenceAssetIds":["<castSheet>","<product>"]}'
 ```
 
-**`POST /v1/images` usually answers with the finished image.** One still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): poll `GET /v1/generations/{jobId}` to `succeeded` and read `images[]` there, never resubmit. Otherwise the finished image is in the response,
+**`POST /v1/images` usually answers with the finished image.** One still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status (`succeeded`, `failed`, `blocked`, `canceled`) and read `images[]` there, never resubmit. Otherwise the finished image is in the response,
 and the call blocks for 60 to 90 seconds while it
 renders. **Write each image to disk as you read the response** — on a
 `numImages > 1` call only the first image is recoverable afterwards, and the rest

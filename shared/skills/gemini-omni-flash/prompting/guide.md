@@ -398,7 +398,7 @@ session or multi-modal inputs are marked, not silently dropped.
       token. `startImageAssetId` is a reference on this model too, not a first frame; for a true
       first frame use `firstFrameAssetId` where the server publishes it.
 - [ ] **Price it first.** `POST /v1/estimates` with `kind: "video"`, `model: "omni-flash"` and the
-      duration is free, and it is the only place a credit number may come from.
+      duration charges nothing, and it is the only place a credit number may come from.
 
 ---
 

@@ -1,0 +1,17 @@
+{
+  "slug": "01-dashboard-cards-pop-in",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "16:9",
+  "renderedDurationSeconds": 8,
+  "trimmedHeadSeconds": 0.25,
+  "finalDurationSeconds": 7.79,
+  "renderedAt": "2026-08-15",
+  "promptChars": 2815,
+  "sourceFile": "source.jpg",
+  "clipFile": "01-dashboard-cards-pop-in--seedance-2.5--720p--8s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/cc564765-59e9-449d-95b7-9a940ba5f63b",
+  "still": "generated with chatgpt-image-ad (gpt-image-2)",
+  "pattern": "absent-then-build; head trimmed at the cut",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/01-dashboard-cards-pop-in--seedance-2.5--720p--8s.mp4"
+}

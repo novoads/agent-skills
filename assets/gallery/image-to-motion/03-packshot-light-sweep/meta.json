@@ -1,0 +1,18 @@
+{
+  "slug": "03-packshot-light-sweep",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "1:1",
+  "renderedDurationSeconds": 8,
+  "trimmedHeadSeconds": 0.167,
+  "finalDurationSeconds": 7.83,
+  "renderedAt": "2026-08-15",
+  "promptChars": 1924,
+  "sourceFile": "source.jpg",
+  "clipFile": "03-packshot-light-sweep--seedance-2.5--720p--8s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/369d5de4-8f5f-4150-bc5a-41b9113da5cc",
+  "still": "generated with chatgpt-image-ad (gpt-image-2), can from a T36 crop as reference",
+  "pattern": "vanish-then-return on the caption; a single light sweep; head trimmed at the cut",
+  "take": "3 of 3 \u2014 take 1 (reveal from dark) pushed in slightly, take 2 skipped the light beat",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/03-packshot-light-sweep--seedance-2.5--720p--8s.mp4"
+}

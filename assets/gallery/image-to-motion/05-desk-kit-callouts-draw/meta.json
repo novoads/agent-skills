@@ -1,0 +1,18 @@
+{
+  "slug": "05-desk-kit-callouts-draw",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "1:1",
+  "renderedDurationSeconds": 8,
+  "trimmedHeadSeconds": 0.167,
+  "finalDurationSeconds": 7.83,
+  "renderedAt": "2026-08-15",
+  "promptChars": 2945,
+  "sourceFile": "source.jpg",
+  "clipFile": "05-desk-kit-callouts-draw--seedance-2.5--720p--8s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/dd1cf87d-fe9b-439e-8c69-7f702e149ff6",
+  "still": "pack template T36 (chatgpt-image-ad)",
+  "pattern": "vanish-then-return; head trimmed at the cut",
+  "take": "2 of 2 \u2014 take 1 (absent-at-0.0s wording) duplicated labels",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/05-desk-kit-callouts-draw--seedance-2.5--720p--8s.mp4"
+}

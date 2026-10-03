@@ -1,0 +1,18 @@
+{
+  "slug": "06-scratch-ticket-reveal",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "3:4",
+  "renderedDurationSeconds": 10,
+  "trimmedHeadSeconds": 0.0,
+  "finalDurationSeconds": 10.04,
+  "renderedAt": "2026-08-15",
+  "promptChars": 2637,
+  "sourceFile": "source.jpg",
+  "clipFile": "06-scratch-ticket-reveal--seedance-2.5--720p--10s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/6e8d211f-9843-4ebc-bd25-396c91e67392",
+  "still": "pack template T31 edited to intact foil with POST /v1/images sourceAssetId (gpt-image-2)",
+  "pattern": "opening-state still: the reveal is described in the prompt, nothing to trim",
+  "note": "source is 2:3, requested 3:4; the API fitted it with content-safe padding",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/06-scratch-ticket-reveal--seedance-2.5--720p--10s.mp4"
+}

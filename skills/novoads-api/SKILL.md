@@ -710,7 +710,7 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 | 422 | `content_policy` | Moderation blocked it, and this is the **only** way a prompt is refused for what it says. The estimate skips moderation, so it can land on a prompt the estimate priced clean. | Nothing was charged. Rewrite or stop. |
 | 429 | `rate_limited` | **Four different causes.** Branch on `details.reason`. | See below. |
 | 500 | `internal_error` | | **Do not blindly retry.** See below. |
-| 502 | `provider_failed` | A model provider failed. | Credits are refunded automatically. |
+| 502 | `provider_failed` | A model provider failed. **A 502 can also come from the edge, with no envelope at all** — see below. | Credits are refunded automatically. Check `GET /v1/generations` before you resubmit. |
 
 **The 400 vs 422 line is simple now, and worth stating because it used to be blurred.** A `400` is a malformed request and nothing else. A `422` is moderation and nothing else. Prompt craft — a missing actor descriptor, no spoken line, a forbidden word — produces no status at all: the API neither refuses it nor mentions it. Do not write a retry loop that expects a rule to stop a bad prompt; the only thing that stops it is you, before you send it.
 
@@ -725,6 +725,8 @@ Every 429 carries `details.reason` and a `Retry-After` header — sleep on the h
 
 **On a 500, do not retry until you have checked.** The generation endpoints charge credits, and a failure can land after the debit committed, so a blind retry can pay twice. Call `GET /v1/generations` first. If the job is there, poll it instead of resubmitting. There are no idempotency keys.
 
+**A 502 on the submit itself does not mean nothing was created.** Observed 2026-10-06 on `seedance-2.5` (six submissions over nine minutes, both `referenceAssetIds` and `startImageAssetId` mode): `POST /v1/videos` answered `502` with the plain-text body `error code: 502` — no JSON envelope, no `requestId`, so the client gets nothing to branch on — yet every submission had **already created a job**, which `GET /v1/generations` listed as `failed` with `creditsCharged` set and the error `Generation failed. Credits for this job were refunded.` The balance confirmed the refunds. So: treat a 502 on a generation submit exactly like a 500. List `GET /v1/generations?limit=…`, find the job by `createdAt`, log it by `jobId` with its terminal status, and only then decide whether to resubmit. Six identical failures in a row is an outage on that model, not a prompt fault — stop, tell the user, and offer to wait or to move to another tier, rather than looping.
+
 ## Guardrails
 
 Append one line per new failure. Forward only. Every bullet is a real thing that went wrong.
@@ -736,7 +738,7 @@ Append one line per new failure. Forward only. Every bullet is a real thing that
 - Only `seedance-2.5` renders past 15s (4–30). Asking any other model for 20 is a `400`, never a rounded-down render.
 - `seedance-2.5` has no `1080p` and no `4k`. Do not carry a resolution across a model switch.
 - `Content-Type` on the presigned PUT must match byte for byte. Adding `; charset=utf-8` is a 403.
-- Never resubmit after a 500 without checking `GET /v1/generations` first.
+- Never resubmit after a 500 **or a 502** without checking `GET /v1/generations` first. An edge 502 on `POST /v1/videos` (plain-text `error code: 502`) still created — and failed, and refunded — a job.
 - A 400 is a malformed request. Read `details.issues`, fix the field, and do not go looking for a prompt rule — none of them can 400 anymore. Never send `styleFamily`: the field no longer exists on this API and any body carrying it is a 400.
 - Prompt rules exist **only** on `POST /v1/estimates`, as the advisory `warnings` array, and they cannot refuse or reprice anything. **Nothing on the API will stop a weak prompt from being rendered and billed**, so the prompt libraries are still the quality gate. Read every warning, judge it against your prompt (they false-positive — see gate 2), and never apply a suggested fix without checking it fits.
 - Never fire more than five generations at once, and poll at 15 seconds, not 5. A QA retry still costs credits: cap at 2, and report the extras.

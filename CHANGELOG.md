@@ -12,6 +12,15 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Fixed
+
+**A 502 on a generation submit is now handled like a 500.** `novoads-api` documented `502` as
+"provider failed, refunded" and stopped there. Observed on `seedance-2.5`: the submit came back as
+an edge `502` with a plain-text body and no envelope, while the API had already created the job
+and failed and refunded it. The skill now says to check `GET /v1/generations` before any
+resubmit, to log the created job by `jobId`, and to stop after repeated identical failures
+instead of looping.
+
 ### Changed
 
 **Image presets (API 2.40.0).** `novoads-api` documents `preset: "image-to-ad" | "product-to-ad" |

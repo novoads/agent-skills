@@ -21,7 +21,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Host only — every request below appends /v1/…
 BASE_URL="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
-SIGNUP_URL="https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack"
+PRICING_URL="https://novoads.ai/en/pricing?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack"
+PLANS_LINE="Plans start at \$15/month (Starter, 200 credits). Current prices: $PRICING_URL (as of 2026-10-08)"
 KEYS_URL="https://novoads.ai/dashboard/settings?tab=api"
 BILLING_URL="https://novoads.ai/dashboard/settings?tab=billing"
 KEY_PLACEHOLDER="novo_your_key_here"
@@ -321,12 +322,12 @@ print_agent_close() {
     echo "$KEYS_URL"
     echo "I've opened .env for you — paste the key on the NOVOADS_API_KEY line,"
     echo "save, and tell me. I'll verify it."
-    echo "(No account yet? Plans start at \$49/month: $SIGNUP_URL)"
+    echo "(No account yet? $PLANS_LINE.)"
   else
     echo "One step left, the only one I can't do: create an API key at"
     echo "$KEYS_URL"
     echo "paste it into .env, and tell me — I'll verify it."
-    echo "(No account yet? Plans start at \$49/month: $SIGNUP_URL)"
+    echo "(No account yet? $PLANS_LINE.)"
   fi
   echo ""
   echo "What you can ask for now:"
@@ -364,8 +365,9 @@ fi
 
 if [[ "$needs_key" == "1" && "$INTERACTIVE" == "1" ]]; then
   echo ""
-  echo "Need a Novoads account? Plans start at \$49/month:"
-  echo "  $SIGNUP_URL"
+  echo "Need a Novoads account? Plans start at \$15/month (Starter, 200 credits)."
+  echo "Current prices (as of 2026-10-08):"
+  echo "  $PRICING_URL"
   echo ""
   echo "Then create an API key at:"
   echo "  $KEYS_URL"
@@ -496,7 +498,7 @@ if grep -q "$KEY_PLACEHOLDER" "$ROOT/.env" 2>/dev/null; then
   fi
   echo "── What is left for a human ─────────────────────────────────────────"
   echo "  1. Create a key at $KEYS_URL"
-  echo "     No Novoads account yet? Plans start at \$49/month: $SIGNUP_URL"
+  echo "     No Novoads account yet? $PLANS_LINE."
   echo "  2. Open $ROOT/.env and replace $KEY_PLACEHOLDER on the"
   echo "     NOVOADS_API_KEY= line with that key. Keys are novo_ plus 64 hex characters."
   echo "  3. Run ./scripts/check-novoads-env.sh to confirm it works."

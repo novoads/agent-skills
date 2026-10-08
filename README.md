@@ -9,6 +9,8 @@
 
 # Novoads AI Video & Image Ad Skill Pack *(agent-skills)*
 
+Novoads (novoads.ai) is an AI UGC video ad generator; this pack drives the Novoads REST API from Claude Code or Cursor.
+
 AI video and image ads for marketers, built in Claude Code or Cursor and priced by a live estimate first.
 
 <!-- The skills.sh count badge stays parked, and on 2026-08-14 the reason for
@@ -65,9 +67,8 @@ https://github.com/novoads/agent-skills help me set this up
 The agent clones this repo, runs `./scripts/setup.sh`, and stops at the one step only you
 can do: pasting your Novoads API key.
 
-Need an account? Novoads starts at **$49/month** — there is no free tier and no trial, and
-every plan can generate through the API:
-**[novoads.ai](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)**
+Need an account? Plans start at **$15/month** (Starter, 200 credits), and every plan can
+generate through the API. Current prices: **[novoads.ai/en/pricing](https://novoads.ai/en/pricing?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)** (as of 2026-10-08).
 
 [See what it makes](#see-what-it-makes) · [Get started](#get-started-5-minutes) ·
 [What you can make](#what-you-can-make) · [Models](#supported-models) · [Costs](#what-it-costs) ·
@@ -416,9 +417,8 @@ through the Meta Marketing API. **Every ad is created PAUSED** — you launch it
 Manager. It can also pull your top-spending ads and competitor ads to inform copy. Auth via the
 `META_*` rows in `.env`.
 
-Need an account? Novoads starts at **$49/month** — there is no free tier and no trial, and
-every plan can generate through the API:
-**[novoads.ai](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)**
+Need an account? Plans start at **$15/month** (Starter, 200 credits), and every plan can
+generate through the API. Current prices: **[novoads.ai/en/pricing](https://novoads.ai/en/pricing?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)** (as of 2026-10-08).
 
 ## What it costs
 
@@ -698,9 +698,8 @@ ask for the API key instead, even in a session where the connector is already co
 Point your assistant at [AGENTS.md](AGENTS.md) — it carries the auth shape, the async-video /
 sync-image distinction, the cost policy, and the skill map.
 
-Need an account? Novoads starts at **$49/month** — there is no free tier and no trial, and
-every plan can generate through the API:
-**[novoads.ai](https://novoads.ai/en?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)**
+Need an account? Plans start at **$15/month** (Starter, 200 credits), and every plan can
+generate through the API. Current prices: **[novoads.ai/en/pricing](https://novoads.ai/en/pricing?utm_source=claude-code&utm_medium=github&utm_campaign=skill-pack)** (as of 2026-10-08).
 
 ## Support
 

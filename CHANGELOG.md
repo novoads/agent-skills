@@ -82,6 +82,14 @@ source and is enabled per workspace; both refusals are a `400` with nothing char
 gains a Video out section, `novoads-api/reference.md` stops calling the endpoint synchronous
 only, and new evals cover the job, the audio-source refusal and the unchanged default.
 
+### Fixed
+
+**Entry price (2026-10-08).** The README, `AGENTS.md`, `scripts/setup.sh`, `scripts/check-novoads-env.sh`,
+`.env.example` and a `clone-image-ad` example still gave the entry price from before the 2026-09-20
+ladder. They now say plans start at $15/month (Starter, 200 credits) and link the pricing page with
+the date the figure was read. The README opens with one line saying what Novoads is and what the
+pack drives.
+
 ## v1.3.0 — 2026-09-11
 
 ### Changed

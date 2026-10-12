@@ -43,8 +43,10 @@ which one-shot gives them through references.
 
 The deliverable of this workflow is **one finished ad**. Not a set of parts.
 
-**Four beats.** Hook → discovery → demo → verdict. Four is the default because 15s is
-the Seedance ceiling and four beats is what fits at an unhurried pace.
+**Four beats.** Hook → discovery → demo → verdict. Four is the default because it is what
+fits 15s at an unhurried pace — and 15s is the `seedance-2.0` ceiling, not the family's.
+`seedance-2.5` renders any integer **4 to 30**. When the ad runs longer than 15s, take
+the duration and the tier from `SKILL.md` first, then come back here for the shape.
 
 **Every beat has the person on camera and a spoken line.** No silent beats in the base.
 
@@ -71,6 +73,49 @@ resolves to nobody and the estimate flags it.
 
 ---
 
+## The hook beat — one shape, every length
+
+The opening beat is engineered, not improvised, and it is written the same way whether
+the ad runs 15s or 30s. Four rules, all of them about the first beat.
+
+**1. The opening line names the VIEWER'S situation, never the product.** The default
+shape is a **reframe**, which moves the blame off the viewer and onto a mechanism they
+had not noticed: *"You're not {{BAD_OUTCOME}} because you {{WHAT_THEY_BLAME_THEMSELVES_FOR}}.
+You're {{BAD_OUTCOME}} because {{THE_REAL_MECHANISM}}."* Three escape hatches when the
+reframe does not fit the brief: a **label** ("founders who run their own ads"), a
+**yes-question**, or an **if-then**. All four name the viewer. None of them names the
+product.
+
+**2. One engineered physical action, dramatizing the exact claim of that line.** Not a
+gesture and not "looking into camera" — one specific, readable thing a hand does that
+makes the claim visible. Give it a **salience command** ("the {{HOOK_PROP}} stays the
+brightest, most readable object in the lower third"), let it run for **most of the
+beat**, and give the beat an explicit **END STATE**: the frame it has to arrive at.
+Models steer toward end states; a beat without one drifts into an invented camera move.
+
+**3. The product is not shown, named or hinted at inside roughly the first quarter of
+the runtime** — about **25–30% of the canvas**, expressed as a fraction so it moves with
+the duration instead of sitting at a fixed second. At 15s that is ~4s; at 30s, ~8s. The
+hook beat itself is the one beat that must not be squeezed: **6s is its floor**, because
+an action needs that long to reach a declared end state and still be read at feed speed.
+So a 15s ad spends its first 6s on the viewer and has ~9s left for the other three beats.
+That is what the hook costs, and it is why a five-beat script does not fit 15s.
+
+**4. Prop discipline.** Every object a beat introduces is **owned by a named hand**, its
+count is written as a **digit** ("3 index cards", never "three" and never "some"), and
+that count is **re-pinned in every beat the prop appears in** — a prop named once and
+carried implicitly multiplies across cuts. Nothing moves unless a hand moves it, and the
+ban list ends with the sentence **"nothing appears out of thin air."**
+
+**What this is, and what it is not.** Product-withheld is doctrine validated for
+**craft**: it renders clean, and of the opening shapes tried here it was judged the best
+of them. There is **no conversion claim** behind it — nothing in this repo has measured
+a hook rate, a watch curve or a sale for any opening shape. A product-in-hand opening
+stays available and correct when the brief asks for one (a reveal, a drop, an unboxing).
+What changed is the default, not the option.
+
+---
+
 ## Template — one render, four beats
 
 Fill the `{{VARIABLES}}` using v1's layer guidance for wording, skin realism and flaws.
@@ -83,10 +128,14 @@ Fill the `{{VARIABLES}}` using v1's layer guidance for wording, skin realism and
 The setting stays the same throughout: {{ROOM}}, {{LIGHT_SOURCE}} as the
 only light, {{FIXED_DETAILS}}. Only the framing changes between cuts.
 
-The video opens on the @Image1 framing — {{ACTOR_TAG}} {{HOOK_ACTION}},
-holding {{PRODUCT_DESCRIPTION}}: "{{HOOK_LINE}}"
+The video opens on the @Image1 framing — {{ACTOR_TAG}} {{HOOK_ACTION}}:
+{{ACTOR_TAG}}'s {{NAMED_HAND}} {{HOOK_ACTION_DETAIL}}, and {{HOOK_PROP}} stays
+the brightest, most readable object in the lower third. No product in frame.
+{{ACTOR_TAG}} says: "{{HOOK_LINE}}"
+By the end of this beat, {{HOOK_END_STATE}}.
 
-Quick jump cut — {{ACTOR_TAG}} {{BEAT_2_FRAMING}}, {{BEAT_2_ACTION}}:
+Quick jump cut — {{ACTOR_TAG}} {{BEAT_2_FRAMING}}, {{BEAT_2_ACTION}}. This is
+where {{PRODUCT_DESCRIPTION}} first enters the frame, {{PRODUCT_HANDLING}}:
 "{{BEAT_2_DIALOGUE}}"
 
 Quick jump cut to the @Image2 framing — {{ACTOR_TAG}} {{BEAT_3_FRAMING}},
@@ -105,7 +154,8 @@ its text unchanged and fully legible.
 
 The lighting is {{LIGHT_TYPE}} — {{LIGHT_FLAW}}. The image is slightly
 imperfect — {{CAMERA_FLAWS}}. Sound is {{AUDIO_SOURCE}} — {{AUDIO_DETAILS}}.
-No subtitles, no captions, no text overlays.
+No subtitles, no captions, no text overlays. Every object is placed by a hand
+and stays where the hand left it; nothing appears out of thin air.
 
 The overall feel is {{VIBE_ADJECTIVES}} — {{RELATABLE_METAPHOR}}.
 Vertical 9:16.
@@ -129,6 +179,14 @@ here; they are an input to the next step, not scratch.
 ## Checklist before you price it
 
 - [ ] **Four beats**, each with the person on camera and a spoken line
+- [ ] **Hook line names the viewer's situation**, not the product — reframe (default),
+      label, yes-question or if-then
+- [ ] **One engineered physical action** on the hook beat, carrying a salience command
+      and an explicit **END STATE**, running most of the beat
+- [ ] **Hook beat ≥6s**, and the product neither shown nor named inside the first
+      **~25–30%** of the runtime
+- [ ] **Prop counts written as digits** and re-pinned in every beat the prop appears in;
+      every object owned by a named hand; the ban list ends "nothing appears out of thin air"
 - [ ] **Actor tag verbatim** in all four; no `the same woman` / `as before`
 - [ ] **Setting declared unchanged**; only framing varies
 - [ ] Script read aloud at an unhurried pace **fits the runtime** — timed, not estimated
@@ -180,6 +238,10 @@ stream-copies the picture and would otherwise have nothing final to sit under.
 
 ## Old patterns
 
+- *"The video opens … holding {{PRODUCT_DESCRIPTION}}"* — the old hook beat, with the
+  product welded into the opening frame. It left the opening line nothing to do but
+  announce a thing the viewer could already see. Superseded by the hook beat above; a
+  product-in-hand opening is now something the brief has to ask for.
 - *"Every video should have at least one silent action beat"* — v1's rule, correct for
   standalone clips, wrong inside a base video. Silent material moves to the b-roll pass.
 - *"One clip per scene, then stitch"* — still valid as the escape hatch, no longer the

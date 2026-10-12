@@ -1,0 +1,18 @@
+{
+  "slug": "02-story-card-pop-in",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "9:16",
+  "renderedDurationSeconds": 8,
+  "trimmedHeadSeconds": 0.25,
+  "finalDurationSeconds": 7.79,
+  "renderedAt": "2026-08-15",
+  "promptChars": 2464,
+  "sourceFile": "source.jpg",
+  "clipFile": "02-story-card-pop-in--seedance-2.5--720p--8s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/86c7e180-2ffc-4428-8411-6125e0b4f124",
+  "still": "pack template T20 (chatgpt-image-ad)",
+  "pattern": "vanish-then-return: the overlays are in the still, the prompt names the vanish; head trimmed at the cut",
+  "take": "2 of 2 \u2014 take 1 (absent-at-0.0s wording) duplicated the answer card",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/02-story-card-pop-in--seedance-2.5--720p--8s.mp4"
+}

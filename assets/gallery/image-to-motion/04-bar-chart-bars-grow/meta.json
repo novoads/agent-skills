@@ -1,0 +1,17 @@
+{
+  "slug": "04-bar-chart-bars-grow",
+  "model": "seedance-2.5",
+  "resolution": "720p",
+  "aspectRatio": "1:1",
+  "renderedDurationSeconds": 8,
+  "trimmedHeadSeconds": 0.54,
+  "finalDurationSeconds": 7.5,
+  "renderedAt": "2026-08-15",
+  "promptChars": 2328,
+  "sourceFile": "source.jpg",
+  "clipFile": "04-bar-chart-bars-grow--seedance-2.5--720p--8s.mp4",
+  "userAttachmentsUrl": "https://github.com/user-attachments/assets/02a50dc3-fcc4-47d6-96db-c7ce72069609",
+  "still": "generated with chatgpt-image-ad (gpt-image-2), can from a T36 crop as reference",
+  "pattern": "absent-then-build; head trimmed at the cut",
+  "mirror": "claude-code-ads-assets-staging/image-to-motion-2026-08-15/04-bar-chart-bars-grow--seedance-2.5--720p--8s.mp4"
+}

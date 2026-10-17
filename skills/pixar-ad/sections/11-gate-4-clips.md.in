@@ -1,8 +1,8 @@
 #! section: gate-4-clips
-#! title:   Gate 4: the clips in waves of five, and the per-clip QA
+#! title:   Gate 4: the clips in waves of ten, and the per-clip QA
 #! read:    after the operator approves the board
 #!
-## Gate 4 — the clips, in waves of five
+## Gate 4 — the clips, in waves of ten
 
 ```bash
 curl -sS -X POST https://api.novoads.ai/v1/videos \
@@ -14,10 +14,10 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
 
 Returns `202` with `jobId`, `status`, `creditsCharged` and `model`.
 
-**Submit in waves of at most five.** Five video generations may be in flight per
-organization; a sixth comes back `429` with `error.details.reason` of
-`concurrency_limit`, which is a real refusal and not a queue. Five beats is
-exactly one wave. Six beats is one wave of five, then one. The stills are not
+**Submit in waves of at most ten.** Ten video generations may be in flight per
+organization; an eleventh comes back `429` with `error.details.reason` of
+`concurrency_limit`, which is a real refusal and not a queue. Every board of
+four to six beats is one wave. The stills are not
 part of that budget — images have their own ceiling of 12 — but they are chained
 sequentially anyway, so it never comes up.
 

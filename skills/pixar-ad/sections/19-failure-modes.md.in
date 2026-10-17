@@ -8,9 +8,9 @@
   answers `422`. There is no rule-id rejection any more, so a refusal is not a
   wording problem to lint your way out of — read what it says. Nothing is
   charged.
-- **`429` with `details.reason: concurrency_limit` on the sixth clip.** Not an
-  error in your request: five video generations are already in flight. Wait for
-  one, then submit. This is why the waves are five. Branch on `details.reason` —
+- **`429` with `details.reason: concurrency_limit` on the eleventh clip.** Not an
+  error in your request: ten video generations are already in flight. Wait for
+  one, then submit. This is why the waves are ten. Branch on `details.reason` —
   `image_concurrency_limit`, `voiceover_concurrency_limit`,
   `caption_concurrency_limit` and `transcript_concurrency_limit` are four
   separate budgets, and none of them means "stop rendering".

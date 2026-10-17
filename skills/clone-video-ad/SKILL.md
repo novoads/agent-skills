@@ -404,8 +404,8 @@ is **durable across calls, models and sessions**, it costs one upload for the wh
 Re-uploading the same bytes mints a second asset and throws away the anchor.
 
 **Fire the clips of a series concurrently, not sequentially** — nothing downstream depends
-on an earlier clip's output any more. Five generations per organization may be in flight at
-once; a sixth comes back `429` with `details.reason` of `concurrency_limit`, which is
+on an earlier clip's output any more. Ten generations per organization may be in flight at
+once; an eleventh comes back `429` with `details.reason` of `concurrency_limit`, which is
 solved by waiting for a slot and not by backing off harder.
 
 **Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at half the
@@ -705,8 +705,8 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   and priced per variant (step 9). Do not ask again here, and do not fire a count the user
   has not approved a price for. Either kind is N calls and N charges — there is no batch
   parameter.
-- **At most five in flight** across the organization, counting every clip and every
-  variation. Fire five, then start the next as each reaches a terminal state.
+- **At most ten in flight** across the organization, counting every clip and every
+  variation. Fire ten, then start the next as each reaches a terminal state.
 - **Log each submission immediately** — one line appended to `logs/novoads-api.jsonl` with
   the timestamp, endpoint, model, `jobId`, `productId` and the request config: duration,
   aspect ratio, language, reference count, prompt **word count**. Never the prompt text,
@@ -799,7 +799,7 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | Audio is rendered from the prompt | The spoken line is lip-synced in this same call at no extra cost, which is why gate 1 exists. `audioEnabled: false` mutes the render; it does not give you a separate audio track to direct |
 | Prompt rules are advisory and live on `/estimates` only | The estimate returns a `warnings` array of `{rule, message}` craft advice; `POST /videos` does not. None of it can refuse or reprice a call, so a weak prompt still renders and bills exactly like a strong one. The warnings are substring matches and **do false-positive** — read them, judge each against the prompt, and say so when you override one |
 | Moderation is `422 content_policy` | The only refusal of a prompt for what it says, and the estimate skips it, so a clean quote can still be blocked. **Nothing is charged** |
-| Five generations in flight per organization | A sixth is `429` with `details.reason: concurrency_limit`. Wait for a slot; backing off harder does nothing |
+| Ten generations in flight per organization | An eleventh is `429` with `details.reason: concurrency_limit`. Wait for a slot; backing off harder does nothing |
 | No idempotency keys | Which is why a 500 is never blindly retried — see below |
 
 ## Error recovery

@@ -239,8 +239,8 @@ cost gate did not price.
 - `audioEnabled` — `false` unless sound is wanted.
 - **Four takes gives useful choice.** There is no variations-per-call field, so that is four
   submissions of the identical payload, and **four charges** — which is why it belongs
-  inside the cost gate rather than after it. At most **five** generations may be in flight
-  per organization; a sixth comes back `429` with `details.reason: concurrency_limit`, which
+  inside the cost gate rather than after it. At most **ten** generations may be in flight
+  per organization; an eleventh comes back `429` with `details.reason: concurrency_limit`, which
   means wait for a slot rather than lengthen the backoff.
 
 Submit returns `202` with `jobId` and `creditsCharged`. **The poll payload does not carry the

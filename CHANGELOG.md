@@ -14,6 +14,12 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ### Changed
 
+**Ten video generations in flight (API 2.51.0).** An organization may now have ten video
+generations running at once through the API, up from five, on every plan; the eleventh is the
+same `429` with `details.reason: concurrency_limit`. `novoads-api`'s limits table says 10, and
+the Pixar, clay, clone-video and image-to-motion skills now submit in waves of up to ten, so a
+Pixar board and an eight-beat clay board each go out in one wave.
+
 **Image presets (API 2.40.0).** `novoads-api` documents `preset: "image-to-ad" | "product-to-ad" |
 "upscale"` on `POST /v1/images`: the dashboard's three one-photo tools, run on the photo in
 `imageAssetId` with no `model` or `prompt`. Quoted by `POST /v1/estimates` with the same `preset`,

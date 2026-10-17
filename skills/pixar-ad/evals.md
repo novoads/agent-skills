@@ -94,7 +94,7 @@ the invoice breaks.
 run. "Waves of five" against a cap of three means five clips submitted, three
 accepted, two refused, and an operator watching a partial ad.
 
-**Check:** `MAX_CONCURRENT_API_GENERATIONS` is 5 and the skill says five.
+**Check:** `MAX_CONCURRENT_API_GENERATIONS` is 10 and the skill says ten.
 Automated.
 
 ---

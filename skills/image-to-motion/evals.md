@@ -89,7 +89,7 @@ take the default.
 
 **Check:** ask for several takes. Confirm the skill offers four, fires the identical payload four times,
 says out loud that four takes is four charges, and puts that multiplication inside the cost
-gate rather than after it. Confirm it fires at most five concurrently: a sixth returns
+gate rather than after it. Confirm it fires at most ten concurrently: an eleventh returns
 `429` with `details.reason: concurrency_limit`, which is a refusal to wait out, not a
 backoff to lengthen.
 

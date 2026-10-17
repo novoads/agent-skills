@@ -72,7 +72,7 @@
     {
       "id": "gate-4-clips",
       "file": "11-gate-4-clips.md.in",
-      "title": "Gate 4: the clips in waves of five, and the per-clip QA",
+      "title": "Gate 4: the clips in waves of ten, and the per-clip QA",
       "trigger": "after the operator approves the board"
     },
     {

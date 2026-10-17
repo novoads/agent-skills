@@ -490,7 +490,7 @@ frame. That cap is per model and the bodies are strict, so a fifth reference is
 approved as a board — the operator is judging whether beat 3 follows beat 2,
 which they cannot do one image at a time.
 
-## Gate 4 — the clips, in waves of five
+## Gate 4 — the clips, in waves of ten
 
 ```bash
 curl -sS -X POST https://api.novoads.ai/v1/videos \
@@ -502,10 +502,10 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
 
 Returns `202` with `jobId`, `status`, `creditsCharged` and `model`.
 
-**Submit in waves of at most five.** Five video generations may be in flight per
-organization; a sixth comes back `429` with `error.details.reason` of
-`concurrency_limit`, which is a real refusal and not a queue. Five beats is
-exactly one wave. Six beats is one wave of five, then one. The stills are not
+**Submit in waves of at most ten.** Ten video generations may be in flight per
+organization; an eleventh comes back `429` with `error.details.reason` of
+`concurrency_limit`, which is a real refusal and not a queue. Every board of
+four to six beats is one wave. The stills are not
 part of that budget — images have their own ceiling of 12 — but they are chained
 sequentially anyway, so it never comes up.
 
@@ -606,7 +606,7 @@ a charged take in the wrong accent is the bad one. Voices with no recorded
 languages — typically your own clones — accept any value.
 
 Voice-overs have their own concurrency budget of **10**, counted separately from
-the five video slots, so a batch of lines can never refuse a render. A `429` here
+the ten video slots, so a batch of lines can never refuse a render. A `429` here
 carries `details.reason: voiceover_concurrency_limit` and clears in seconds.
 
 ## Gate 6 — the music bed
@@ -1048,9 +1048,9 @@ their characters.
   answers `422`. There is no rule-id rejection any more, so a refusal is not a
   wording problem to lint your way out of — read what it says. Nothing is
   charged.
-- **`429` with `details.reason: concurrency_limit` on the sixth clip.** Not an
-  error in your request: five video generations are already in flight. Wait for
-  one, then submit. This is why the waves are five. Branch on `details.reason` —
+- **`429` with `details.reason: concurrency_limit` on the eleventh clip.** Not an
+  error in your request: ten video generations are already in flight. Wait for
+  one, then submit. This is why the waves are ten. Branch on `details.reason` —
   `image_concurrency_limit`, `voiceover_concurrency_limit`,
   `caption_concurrency_limit` and `transcript_concurrency_limit` are four
   separate budgets, and none of them means "stop rendering".

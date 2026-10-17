@@ -1087,9 +1087,9 @@ About 4% of `seedance-2.0` renders run past 10 minutes. Failures are usually rep
 | Requests per key | 60 per minute |
 | Requests per organization | 180 per minute, across every key it holds |
 | Requests per client address, pre-authentication | 1,200 per minute |
-| Concurrent **video** generations per organization | 5 (`429`, `error.code` `rate_limited`, `details.reason` `concurrency_limit`, `Retry-After` 15s) |
-| Concurrent **image** generations per organization | **12** (`429`, `details.reason` `image_concurrency_limit`) — its own budget since spec `2.12.0`, not carved out of the 5 above |
-| Concurrent **caption** jobs per organization | 10 (`429`, `details.reason` `caption_concurrency_limit`) — a separate budget from the 5 above |
+| Concurrent **video** generations per organization | 10 since API 2.51.0, 5 before (`429`, `error.code` `rate_limited`, `details.reason` `concurrency_limit`, `Retry-After` 15s) |
+| Concurrent **image** generations per organization | **12** (`429`, `details.reason` `image_concurrency_limit`) — its own budget since spec `2.12.0`, not carved out of the 10 above |
+| Concurrent **caption** jobs per organization | 10 (`429`, `details.reason` `caption_concurrency_limit`) — a separate budget from the 10 above |
 | Concurrent **transcript** jobs per organization | 10 (`429`, `details.reason` `transcript_concurrency_limit`), where `POST /transcripts` is offered — again its own budget |
 | Concurrent **voice-over** jobs per organization | 10 (`429`, `details.reason` `voiceover_concurrency_limit`), where `POST /voiceovers` is offered — again its own budget |
 | Concurrent **voice-change** jobs per organization | 10 (`429`, `details.reason` `voice_change_concurrency_limit`), where `POST /voice-changes` is offered — again its own budget |
@@ -1107,7 +1107,7 @@ Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateL
 
 Concurrency detail worth knowing: the count covers the organization's **API surface only**, so dashboard renders do not consume an integration's slots, and a row stops counting after 30 minutes unfinished, so a stuck job cannot jam an organization permanently. Reads, estimates and uploads are not affected by it.
 
-The video and image budgets are counted by two queries that cannot see each other's rows, and that separation runs **both ways**: a batch of images in flight never refuses a `POST /videos`, and five videos rendering never refuse a `POST /images`. Before `2.12.0` images spent video slots and both halves of that were false. So do not treat a `429` on one as a reason to stop calling the other — branch on `details.reason`, which is exactly what it is for.
+The video and image budgets are counted by two queries that cannot see each other's rows, and that separation runs **both ways**: a batch of images in flight never refuses a `POST /videos`, and ten videos rendering never refuse a `POST /images`. Before `2.12.0` images spent video slots and both halves of that were false. So do not treat a `429` on one as a reason to stop calling the other — branch on `details.reason`, which is exactly what it is for.
 
 Cloudflare's edge timeout of roughly 125 seconds is the real ceiling on any single request, which is why video generation is asynchronous, and why since API 2.39.0 an image render still going after about 105 seconds answers `running`, before the edge would cut it, and is collected by polling instead of holding the request open.
 

@@ -47,6 +47,6 @@ a charged take in the wrong accent is the bad one. Voices with no recorded
 languages — typically your own clones — accept any value.
 
 Voice-overs have their own concurrency budget of **10**, counted separately from
-the five video slots, so a batch of lines can never refuse a render. A `429` here
+the ten video slots, so a batch of lines can never refuse a render. A `429` here
 carries `details.reason: voiceover_concurrency_limit` and clears in seconds.
 

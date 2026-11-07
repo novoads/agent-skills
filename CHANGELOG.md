@@ -14,6 +14,19 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ### Changed
 
+**GPT Image 2.6 Sunburst and Flare, and the default that moved with them (API 2.57.0, 2.58.0).**
+`POST /v1/images` takes `gpt-image-2.6-sunburst` and `gpt-image-2.6-flare`, on the 2.5 pair's grid:
+the same six ratios, 4 references, 32,000 prompt characters, `quality`, `outputFormat` and the
+`sourceAssetId` edit arm. A call that names no model and no preset now renders on 2.6 Sunburst,
+where it rendered on 2.5 Sunburst, and an estimate that names no model prices it. The 2.5 pair and
+`gpt-image-2` keep working, and the 2.5 and 2.6 ids charge the same as each other. What an
+unqualified call sees change is the size: 2.6 comes back at 1088 x 1920 at `9:16` at every
+quality, where 2.5 came back up to 2160 x 3840 at `high`. `novoads-api`'s model tables, the
+README, the image prompt library, `chatgpt-image-ad` (which still locks `gpt-image-2` and now
+points label-exact work at 2.6 Sunburst) and the thumbnail skill's estimate line say so, and
+`verify-image-caps.sh` audits the two new ids. The lines that said every GPT model charges the
+same per image now say `gpt-image-2` has its own price at `high`.
+
 **Ten video generations in flight (API 2.51.0).** An organization may now have ten video
 generations running at once through the API, up from five, on every plan; the eleventh is the
 same `429` with `details.reason: concurrency_limit`. `novoads-api`'s limits table says 10, and

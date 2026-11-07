@@ -31,20 +31,23 @@ The image models, all on the same endpoint:
 
 | API `model` value | When to use |
 |---|---|
-| `gpt-image-2.5-sunburst` (the API default since deployed spec 2.25.0) | Typography, dense small text, UI mimicry, and the one to name when labels and fine detail have to come back exact. Slower than Flare. |
-| `gpt-image-2.5-flare` | The same grid and the same price as Sunburst, faster. The everyday choice in the GPT family. |
-| `gpt-image-2` | The original GPT model, unchanged and still offered. Same six ratios, same reference cap, same prompt ceiling as the two above. |
+| `gpt-image-2.6-sunburst` (the API default since deployed spec 2.58.0) | Typography, dense small text, UI mimicry, and the one to name when labels and fine detail have to come back exact. The newest; slower than Flare. |
+| `gpt-image-2.6-flare` | The same grid and the same price as 2.6 Sunburst, faster. The everyday choice in the GPT family. |
+| `gpt-image-2.5-sunburst` | The 2.5 Sunburst, still offered, at 2.6's price. At `high` it comes back larger than 2.6 (up to 2160 x 3840 at `9:16`, where 2.6 is 1088 x 1920): name it when the size matters. |
+| `gpt-image-2.5-flare` | The 2.5 Flare, still offered, at the same price. |
+| `gpt-image-2` | The original GPT model, unchanged and still offered. Same six ratios, same reference cap, same prompt ceiling as the four above; its own price at `high`. |
 | `nano-banana-pro` | Photoreal humans, material realism, multi-reference blending, character continuity. |
 | `reve-2.1` | A deliberately different read on a concept, or a third opinion when the others miss. |
 
-The three GPT rows differ in speed against fidelity and in nothing else a request body can see, so
-moving between them is a one-word change that does not re-price the call.
+The five GPT rows share one request grid, so moving between them is a one-word change in the body.
+The four 2.5 and 2.6 rows also charge the same as each other, so moving among those four does not
+re-price the call; `gpt-image-2` has its own schedule.
 
 **Credits:** every price comes from a live `POST /v1/estimates` in the current session. Do not
 quote a figure from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md` — none of
 them hold prices, deliberately. Report what actually happened from `creditsCharged` on the
 response. **Name the model in the estimate body:** the schedules differ by more than 3× across
-the image models, so an estimate that omits `model` prices `gpt-image-2.5-sunburst`, the
+the image models, so an estimate that omits `model` prices `gpt-image-2.6-sunburst`, the
 default.
 
 ## Request body

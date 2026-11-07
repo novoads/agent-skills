@@ -324,21 +324,23 @@ which is Google DeepMind's own guide with the parts this API cannot reach marked
 `POST /v1/images` usually hands the finished images back in the response body. A render still
 going after about 105 seconds answers `running` with no images instead (API 2.39.0): the skills
 poll `GET /v1/generations/{jobId}` for it and never resubmit. Up to 4 images per call; reference
-images are capped per model: 4 on each of the three GPT models, 14 on `nano-banana-pro`, 8 on
+images are capped per model: 4 on each of the five GPT models, 14 on `nano-banana-pro`, 8 on
 `reve-2.1`, 10 on each Seedream 5 model (`seedream-5-lite`, `seedream-5-pro`, API 2.39.0).
 
-- **`gpt-image-2.5-sunburst`**: the API default when `model` is omitted. Slower than Flare, and
-  it keeps fine detail and labels exact.
-- **`gpt-image-2.5-flare`**: fast, for most images.
+- **`gpt-image-2.6-sunburst`**: the API default when `model` is omitted (API 2.58.0), and the
+  newest. Slower than Flare, and it keeps fine detail and labels exact.
+- **`gpt-image-2.6-flare`**: the newest fast one, for most images.
+- **`gpt-image-2.5-sunburst`** and **`gpt-image-2.5-flare`**: the 2.5 pair, still live and offered.
+  At `high` 2.5 comes back larger than 2.6 (up to 2160 x 3840 at `9:16`, where 2.6 is 1088 x 1920).
 - **`gpt-image-2`**: heavy typography and mimicked UI. Still live, still offered, unchanged.
 - **`nano-banana-pro`** — photoreal people and products in a scene; holds a character's identity
   tightest across a reference batch.
 - **`reve-2.1`** — a different look on the same still, or a second opinion.
 
-The three GPT models share one grid: the same six aspect ratios, the same 32,000-character prompt
-ceiling, the same cap of 4 reference images, the same `sourceAssetId` edit arm, and the same price
-per image. What differs is speed against fidelity, so switching between them changes nothing in a
-request body but the `model` value.
+The five GPT models share one grid: the same six aspect ratios, the same 32,000-character prompt
+ceiling, the same cap of 4 reference images and the same `sourceAssetId` edit arm. The 2.5 and 2.6
+ids charge the same as each other; `gpt-image-2` has its own price at `high`. What differs is speed
+against fidelity, so switching between them changes nothing in a request body but the `model` value.
 
 > "Create a new AI influencer — 22-year-old with freckles, golden-hour kitchen lighting"
 > · "UGC selfie of Sofia holding the product in her bedroom"
@@ -462,9 +464,11 @@ is the current answer, this table is a map.
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | `4` `8` `12` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Measured with **no leading silence** where Seedance front-loads 3–5s, and ~123s to render. Coarse grid: no 6s, no 10s. |
 | **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | read `GET /v1/models` | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
-| **`gpt-image-2.5-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default**: omit `model` and this renders. Slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
+| **`gpt-image-2.6-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default** (API 2.58.0): omit `model` and this renders. The newest; slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
+| **`gpt-image-2.6-flare`** | Image | — | same six | **32,000 chars** | The newest fast one, for most images (API 2.57.0). Can answer `running`: poll it. |
+| **`gpt-image-2.5-sunburst`** | Image | — | same six | **32,000 chars** | Slower, keeps fine detail and labels exact. At `high` it comes back larger than 2.6. Can answer `running`: poll it. |
 | **`gpt-image-2.5-flare`** | Image | — | same six | **32,000 chars** | Fast, for most images. Can answer `running`: poll it. |
-| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 arrivals. Can answer `running`: poll it. |
+| **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 and 2.6 arrivals. Can answer `running`: poll it. |
 | **`nano-banana-pro`** | Image | — | 10 ratios incl. `3:2` `4:3` `5:4` | **50,000 chars** | Photoreal people and products; strongest identity lock across references. The most prompt room on the API. |
 | **`reve-2.1`** | Image | — | same 10 ratios | **4,000 chars** | Third look / second opinion on a still. The one image model still on the old tight budget. |
 | **`seedream-5-lite`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Lite (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
@@ -472,10 +476,10 @@ is the current answer, this table is a map.
 
 Image calls take `numImages` 1–4. Two of their limits are **per model** and neither is one
 number across the set. The `referenceAssetIds` cap is 14 on `nano-banana-pro`, 8 on
-`reve-2.1`, 4 on each of the three GPT models, 10 on each Seedream 5 model. The prompt ceiling is 50,000, 4,000 and 32,000 in
+`reve-2.1`, 4 on each of the five GPT models, 10 on each Seedream 5 model. The prompt ceiling is 50,000, 4,000 and 32,000 in
 that same order, split apart by deployed spec 2.16.0 from what used to be 4,000 everywhere. So a
 prompt written for one image model may be too long for another, and switching to `reve-2.1` for a
-second opinion is the case that hits it. The three GPT models are the case that does not, because
+second opinion is the case that hits it. The five GPT models are the case that does not, because
 they share one grid. Images have no start-frame concept. Videos are
 asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body,
 or answer `running` and are polled the same way.

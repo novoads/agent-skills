@@ -52,8 +52,8 @@ including whether there is a job.
   this API described"*, never as a diagnosis of the key, the plan or the prompt.
 - Before anything is retried, `GET /v1/generations` is called and matched on
   `createdAt` — a row may exist, may be charged, and may already be refunded.
-- Nothing is re-sent blind. There are **no idempotency keys**, so a retry can render and
-  charge again.
+- Nothing is re-sent blind. A video call carries an `idempotencyKey` or is checked in
+  `GET /v1/generations` first; an image call takes no key, so a retry can render and charge again.
 - The user is told plainly whether a charge landed and whether it came back, from the
   ledger rather than from the failed response.
 - On a bare edge page specifically, the client is examined before the credential. A
@@ -151,11 +151,11 @@ the array is treated as a verdict in either direction.
 **Scenario.** An agent reads this skill top to bottom and reaches *Guardrails* last.
 
 **Observed drift — found, and corrected.** The `POST /v1/images` section states the
-reference cap is per model — `nano-banana-pro` **14**, `reve-2.1` 8, `gpt-image-2` 4 —
+reference cap is per model — `nano-banana-pro` **14**, `gpt-image-2` 4 —
 and [reference.md](reference.md) agrees, with the probe log attached: verified live
 2026-08-04 against spec `2.7.0`, *which raised `nano-banana-pro` from 4 to 14*, each
 probe pinned with an out-of-range `numImages` so no body could be valid (15 refused, 14
-accepted; 9 on `reve-2.1` refused, 8 accepted; 5 on `gpt-image-2` refused).
+accepted; 9 on `reve-2.1` (since retired) refused, 8 accepted; 5 on `gpt-image-2` refused).
 
 The *Guardrails* bullet read **"4 on `gpt-image-2` and `nano-banana-pro`"** — the
 pre-`2.7.0` value — for as long as it took someone to read the file top to bottom rather
@@ -178,7 +178,8 @@ is the general lesson: a summary that restates a number owns that number forever
   charged, which is the good outcome: a silently dropped reference would be a paid render
   missing the product.
 - Video references are understood as a **different** number and a narrower set: up to 9,
-  on the three Seedance variants only. (Here "video references" means image references
+  on the three Seedance variants and `wan-3.0`, with `omni-flash` on its own limit. (Here
+  "video references" means image references
   on a video model; Seedance mp4 and mp3 references since API 2.35.0 have their own caps.)
 - A guardrail bullet that restates a limit is checked against the section it summarises
   before it is quoted to a user.
@@ -188,34 +189,33 @@ quoted as the cap; or a video cap and an image cap are conflated.
 
 ---
 
-## NA5 — The charge is on the `202`, and it is the only copy
+## NA5 — The charge goes on the line from the `202`
 
 **Scenario.** A render is submitted, polled to `succeeded`, downloaded and handed over.
 Later someone asks what the run cost.
 
-**Why.** `creditsCharged` comes back on the submit's `202` and **is not on the poll
-payload** — the poll returns `jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`,
-and once succeeded `outputUrl` plus its expiry, verified live 2026-08-03. So a log line
-written without the charge can never be completed. The failure mode is not a missing
-number: it is that the number then gets **reconstructed from a rate**, which is exactly
-what `scripts/check-no-rates.sh` exists to prevent, and the reconstruction is
+**Why.** `creditsCharged` comes back on the submit's `202`, and the job read carries it
+too, so a log line written without the charge is completed from
+`GET /v1/generations/{jobId}`. The failure mode is not a missing number: it is that the
+number gets **reconstructed from a rate**, which is exactly what
+`scripts/check-no-rates.sh` exists to prevent, and the reconstruction is
 indistinguishable from a measurement.
 
 **Assertions.**
 
 - The submission is logged **immediately**, one line, carrying `creditsCharged` from the
   `202`. The charge goes on the line now.
-- The line is updated by `jobId`, not by position — up to five jobs are in flight and the
+- The line is updated by `jobId`, not by position — up to ten video jobs are in flight and the
   one being updated is often not the last written.
 - The log is never a pricing source. Prices come from `POST /v1/estimates`, always.
 - No prompt text, key or `Authorization` header is ever logged.
 - A cost reported to the user is summed from `creditsCharged` values, never from the
   estimate and never from a per-unit figure.
-- If the charge is missing from a line, that is reported as unknown rather than
-  reconstructed.
+- If the charge is missing from a line, it is read off the job, never reconstructed.
 
-**Fails if:** the poll is searched for `creditsCharged`; or a total is derived
-arithmetically from a rate; or a run reports the estimate as what was spent.
+**Fails if:** a missing charge is rebuilt from a rate rather than read off the job; or a
+total is derived arithmetically from a rate; or a run reports the estimate as what was
+spent.
 
 ---
 
@@ -261,7 +261,7 @@ where `-v error` is correct because `-show_entries` writes to stdout.
 
 **Fails if:** a video is handed over untranscribed; or `-v error` rides on either
 loudness call; or a stutter is fixed by editing the prompt (it is nondeterministic
-delivery — re-sampling the identical body is the right move, and it still costs).
+delivery — re-sampling the identical body under a new key is the right move, and it still costs).
 
 ---
 
@@ -271,15 +271,16 @@ delivery — re-sampling the identical body is the right move, and it still cost
 generating.
 
 **Why, and it is measured.** The in-flight count is **per organization**, not per key or
-per session: two agents each holding three renders open produce a refused sixth
-submission with neither individually misbehaving — observed live 2026-08-12 across
-parallel callers on one org, and again in the dogfooding run (RUN-FINDINGS item 9),
-where it cleared in about two minutes. **Nothing is charged on the refusal**: the row is
-never created, so there is no job to find and no credit to reclaim.
+per session: two agents each holding five renders open see an eleventh submission refused,
+with neither individually misbehaving. That was observed live 2026-08-12 across parallel
+callers on one org, under the old ceiling of five (three renders each, a sixth refused),
+and again in the dogfooding run (RUN-FINDINGS item 9), where it cleared in about two
+minutes. **Nothing is charged on the refusal**: the row is never created, so there is no
+job to find and no credit to reclaim.
 
 The queues are separate, and that is the part an agent gets wrong. Video, images,
 captions, transcripts, voice-overs and voice-changes each have their own ceiling and
-their own `details.reason`. The deployed spec names twelve reasons. An agent that reads
+their own `details.reason`. The deployed spec names seventeen reasons (2.60.0). An agent that reads
 only *"429 means slow down"* backs off on the wrong axis when the problem is jobs in
 flight — and may be backing off the wrong **queue** entirely.
 
@@ -292,10 +293,10 @@ flight — and may be backing off the wrong **queue** entirely.
 - `organization_limit` is not answered by minting another key, and the `X-RateLimit-*`
   headers still showing room on the key is understood as correct rather than as a broken
   limiter.
-- No branch is written on a `details` key the spec does not name. `details.inFlight` on
-  a concurrency refusal is the only extra there is.
-- At most ten generations are in flight, and the ceiling is stated as shared with
-  whatever else the account is running.
+- No branch is written on a `details` key the spec does not name. `details.inFlight` is the
+  extra a concurrency refusal carries.
+- At most ten video generations are in flight, and the ceiling is stated as shared with
+  whatever else the account is running on that queue. Images queue apart, twelve at most.
 
 **Fails if:** a concurrency refusal is backed off; or the user is told a refused
 submission cost them something; or one queue's refusal stops the others.
@@ -318,10 +319,10 @@ as **not re-verified**, because confirming it again means a paid render — whic
 itself worth asserting: the run does not go and check.)
 
 **The neighbouring shape, same lesson.** Never carry a `resolution` across a model
-switch. `seedance-2.5` renders `480p` and `720p` and nothing above — a workflow that
-renders `seedance-2.0` at `1080p` and swaps the model id is a **rejected request**, not
+switch. `seedance-2.5` stops at `1080p` and never takes `4k` — a workflow that
+renders `seedance-2.0` at `4k` and swaps the model id is a **rejected request**, not
 a downgrade. And the estimate body more generally is strict and narrow: it takes only
-the fields that move the price, so `aspectRatio`, `startImageAssetId`,
+the fields its arm lists, so `aspectRatio`, `startImageAssetId`,
 `referenceAssetIds`, `productId`, `audioEnabled` and `styleFamily` are each a `400`
 there — while some of them are perfectly valid on the generation call.
 
@@ -332,8 +333,8 @@ there — while some of them are perfectly valid on the generation call.
   it. The two schemas are different and the differences are documented per field.
 - `resolution` is re-priced whenever the tier changes, and never carried across a model
   change.
-- `model` is named explicitly in every estimate body — the schedules span more than 10×
-  across the set at one length, and the prompt ceiling is enforced against whichever
+- `model` is named explicitly in every estimate body — the schedules span about 44×
+  across the set at four seconds, and the prompt ceiling is enforced against whichever
   model is named. Naming none is judged as `seedance-2.0`.
 - `durationSeconds` is validated against the **named model's** grid, and an out-of-grid
   value is **rejected, never rounded**.

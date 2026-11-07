@@ -328,7 +328,7 @@ template that omits them manufactures the same defect in every prompt written fr
   double quotes and call it done — the model reads a quoted string as a line to speak.
 
 - **No forbidden words:** `cinematic`, `professional`, `stunning`, `8k`, `studio`,
-  `perfect`. Nothing on the API rejects or reports them — this is craft advice, and the
+  `perfect`. Nothing on the API rejects them and the estimate names only three: this is craft advice, and the
   reason to drop them is the render. Replace one with the real thing: the light source,
   the surface, the flaw.
 
@@ -385,8 +385,8 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    ```
 
    then PUT the raw bytes to the `uploadUrl` it returns, sending back **exactly** the
-   headers it returned. The `assetId` is durable and reusable across calls, models and
-   sessions — upload once and keep the id.
+   headers it returned. The `assetId` can be reused across calls and
+   models — upload once and keep the id.
 
 2. **Price it — gate 2.** `POST /v1/estimates` with `kind: "video"`, the `prompt`, the
    `model` and `durationSeconds`. It charges nothing and it is the only source of a price. It also
@@ -405,7 +405,7 @@ The template is the deliverable; this step only proves it. It runs the full sequ
      -H "Authorization: Bearer $NOVOADS_API_KEY" \
      -H "Content-Type: application/json" \
      -d '{
-       "model": "seedance-2.0",
+       "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
        "prompt": "<the filled-in prompt>",
        "durationSeconds": 15,
        "aspectRatio": "9:16",
@@ -427,9 +427,9 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    `outputs/<descriptive-subfolder>/`, and open the folder so the user can watch it.
 
 **Draft on `seedance-2.0-mini` first.** It is the same grid, the same fields and the same
-prompt at half the price, back in 2 to 3 minutes — and since the `assetId` is durable, the
-final render on `seedance-2.0` reuses the same upload. A template validated on mini is a
-template validated.
+prompt at about a fifth of the price, back in 2 to 3 minutes — and since the `assetId` can be
+reused, the final render on `seedance-2.0` reuses the same upload. A template validated on
+mini is a template validated.
 
 Paste this block into every template you generate, so the formula carries its own call
 sequence:
@@ -437,7 +437,7 @@ sequence:
 ```markdown
 ## Generating from this template
 
-1. Upload the product photo: `POST /v1/uploads` → `assetId` (durable, reuse it).
+1. Upload the product photo: `POST /v1/uploads` → `assetId` (reuse it across calls).
 2. Price it: `POST /v1/estimates` with `kind: "video"`, `model`, `durationSeconds`,
    `prompt`. It charges nothing, it is mandatory, and it is the only source of a price — show the number out loud
    before spending.
@@ -446,7 +446,7 @@ sequence:
 
 \```json
 {
-  "model": "seedance-2.0",
+  "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
   "prompt": "<your filled-in prompt>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",
@@ -460,8 +460,8 @@ sequence:
 5. Poll `GET /v1/generations/{jobId}` every 15s until a terminal status, then download from
    `GET /v1/generations/{jobId}/watch`.
 
-Every clip in a series is its own call and its own charge. Five generations per
-organization may be in flight at once.
+Every clip in a series is its own call and its own charge. Ten generations per
+organization may be in flight at once (API 2.51.0).
 ```
 
 ## Related files
@@ -470,7 +470,7 @@ organization may be in flight at once.
   a generated video for the user's product instead of a template file.
 - [scripts/extract-frames.sh](scripts/extract-frames.sh) — frame and audio extraction,
   shared by both skills.
-- [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) — the platform guide every generated template defers to. The other two live video models carry their own grids, and you need one the moment a template targets them rather than Seedance: [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) when the first spoken word has to land immediately (it measured no leading silence, where Seedance front-loads 3–5s), [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo or the shot has to evolve over its runtime. Neither takes `referenceAssetIds`.
+- [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) — the platform guide every generated template defers to. The other live video models carry their own grids, and you need one the moment a template targets them rather than Seedance: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo or the shot has to evolve over its runtime (it takes no `referenceAssetIds`), [kling-3.md](../novoads-api/prompting/prompt-library/kling-3.md) for `kling-v3-pro` (vendor craft; the body is in reference.md), and [the Omni Flash guide](../../shared/skills/gemini-omni-flash/prompting/guide.md) for `omni-flash`; `wan-3.0` has no guide here, so its grid is the `POST /videos` table in [reference.md](../novoads-api/reference.md). A template whose first spoken word has to land immediately stays on `seedance-2.0`, with a reference or a start frame (about 0.5s of leading silence), the eye-contact-break beat dropped, and the first `silence_end` checked and trimmed; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md), the model that measured none, was removed from the API in 2026-09 and is kept as history.
 - [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) — the cross-model UGC guide. Its *Core principles* transfer to Seedance; its per-model formulas do not — never port one across by find-and-replace.
 - [../../SKILL.md](../novoads-api/SKILL.md) — the call sequence, the two gates, polling, download.
 - [../../reference.md](../novoads-api/reference.md) — every endpoint, field, limit and error code.
@@ -502,7 +502,7 @@ skills/novoads-api/
         ├── character-sheet.md                ← image formulas (character consistency)
         ├── character-sheet-gpt-image-2.md    ← the same on gpt-image-2
         ├── nano-banana.md                    ← image formulas (Nano Banana Pro)
-        ├── sora-2.md · veo-3-1.md            ← the other two LIVE video models' grids
+        ├── veo-3-1.md · sora-2.md            ← Veo's grid; Sora's, kept as history (removed 2026-09)
         └── kling-3.md · ugc-selfie-style.md  ← Kling 3.0 is on the API as `kling-v3-pro` (2.38.0); the selfie guide is cross-model
 ```
 

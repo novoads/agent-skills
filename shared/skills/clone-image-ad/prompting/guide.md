@@ -2,15 +2,18 @@
 
 This guide is the shared brain for the **`clone-image-ad`** skill — taking an existing image ad and turning it into a parameterizable prompt template stored in the shared library.
 
-The workflow is **model-agnostic through Phase 6**. The model choice happens in Phase 1: the skill asks the user (or auto-detects from the reference's typography-vs-photo balance) which of the three Novoads image models to validate against:
+The workflow is **model-agnostic through Phase 6**. The model choice happens in Phase 1: the skill asks the user (or auto-detects from the reference's typography-vs-photo balance) which of the two models the validator takes to validate against:
 
 - **`gpt-image-2`** — typography / UI-mimicry templates
 - **`nano-banana-pro`** — photoreal / lifestyle / multi-reference templates
-- **`reve-2.1`** — the third opinion, when a template renders wrong on both of the others or the user wants a deliberately different look
 
-Phase 8 optionally cross-validates on another model so the resulting library entry has accurate `Model notes:`.
+`reve-2.1`, the third opinion this list used to carry, was retired in API 2.48.0 and is refused
+before any charge. A second opinion, when a template renders wrong on the model you picked or
+the user wants a deliberately different look, now means the other model of these two.
 
-All three are reached through this skill's own validator, `scripts/validate_image.py`. The two
+Phase 8 optionally cross-validates on the other model so the resulting library entry has accurate `Model notes:`.
+
+Both are reached through this skill's own validator, `scripts/validate_image.py`. The two
 generator skills are model-locked on purpose; cloning is the one workflow that needs to move
 between models, so it carries its own caller.
 
@@ -41,8 +44,8 @@ For the shared library, see:
 ## Cost — the one thing this workflow gets wrong if you let it
 
 Every generation in this workflow is charged. There are no free re-rolls and no refunds for a
-render you didn't like (the only automatic refund is `502 provider_failed`, when the provider
-itself broke).
+render you didn't like (automatic refunds cover a job that fails: a `502 provider_failed`, a job that ends
+`failed` or `blocked`, and any images a short batch did not deliver).
 
 Before Phase 4, price the run with `POST /v1/estimates`:
 
@@ -55,8 +58,8 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
 
 Multiply by the number of calls the run may need and present that as a **range**: the floor is
 Phase 4 + Phase 7 (two calls), the ceiling is Phase 4 + four iterations + Phase 7 + Phase 8.
-Say which model each leg prices at — the schedules differ by more than 3× across the three, so
-a cross-model Phase 8 on `reve-2.1` costs meaningfully more than the same call on `gpt-image-2`.
+Say which model each leg prices at: the two models price on different schedules, so a
+cross-model Phase 8 on `nano-banana-pro` is not priced by an estimate made for `gpt-image-2`.
 
 A **batch** (several references in one conversation) prices once, up front: the estimate
 validates the prompt it is given, so run one estimate (it charges nothing) per distinct final prompt, present
@@ -64,24 +67,24 @@ one combined range covering every reference, and get ONE yes for the whole batch
 
 A batch also needs a **ledger, not a tally**. Summing each response's `creditsCharged` is
 correct per call and silently under-reports across a batch — one response that scrolled past
-instead of landing in the log is enough, and a 2026-08-05 nine-call run reported 3.00 credits
-across 8 calls when the truth was 3.5 across 9. So read the `balance` that `POST /v1/estimates`
+instead of landing in the log is enough, and a 2026-08-05 nine-call run summed the charges of
+8 calls when the truth was 9. So read the `balance` that `POST /v1/estimates`
 returns **before the first charged call and again after the last** (the estimate charges nothing; this
 adds no cost), and report both: the summed `creditsCharged` and the balance delta.
 
 **When they disagree, the delta wins only if you are the sole spender on the organization.** The
 balance is org-wide, so anything else charging that key lands in your delta. Measured 2026-08-06:
-a three-call probe summed 0.9 (correct — 0.3 × 3) while the full-window delta read 2.4, because
-parallel sessions were generating against the same org; the balance moved 3.4 credits between two
+a three-call probe summed correctly while the full-window delta read more than double that, because
+parallel sessions were generating against the same org; the balance also moved between two
 runs in which this workflow spent nothing at all. The fix is not to distrust the delta, it is to
 **bracket tightly**: read the balance immediately before and immediately after *each* charged
-call, not once around the whole batch. Tight brackets in that same run reproduced 0.3 exactly.
+call, not once around the whole batch. Tight brackets in that same run reproduced each call's charge exactly.
 So: report both numbers, prefer the delta when the brackets are tight and the org is quiet,
 prefer the per-call `creditsCharged` when other work is in flight, and **say which one you chose
 and why** — a number reported without that context is the failure mode this rule exists to stop.
 
-The estimate charges nothing and it is the **only** legitimate source of a price. It says nothing about
-the prompt — no endpoint here does — so re-read the clone prompt against the template rules
+The estimate charges nothing and it is the **only** legitimate source of a price. Its `warnings` are
+advice on the prompt and never a verdict, so re-read the clone prompt against the template rules
 yourself before pricing. It is going to be run six times, which makes a flaw in it six times as
 expensive as anywhere else in the ecosystem.
 
@@ -100,7 +103,7 @@ expensive as anywhere else in the ecosystem.
 
 1. The reference image path resolves to an existing file. If not, stop and ask.
 2. `.env` has `NOVOADS_API_KEY`; `./scripts/check-novoads-env.sh` prints OK.
-3. **Pick the model.** Ask the user "validate against gpt-image-2, nano-banana-pro, or reve-2.1?" or auto-detect from the reference (typography-heavy → `gpt-image-2`; photoreal / handheld / multi-ref → `nano-banana-pro`). Default to one of those two; `reve-2.1` is a deliberate choice, not a fallback.
+3. **Pick the model.** Ask the user "validate against gpt-image-2 or nano-banana-pro?" or auto-detect from the reference (typography-heavy → `gpt-image-2`; photoreal / handheld / multi-ref → `nano-banana-pro`). Do not offer `reve-2.1`: it was retired in API 2.48.0, and the validator refuses it by name.
 4. Locate this skill's validator: `skills/clone-image-ad/scripts/validate_image.py`. It takes `--model` and applies that model's own aspect-ratio grid.
 5. Read the save target (the shared library). If the file exists, read its current entries to know what tags are taken. If not, plan to create it.
 
@@ -110,11 +113,11 @@ This is the most important phase. Read the reference image and describe what you
 
 - **Aspect ratio.** Measure or estimate (W:H). Map to the nearest ratio the chosen model accepts:
   - `gpt-image-2`: `1:1` `2:3` `4:5` `9:16` `16:9` `21:9`
-  - `nano-banana-pro` and `reve-2.1`: those six plus `3:2` `3:4` `4:3` `5:4`
+  - `nano-banana-pro`: those six plus `3:2` `3:4` `4:3` `5:4`
 
   If the original's ratio exists on one model and not another, say so in the template's
   `Aspect ratio:` field — it is a real routing constraint, not a footnote. A `1.91:1` ad maps
-  to `16:9` and post-crops; a `4:3` ad is native on two models and needs a mapping on the third.
+  to `16:9` and post-crops; a `4:3` ad is native on `nano-banana-pro` and needs a mapping on `gpt-image-2`.
 - **Format type.** What this ad pretends to be: editorial article, product flatlay, comparison table, fake search results, story composite, native UI mimic, etc.
 - **Layout structure.** Header / hero / footer / grid — how regions are arranged.
 - **Typography.** Family (geometric sans, condensed sans, serif, handwritten marker, monospace), weight, hierarchy. Do NOT name specific fonts unless they're iconic and necessary; instead describe the *feel*.
@@ -149,17 +152,15 @@ the three always-on safety suffixes consume 1,575 characters of it before your f
 |---|---|---|
 | `gpt-image-2` | 32,000 | 30,425 |
 | `nano-banana-pro` | 50,000 | 48,425 |
-| `reve-2.1` | 4,000 | **2,425** |
 
-Deployed spec 2.16.0, verified 2026-08-08. On the first two, be as exhaustive as Phase 2 asks
-and do not budget at all: a faithful six-panel clone wants roughly 3,000 characters, which is a
-tenth of the room. On `reve-2.1` that same clone overflows on the first attempt, and that is the
-expected outcome rather than user error. The validator checks the assembled prompt locally,
+Deployed spec 2.16.0, verified 2026-08-08. On both, be as exhaustive as Phase 2 asks and do not
+budget at all: a faithful six-panel clone wants roughly 3,000 characters, which is a tenth of
+the room. (The one model where that clone overflowed, `reve-2.1` at 4,000, was retired in API
+2.48.0.) If a prompt ever does overflow, the validator checks the assembled prompt locally,
 fails before spending anything, prints the exact budget for the flags you passed
-(`--allow-chrome` and `--no-safe-zone` each buy some of it back), and names the roomier models.
-On `reve-2.1`, aim under 2,425 anyway: a v1 that only just fits leaves no room for Phase 5's
-refinements. Switching models is the other repair, and usually the better one, since trimming
-costs the clone fidelity the run exists to measure.
+(`--allow-chrome` and `--no-safe-zone` each buy some of it back), and names the roomier model.
+Switching models is the other repair, and usually the better one, since trimming costs the
+clone fidelity the run exists to measure.
 
 Show the v1 prompt to the user, then price the run (see **Cost** above) and get the go-ahead.
 
@@ -169,7 +170,7 @@ Fire one generation with the original as a reference and the matched aspect rati
 
 ```bash
 ./skills/clone-image-ad/scripts/validate_image.py \
-  --model <gpt-image-2|nano-banana-pro|reve-2.1> \
+  --model <gpt-image-2|nano-banana-pro> \
   --prompt "$(cat prompts/<tag>-v1.txt)" \
   --aspect-ratio <matched_ratio> \
   --image-ref <reference_path> \
@@ -182,10 +183,10 @@ shell-quoting hell. Name the directory: `prompts/` is gitignored and is where co
 belong, so the six or so drafts Phase 5 goes through stay out of the user's `git status`. This
 line used to say "a temp file" and nothing more, and a session that took it at its word invented
 a top-level `prompts/` of its own — correct instinct, untracked directory, a diff the user had to
-explain.) The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Read the generated
+explain.) The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid. Read the generated
 image when it returns.
 
-The reference cap is per model — 4 on `gpt-image-2`, 14 on `nano-banana-pro`, 8 on `reve-2.1`
+The reference cap is per model — 4 on `gpt-image-2`, 14 on `nano-banana-pro`
 (verified against spec 2.7.0, 2026-08-04). For Phase 4 you normally pass exactly one: the
 original ad.
 
@@ -204,13 +205,13 @@ problem and needs more dramatic editing rather than tweaking. Every iteration is
 the running total and report it at the end.
 
 **Upload the original once — and every render is addressable after that.** The `assetId` from
-`POST /v1/uploads` is durable and reusable without limit, so the source ad is uploaded one time
+`POST /v1/uploads` can be reused across calls, so the source ad is uploaded one time
 and passed to Phase 4, all four Phase 5 iterations, Phase 7 and Phase 8 off that one id. Since
 deployed spec `2.11.0` the *generated* images are addressable the same way: every entry in an
 `images[]` response carries its own `assetId`, and `referenceAssetIds` and `sourceAssetId` both
 accept it directly. So an iteration can be anchored to the previous render — `referenceAssetIds:
 [original, v1]` to say "keep what v1 got right, fix the header" — with no download and no
-re-upload. Re-uploading a file you already have an id for is the bug, not the safe move.
+re-upload. Re-uploading a file you already have a working id for is a wasted step, not the safe move.
 
 ### Phase 6: Generalize into placeholders
 
@@ -247,7 +248,7 @@ Pick a different brand and substitute test values into every placeholder. Genera
 If the test fails, the structure breaks under different brand assumptions — return to Phase 6 and refine the placeholder set. Often the fix is a placeholder that was missed (e.g. you hardcoded a font feel that's specific to one brand).
 
 **The second way to run this phase: edit the source instead of re-describing it.** `POST /v1/images`
-takes `sourceAssetId` (`gpt-image-2` only) — pass the ORIGINAL ad and a prompt that names only what
+takes `sourceAssetId` (the GPT models; the validator sends `gpt-image-2`) — pass the ORIGINAL ad and a prompt that names only what
 changes, and the model repaints those zones while leaving the rest of the frame alone. That is
 exactly what Phase 7 is trying to prove, so it is the better instrument here:
 
@@ -257,7 +258,7 @@ exactly what Phase 7 is trying to prove, so it is the better instrument here:
   --out iterations/clone-<date>/T40/test-fill --env-file .env
 ```
 
-Measured on a 2026-08-06 A/B (one source, three renders, `gpt-image-2`, 0.3 credits each):
+Measured on a 2026-08-06 A/B (one source, three renders, `gpt-image-2`):
 
 - **Phase 4 is NOT the place for it.** Given the same full faithful-reproduction prompt, the edit
   arm came back *worse* than the reference arm at identical cost — it recoloured a headline block
@@ -281,13 +282,13 @@ before spending.
 
 ### Phase 8: Cross-model validation (optional but recommended)
 
-Run the same template through another model and note the deltas in the `Model notes` block:
+Run the same template through the other model (`nano-banana-pro` if `gpt-image-2` drew it,
+`gpt-image-2` if `nano-banana-pro` did) and note the deltas in the `Model notes` block:
 
 ```markdown
 **Model notes:**
 - **gpt-image-2:** {what works, what struggles, e.g. "clean — strong on the table text"}
 - **nano-banana-pro:** {e.g. "table text blurs at small row height — keep rows to 4 max, or use gpt-image-2"}
-- **reve-2.1:** {untested, or what it did differently}
 ```
 
 Only the model you actually ran gets a claim. For the rest, say so:
@@ -296,7 +297,6 @@ Only the model you actually ran gets a claim. For the rest, say so:
 **Model notes:**
 - **gpt-image-2:** validated clean (see iteration path)
 - **nano-banana-pro:** untested — validate before using on that model
-- **reve-2.1:** untested
 ```
 
 Never write a note for a model you didn't run. An invented model note is worse than an absent
@@ -309,7 +309,7 @@ Compose the library entry. Use the format in [template-format.md](../../image-ad
 The entry must include:
 - **Tag and one-line title** (e.g. `T40 — Lifestyle hero with overlay text`)
 - **When to use** — 1-2 sentences on positioning fit
-- **Aspect ratio** recommendation, and whether it is native on all three models
+- **Aspect ratio** recommendation, and whether it is native on both models
 - **Reference image guidance** — what kind of reference to pass when reusing this template
 - **Variable schema** — every `{placeholder}` with a 1-line description
 - **Template prompt** in a fenced code block, ready to copy-paste-fill
@@ -333,9 +333,9 @@ If the save target already has T1–T42, continue with T43, T44, … Use semanti
 
 - **Generating real ads / uploading to Meta.** The `meta-ad-builder` skill. This skill produces templates only.
 - **Reverse-engineering video ads.** Image only. Refuse with: *"This skill is for static image ads. Video reverse-engineering isn't supported in this version."*
-- **Multi-template extraction in one run.** One reference → one template per skill invocation. A folder of N references is N independent runs — and they may run in parallel: since deployed spec `2.12.0` images have their **own** concurrency budget of **12** in flight per organization (`429`, `details.reason` `image_concurrency_limit`), counted separately from the 5-video budget in both directions, so a clone batch may run twelve wide and never blocks a render. Stagger only beyond 12. (Before `2.12.0` images spent video slots and the number here was 5 — if a `429` says `concurrency_limit` rather than `image_concurrency_limit`, you are reading the video queue.) Price the whole batch up front per the Cost section — one estimate per distinct final prompt (it charges nothing), one combined range, ONE consent before the first charged call.
+- **Multi-template extraction in one run.** One reference → one template per skill invocation. A folder of N references is N independent runs — and they may run in parallel: since deployed spec `2.12.0` images have their **own** concurrency budget of **12** in flight per organization (`429`, `details.reason` `image_concurrency_limit`), counted separately from the 10-video budget in both directions, so a clone batch may run twelve wide and never blocks a render. Stagger only beyond 12. (Before `2.12.0` images spent video slots and the number here was 5 — if a `429` says `concurrency_limit` rather than `image_concurrency_limit`, you are reading the video queue.) Price the whole batch up front per the Cost section — one estimate per distinct final prompt (it charges nothing), one combined range, ONE consent before the first charged call.
 - **Modifying existing templates in the library.** If the user wants to revise T3, treat it as a new run pointed at the same library entry — show the diff and ask before overwriting.
-- **Editing the source image *as the way to build the template*.** There IS an image-edit path — `sourceAssetId` on `POST /v1/images`, `gpt-image-2` only — but a template is a *prompt*, and an edit produces a picture without producing the prompt that made it. Use it where it belongs (Phase 7) and never as a shortcut past Phases 3-6. An earlier version of this file said flatly that no edit path existed; that stopped being true at deployed spec `2.10.0`.
+- **Editing the source image *as the way to build the template*.** There IS an image-edit path — `sourceAssetId` on `POST /v1/images`, the GPT models only — but a template is a *prompt*, and an edit produces a picture without producing the prompt that made it. Use it where it belongs (Phase 7) and never as a shortcut past Phases 3-6. An earlier version of this file said flatly that no edit path existed; that stopped being true at deployed spec `2.10.0`.
 
 ## Files this skill writes to (in user space)
 

@@ -231,27 +231,28 @@ cost gate did not price.
   it to the beat list; leave a beat of hold at the end. Out-of-grid values are rejected,
   never rounded. Most motion graphics live at the short end, and the schedule is per-second,
   so price the duration you actually need rather than the one the grid allows. Never rank it
-  against other models from memory: which cell is dearest depends on the provider this
-  deployment routes to, and the estimate is the only thing that knows.
+  against other models from memory: which cell is dearest moves with the schedules, and
+  the estimate is the only thing that knows.
 - `aspectRatio` — `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9`.
-- `resolution` — `480p` or `720p`. **720p is this model's ceiling**, not a floor: 1080p and
-  4k belong to other models and are a `400` here.
+- `resolution` — `480p`, `720p` or, where `GET /v1/models` lists it (API 2.28.0), `1080p`.
+  **`4k` belongs to other models** and is a `400` here.
 - `audioEnabled` — `false` unless sound is wanted.
 - **Four takes gives useful choice.** There is no variations-per-call field, so that is four
-  submissions of the identical payload, and **four charges** — which is why it belongs
-  inside the cost gate rather than after it. At most **ten** generations may be in flight
-  per organization; an eleventh comes back `429` with `details.reason: concurrency_limit`, which
-  means wait for a slot rather than lengthen the backoff.
+  submissions of the identical payload, any `idempotencyKey` new on each, and **four charges** —
+  which is why it belongs inside the cost gate rather than after it. At most **ten** generations
+  may be in flight per organization; an eleventh comes back `429` with
+  `details.reason: concurrency_limit`, which means wait for a slot rather than lengthen the
+  backoff.
 
-Submit returns `202` with `jobId` and `creditsCharged`. **The poll payload does not carry the
-charge**, so log it from the `202` while you have it — a line written without it cannot be
-completed later. Poll `GET /v1/generations/{jobId}` every 15 seconds until
+Submit returns `202` with `jobId` and `creditsCharged`. **Log the charge from the `202` while
+you have it**, so a crashed session still leaves it on the line. Poll
+`GET /v1/generations/{jobId}` every 15 seconds until
 a **terminal** status, then `GET /v1/generations/{jobId}/watch` for the file into
 `outputs/<descriptive-name>/`. Nothing here has measured a `seedance-2.5` wait: say it is
 unknown rather than lending it `seedance-2.0`'s range. Full sequence in
 [`novoads-api/SKILL.md`](../novoads-api/SKILL.md).
 
-If the still needs building or rebuilding first, generate it before animating. A crisp, correctly-composed, correctly-lettered source frame is the foundation of the whole shot — the video stage carries forward what it is handed. Both [`chatgpt-image-ad`](../chatgpt-image-ad/SKILL.md) (`gpt-image-2`) and [`nano-banana-image-ad`](../nano-banana-image-ad/SKILL.md) (`nano-banana-pro`) are available, and the decision tree between them is in [OVERVIEW.md](../../shared/skills/image-ad-prompting/OVERVIEW.md); when it matters, run the same prompt through both and compare rather than assuming. `POST /v1/images` usually answers with the finished still. One still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it: that job is already paid, and a resubmit is a second charge. Either way, the finished image's `assetId` goes straight into `startImageAssetId` with no download-and-re-upload hop.
+If the still needs building or rebuilding first, generate it before animating. A crisp, correctly-composed, correctly-lettered source frame is the foundation of the whole shot — the video stage carries forward what it is handed. Both [`chatgpt-image-ad`](../chatgpt-image-ad/SKILL.md) (`gpt-image-2`) and [`nano-banana-image-ad`](../nano-banana-image-ad/SKILL.md) (`nano-banana-pro`) are available, and the decision tree between them is in [OVERVIEW.md](../../shared/skills/image-ad-prompting/OVERVIEW.md); when it matters, run the same prompt through both and compare rather than assuming. `POST /v1/images` usually answers with the finished still. One still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there. Never resubmit it: that job is already paid, and a resubmit is a second charge. Either way, the finished image's `assetId` goes straight into `startImageAssetId` with no download-and-re-upload hop.
 
 Both of those generators auto-append three always-on guard clauses to whatever prompt you
 hand them — no platform chrome, an 84% edge-safe zone, no glyph soup inside body text — so do
@@ -286,8 +287,8 @@ Two things worth knowing before they cost a call:
 - **`Content-Type` and `Content-Length` are both signed into the URL.** If either differs
   from what was returned, storage rejects the PUT with a `403` that looks like an auth
   failure and is not one. Measure the file, do not estimate it.
-- **The `assetId` is durable and reusable without limit** — it is the storage key itself.
-  Upload the image once and reuse it across every iteration and every model. The 900-second
+- **The `assetId` can be reused across calls** — it is the storage key itself.
+  Upload the image once and reuse it across iterations and models. The 900-second
   expiry belongs to the **upload URL**, not to the asset. That distinction is the one most
   likely to be conflated, and re-uploading between takes is wasted work.
 
@@ -321,9 +322,10 @@ When something is off, add specificity rather than emphasis. Naming the object, 
    **send `prompt`** — it is required, and a body without it is a `400`. No rate lives in
    this file.
 2. **N takes is N charges**, said out loud before the first one fires.
-3. **720p is the ceiling** on this model. Do not offer or submit higher.
+3. **`4k` does not exist on this model**, and `1080p` only where `GET /v1/models` lists it.
+   Read the list before you offer it.
 4. **Never send `startImageAssetId` and `referenceAssetIds` together.** Separate modes.
-5. **Upload once.** The asset is durable; the URL is what expires.
+5. **Upload once.** The asset can be reused across calls; the 900-second expiry belongs to the upload URL.
 6. **The 0.0s beat names what is absent**, or the reveal cannot happen.
 7. **Quote every string individually** in the TEXT clause, and read every one back at full
    size in QA.

@@ -1,6 +1,6 @@
 # Character sheet (Nano Banana Pro) — generate an AI influencer from a text description
 
-**Use when:** The user wants to create a new AI influencer from scratch by describing them in plain English. Generates a 10-image character sheet (multiple angles, white background) that becomes the reference set for all future generations with that character.
+**Use when:** The user wants to create a new AI influencer from scratch by describing them in plain English. Generates a 10-image character sheet (multiple angles, white background) that becomes the reference set for later generations with that character.
 
 **Model:** `nano-banana-pro`. It is the only Nano Banana on this API — there is no `nano-banana-2` and no Pro/standard choice to make. **This is the default character-sheet workflow** — start here for pure photoreal AI-influencer use.
 
@@ -9,17 +9,17 @@
 ## The reference budget — read this first
 
 A generation may cite up to **14 `referenceAssetIds`** on `nano-banana-pro` (spec 2.7.0 —
-`gpt-image-2` caps at 4, `reve-2.1` at 8). The budget is generous; the discipline below still
+`gpt-image-2` caps at 4). The budget is generous; the discipline below still
 shapes this whole workflow, because more references dilute the hero.
 
-What makes it workable: `POST /v1/uploads` returns a **durable `assetId`** that keeps working
-across calls and across sessions. Uploads are free and unlimited; only generations are charged.
-So the approved hero is uploaded **once**, and its `assetId` anchors all nine remaining angles —
-and every future workflow that uses this character. Re-uploading the same file yields a
-different id and silently loses the anchor.
+What makes it workable: `POST /v1/uploads` returns an **`assetId` you can reuse across calls**.
+Uploads are free and unlimited; only generations are charged.
+So the approved hero is uploaded **once**, and its `assetId` anchors all nine remaining angles.
+A later workflow can cite it too. Keep the hero file beside it: if a call cannot find or read the
+file behind the id, or a job built on it fails and its `reasonCode` names no other cause, upload
+that file again and use the new id, which is the same picture.
 
-Record the hero's `assetId` in the character folder (see Step 6). It is the single most valuable
-artifact this workflow produces.
+Record the hero's `assetId` in the character folder (see Step 7), beside the hero image it came from.
 
 ## Required flow (do NOT skip steps)
 
@@ -57,7 +57,7 @@ A {age}-year-old {gender} influencer with {hair color} {hair texture} {hair leng
 - Do NOT use celebrity names or real people's names
 - Keep clothing simple and neutral — the character sheet is about the person, not the outfit
 - Always include texture cues: "visible skin texture," "individual hair strands catching light"
-- Avoid polish words like "cinematic", "ultra-detailed", "hyperrealistic". They produce the plastic look this workflow exists to avoid. Nothing on the API will catch one — describe the light source, the surface, the flaw instead.
+- Avoid polish words like "cinematic", "ultra-detailed", "hyperrealistic". They produce the plastic look this workflow exists to avoid. The estimate's `warnings` name `cinematic` and not the other two, and nothing refuses a call, so describe the light source, the surface, the flaw instead.
 
 ## Step 2: Present the expanded prompt for approval
 
@@ -81,7 +81,7 @@ Multiply by 10 and present the total against the user's `balance`. Get one expli
 the run. The estimate charges nothing and is the **only** legitimate source of a price — never quote
 credits from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md`.
 
-The call says nothing about the prompt itself — no endpoint here does. Re-read the base prompt
+Its `warnings` are advice on the prompt, never a verdict. Re-read the base prompt
 against the rules above before approving: it gets reused ten times, so a flaw in it is paid for
 ten times over.
 
@@ -95,7 +95,7 @@ This is the anchor image that defines the character. All other angles will refer
    - `prompt`: the hero prompt
    - `aspectRatio`: `9:16`
    - `productId` (optional — organizational only; omit to use the default product)
-3. **The call usually returns the image.** It blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+3. **The call usually returns the image.** It blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there. Never resubmit it; that job is already paid.
 4. **Post-generation QA:** Inspect for anatomy defects per [nano-banana.md](nano-banana.md). Regenerate with a refined prompt if needed (up to 2 retries — each is charged).
 5. Download the image to the character's `references/influencers/` folder and **open it for the user** (`open <path>` on macOS, `xdg-open` on Linux) so they can review it at full resolution.
 6. **Wait for explicit user approval.** This is the character — if they don't like it, iterate before generating 9 more images. Do NOT proceed without approval.
@@ -115,7 +115,7 @@ Once the hero is approved:
    - `referenceAssetIds`: `[hero_assetId]` — the **same id every time**, no re-upload
    - The angle-specific prompt
 4. **Rolling window for drift.** If an angle starts drifting from the hero, add the last one or two *good* angles alongside the hero: `[hero, angle_N-1, angle_N-2]`, well inside the 14-reference cap (spec 2.7.0). Keep the window small even so — never feed a drifted angle forward; a bad reference propagates.
-5. **Concurrency is 5.** Fire at most 4 at a time to keep headroom. A 6th in flight returns `429` with `details.reason: concurrency_limit`, and unlike the other 429 causes, slowing down doesn't help — only a finishing job frees a slot.
+5. **Images queue at 12.** Fire at most 4 at a time: that is this recipe's own cap, not the API's limit, and it keeps headroom. A 13th in flight returns `429` with `details.reason: image_concurrency_limit`, and unlike a per-minute limit, slowing down doesn't help; only a finishing job frees a slot.
 6. QA each image per [nano-banana.md](nano-banana.md).
 
 ### The 10 angles
@@ -196,8 +196,10 @@ enough:
 { "hero_asset_id": "<assetId from POST /v1/uploads>", "model": "nano-banana-pro" }
 ```
 
-Because the id is durable, every later workflow can cite it directly instead of re-uploading —
-which is also what keeps the character's identity stable across sessions.
+Because the id can be reused across calls, a later workflow can cite it directly. If a call cannot
+find or read the file behind it, or a job built on it fails and its `reasonCode` names no other
+cause, upload `01-hero-front.jpg` again and write the new id here: the character's identity rides
+on the picture, not the id.
 
 ### After saving
 
@@ -215,7 +217,7 @@ Once a character sheet exists in `references/influencers/`, it can be used as in
 
 When referencing an existing character, cite `01-hero-front.jpg`'s `assetId` first — order is
 preserved and the first reference is the strongest identity signal. Add up to **three** more
-angles if a pose needs extra grounding; four is the hard ceiling.
+angles if a pose needs extra grounding: four is this workflow's limit, not the API's (14 on `nano-banana-pro`).
 
 ## Example
 

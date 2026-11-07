@@ -45,7 +45,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 1. **Model is `gpt-image-2`.** The script refuses any other value. If the user asks for Nano Banana, point them at `nano-banana-image-ad`.
 2. **No platform/screenshot chrome in output.** `NO_CHROME_SUFFIX` is always on (override with `--allow-chrome` only when the ad's concept *requires* chrome — rare).
 3. **Edge-safe + glyph-safety suffixes always on** unless `--no-safe-zone` is explicit. They fix real failures; don't remove silently.
-4. **Max 4 reference images.** `referenceAssetIds` caps at 4 on `gpt-image-2` (`nano-banana-pro` takes up to 14, `reve-2.1` 8 — spec 2.7.0). The script enforces it.
+4. **Max 4 reference images.** `referenceAssetIds` caps at 4 on `gpt-image-2` (`nano-banana-pro` takes up to 14 — spec 2.7.0). The script enforces it.
 5. **Every brand mark that appears in the frame is passed as a reference asset.** Not a tip — a rule. This model invents brand-shaped content on any surface the prompt leaves unspecified, and it states it as fact. Measured over a 34-template run on one real product (2026-08-04): the label was faithful in **all 34** because a reference pinned it, while unpinned marks failed three ways — a billboard invented a *back-of-can view* carrying "OUR WATER IS SOURCED FROM THE AUSTRIAN ALPS…" with an icon row and a barcode, a prop thermos rendered a **Hydro Flask logo**, and a publication wordmark drifted. So: pin the product, pin the logo, pin any third-party mark the concept needs; and for product surfaces the ad does **not** show, say so — *"front label only; do NOT render the back of the can, no invented label copy, no ingredient text, no sourcing statement, no barcode."* One retry with that wording cured the fabricated claim completely. Unpinned means invented. **Pass it as `--pin-block "<one-line product description>"`** rather than writing the clause by hand: the script wraps the shared library's standard 346-character guard around your description, counts it against this model's prompt cap (32,000 characters, deployed spec 2.16.0, verified 2026-08-08), and refuses pre-network naming the pin block's share if it does not fit. Hand-written pin blocks ran ~700 characters and used to be the single largest cause of a refused prompt, back when the cap was 4,000 on every model. At 32,000 a hand-written block no longer overflows anything, and the reason to pass `--pin-block` is that the standard guard is the wording that was measured to work.
 6. **No Meta upload from this skill.** Image generation only. Hand off via filesystem paths.
 7. **Always show a live cost estimate before generating, and get an explicit yes.** The price comes from `POST /v1/estimates` in this session — never from memory, never from `logs/novoads-api.jsonl`, never from `MASTER_CONTEXT.md`. There are no credit numbers written down anywhere in this repo, on purpose.
@@ -72,8 +72,8 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 
 - **Base URL:** `https://api.novoads.ai` (or `NOVOADS_BASE_URL`). That is the **host only** — callers append `/v1/...`.
 - **Auth:** `Authorization: Bearer $NOVOADS_API_KEY`.
-- **Endpoint:** `POST /v1/images`: the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
-- **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` is **durable and reusable**: upload a product shot once and pass the same id on every later call.
+- **Endpoint:** `POST /v1/images`: the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid.
+- **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` **can be reused across calls**: upload a product shot once and pass the same id on later calls.
 
 ## What this model takes
 
@@ -86,8 +86,8 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 | `numImages` | `1`–`4`, **one call**, charged per image |
 | `productId` | optional, organizational only |
 
-`3:2`, `3:4`, `4:3` and `5:4` are **not** on this model — they exist on `nano-banana-pro` and
-`reve-2.1`. The request schema is strict, so sending one is a `400` before anything is charged.
+`3:2`, `3:4`, `4:3` and `5:4` are **not** on this model — they exist on `nano-banana-pro`.
+The request schema is strict, so sending one is a `400` before anything is charged.
 No template in the shared library needs them.
 
 **Four newer GPT models now sit beside this one, and the newest Sunburst is worth naming by
@@ -107,13 +107,13 @@ else in the body. The price is not the same at `high`, so price it with the `ima
 value but `gpt-image-2`, so a Sunburst render is a direct `POST /v1/images` call.
 
 **N variants is one call, not N calls.** Send `numImages: 4` and four images come back in
-`images[]`. Do not fan out four parallel requests — that burns four of your ten concurrency
+`images[]`. Do not fan out four parallel requests — that burns four of your twelve image
 slots to get the same result at the same price.
 
 **There IS an edit mode, on the GPT models only.** `sourceAssetId` edits an existing image
 instead of drawing a new one — "remove the logo on the bottle", "make the background a
 kitchen counter". `POST /v1/images` since spec **2.10.0**, since 2.25.0 on the 2.5 pair and
-since 2.57.0 on the 2.6 pair, so on all five GPT models; `nano-banana-pro` and `reve-2.1` do not publish the field, so an edit is a reason to
+since 2.57.0 on the 2.6 pair, so on all five GPT models; `nano-banana-pro` does not publish the field, so an edit is a reason to
 stay in this family rather than switch out of it.
 
 Two rules the API enforces with a `400`, not a shrug:
@@ -180,7 +180,7 @@ carries `shortBy` and `topUpUrl`. Wait for an explicit yes before Phase 5.
 Three things to know about this call:
 
 - **It reads the image prompt too, and says so in `warnings`.** `POST /v1/estimates` returns the same advisory `warnings` array of craft notes on a `kind: "image"` call as it does on video, with rules of its own — `banned_polish` and `blank_label` both observed live on deployed spec 2.19.0 (verified live 2026-08-12). The older note here, that an image estimate came back with no `warnings` key at all, described the 2026-08-04 deployment and is retired. They are still **advisory**: none refuses the call, none changes `credits`, and they match substrings, so read each one, judge it against what your prompt actually says, and state your reasoning if you override it — never paste a suggested fix into a prompt it does not fit, and never drop one silently. The rewrite rules in Phase 3 remain the real check; this is a second opinion that costs nothing on a call you were making anyway.
-- **The body is strict.** Only `kind`, `prompt`, `model`, `numImages`, `language` are accepted. Sending `aspectRatio` or `referenceAssetIds` is a `400 Unrecognized key` — the estimate never sees them, and neither affects the price.
+- **The body is strict.** This run sends `kind`, `prompt`, `model`, `numImages`; the arm also takes `language`, `quality` (it moves the price; the script has no tier flag and renders the default, so send it only for a direct `POST /v1/images` at that tier), `outputFormat` and `sourceAssetId`. Sending `aspectRatio` or `referenceAssetIds` is a `400 Unrecognized key`: the estimate never sees them, and neither affects the price.
 - **Its length check is looser than this model's.** The estimate's own request schema caps `prompt` at 50,000 characters for every image model, while `POST /v1/images` caps this one at 32,000 (deployed spec 2.16.0, verified 2026-08-08). A prompt between those two numbers prices cleanly and is then refused by the generation, so a clean estimate is not proof the prompt is sendable. `generate_image.py` measures against 32,000 before either call, which is the check that decides. The estimate does **not** run moderation either, so a prompt it blessed can still come back `422 content_policy`.
 
 Estimate the **final** prompt, the one the script will send with the safety suffixes
@@ -207,7 +207,7 @@ Each line on stdout is one JSON image (`variant`, `path`, `job_id`, `width`, `he
 `prompt`, `aspect_ratio`, `model`, `credits_charged`).
 
 Log the call to `logs/novoads-api.jsonl` per `logs/README.md` — images are written **once,
-complete** (sync endpoint, no `jobId` to poll back). Record `creditsCharged` from the response,
+complete** (the script waits out a slow render, so nothing is left to poll). Record `creditsCharged` from the response,
 never an estimate. Observability only, never a pricing source.
 
 ### Phase 5b: For an edit run
@@ -272,7 +272,7 @@ applies per image; what follows is the choreography around them.
 
 **1. Inputs.** One product photo — a real product, with its real brand on it. Upload it
 **once** with `POST /v1/uploads` and reuse that `assetId` on every template
-(`--ref-asset-id <id>`); an `assetId` is durable, and re-uploading the same bytes per
+(`--ref-asset-id <id>`); an `assetId` can be reused across calls, and re-uploading the same bytes per
 template just mints redundant assets. Also collect the offer and brand facts the templates
 interpolate (product name, claim, price, CTA). Output goes to **one flat folder** — one
 folder for the whole run, not a folder per template.
@@ -290,8 +290,8 @@ zero.
 **3. Pilot five, then check them yourself.** Run `T12` (fake ChatGPT), `T14` (fake Slack), `T33`
 (typography hero), `T34` (iMessage), `T38` (stat hero + chart) — five templates that
 exercise dense UI text, conversation layout, pure type, and chart rendering, which is where
-this model fails if it is going to. **At most 4 requests in flight** (the org concurrency
-cap is 5, it is org-wide, and anything else the account is running shares it). Then Phase 6
+this model fails if it is going to. **At most 4 requests in flight** (this run's own cap:
+the org's image queue is 12, shared by every image call it has running through the API). Then Phase 6
 QA on all five. **This is the agent's checkpoint, not the user's**
 (`shared/skills/image-ad-prompting/OVERVIEW.md` § Presenting choices to the user): when the
 five read right, continue into the remainder in the same run. Stop and show the images only
@@ -308,12 +308,12 @@ from a previous run or from another product's library** — entries get added, a
 get corrected by exactly the kind of run you are doing now. Templates marked `acceptable`,
 or whose note leads with a caveat rather than "clean", are not in the set; name them in the
 report as skipped rather than silently dropping them. Same 4-in-flight cap. On `429`, branch
-on `details.reason`: `concurrency_limit` clears only by waiting, so honor `Retry-After`
+on `details.reason`: `image_concurrency_limit` clears only by waiting, so honor `Retry-After`
 instead of retrying tighter.
 
 **5. One image per call.** Omit `numImages` (or send `1`). A library run wants one render
-per template, and a multi-image response is the **only copy** of images 2–N — a lost
-response loses them while the credits stay charged (see the `novoads-api` skill's
+per template, and a multi-image response can be the **only copy** of images 2–N — a lost
+response can lose them while the credits stay charged (see the `novoads-api` skill's
 `reference.md`). **Write every image to disk the moment it arrives**, before starting the
 next template.
 
@@ -341,10 +341,10 @@ that is `clone-image-ad`'s job.
 | `402 insufficient_credits` | `details` carries `required` and `available`. Tell the user the gap; do not retry. |
 | `403 forbidden` | `details.reason` says which: `plan_required`, `subscription_inactive`, or API access off for the account. |
 | `422 content_policy` | Moderation blocked it. The estimate does not run moderation, so this can land on a prompt the estimate priced cleanly. Nothing was charged. Rewrite or stop. |
-| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
+| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
 | `403` on the presigned PUT | The signed headers weren't echoed byte for byte. Send the `headers` object from `POST /v1/uploads` exactly as returned. |
-| `500 internal_error` | **Do not blindly retry** — there are no idempotency keys, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
-| `502 provider_failed` | The model provider failed. Credits are refunded automatically. |
+| `500 internal_error` | **Do not blindly retry** — `POST /v1/images` takes no idempotency key, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
+| `502 provider_failed` | The model provider failed. Credits are refunded automatically. The script prints `reasonCode` where the job has one: read it before you send anything again (Status lifecycle in the `novoads-api` skill's `reference.md`). |
 
 ## Files this skill owns
 

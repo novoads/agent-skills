@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-Round-trip a clone-workflow prompt through any Novoads image model.
+Round-trip a clone-workflow prompt through gpt-image-2 or nano-banana-pro.
 
 This is the clone-image-ad skill's validator, NOT a production generator. The two
 generator skills are deliberately model-locked (chatgpt-image-ad to gpt-image-2,
 nano-banana-image-ad to nano-banana-pro) so a production run cannot drift models by
 accident. Cloning has the opposite requirement: Phase 4 validates against one model
 and Phase 8 re-runs the SAME template on another to fill in the Model notes block.
-So this one takes --model, applies that model's own grid, and refuses nothing.
+So this one takes --model gpt-image-2 or nano-banana-pro, applies that model's own grid, and
+refuses the retired reve-2.1 by name and any other id as an invalid choice.
 
-`reve-2.1` is reachable only from here — it has no generator skill of its own.
+`reve-2.1` was retired in API 2.48.0. `--model reve-2.1` stops here, before the network,
+with a line that says so and names the model to validate on instead.
 
 It also carries the clone workflow's EDIT path: --source-image / --source-asset-id
-send `sourceAssetId` (gpt-image-2 only), which repaints named zones of an existing
+send `sourceAssetId` (a GPT-model field, sent here on gpt-image-2), which repaints named zones of an existing
 image while leaving the rest of the frame alone. That is Phase 7's second instrument
 — see the guide. It is mutually exclusive with --aspect-ratio, because an edit's
 output tracks the source's shape.
@@ -52,18 +54,39 @@ BASE_URL_DEFAULT = "https://api.novoads.ai"  # host only; this script appends /v
 # goes for max_refs (referenceAssetIds maxItems) and max_prompt_chars (prompt
 # maxLength): both are PER MODEL, neither is one number across the set. The prompt
 # ceilings stopped being uniform in spec 2.16.0, which raised gpt-image-2 to 32,000
-# and nano-banana-pro to 50,000 while reve-2.1 kept 4,000.
+# and nano-banana-pro to 50,000 while reve-2.1 kept 4,000. reve-2.1 has since been retired
+# (API 2.48.0): see RETIRED below.
 #
 # This table is the whole file's source for every cap below. Read off the live
 # per-model request schemas at /v1/openapi.json and verified against deployed spec
-# 2.16.0 on 2026-08-08 — re-check: ./scripts/verify-image-caps.sh
+# 2.16.0 on 2026-08-08 (re-read at 2.59.0 on 2026-11-07) — re-check:
+# ./scripts/verify-image-caps.sh
 _WIDE_RATIOS = {"1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"}
 MODELS = {
     "gpt-image-2":     {"ratios": {"1:1", "4:5", "2:3", "9:16", "16:9", "21:9"},
                         "max_refs": 4,  "max_prompt_chars": 32000},
     "nano-banana-pro": {"ratios": _WIDE_RATIOS, "max_refs": 14, "max_prompt_chars": 50000},
-    "reve-2.1":        {"ratios": _WIDE_RATIOS, "max_refs": 8,  "max_prompt_chars": 4000},
 }
+# Ids the API's spec still names only to refuse them. A --model naming one stops in
+# argument parsing, before the network, with what happened and where to go instead,
+# rather than reaching the API's own 400 after an upload.
+RETIRED = {
+    "reve-2.1": (
+        "reve-2.1 was retired in API 2.48.0: the API refuses it before any charge "
+        "(400 invalid_input, details.reason \"model_retired\"). For a second opinion, "
+        "validate on the other model: nano-banana-pro if gpt-image-2 drew it, "
+        "gpt-image-2 if nano-banana-pro did."
+    ),
+}
+
+
+def model_arg(value: str) -> str:
+    """argparse type for --model: a retired id is refused with its own message."""
+    if value in RETIRED:
+        raise argparse.ArgumentTypeError(RETIRED[value])
+    return value
+
+
 ALL_RATIOS = set().union(*(m["ratios"] for m in MODELS.values()))
 MAX_IMAGES = 4  # numImages enum: 1, 2, 3, 4
 MIN_DIMENSION = 1024
@@ -189,6 +212,8 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> RuntimeError:
             hint += ")"
         elif details.get("issues"):
             hint = f" (issues: {json.dumps(details['issues'])[:300]})"
+        elif details.get("reasonCode"):
+            hint = f" (reasonCode: {details['reasonCode']})"
     return RuntimeError(f"HTTP {e.code} {code} on {url}: {msg}{hint}")
 
 
@@ -311,9 +336,9 @@ def probe_dimensions(path: Path) -> tuple[int, int]:
 
 
 def upload_reference(local_path: Path, base_url: str, auth_hdr: str) -> str:
-    """Upload a local image via POST /v1/uploads. Returns a durable assetId.
+    """Upload a local image via POST /v1/uploads. Returns a reusable assetId.
 
-    The assetId keeps working across later calls, so callers should cache it rather
+    The assetId can be reused across calls, so callers should cache it rather
     than re-uploading the same file per variant.
     """
     if not local_path.exists():
@@ -389,7 +414,9 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
 
     A job that is already terminal (the usual case) comes back untouched. The
     poll payload is merged over the POST response, so creditsCharged and model
-    from the POST survive a poll that omits them.
+    from the POST survive a poll that omits them. The read lists `images` only on
+    a job of one row per picture; a one-picture job's picture is its `outputUrl`,
+    so that becomes the one entry of `images`.
     """
     job_id = job.get("jobId")
     status = job.get("status")
@@ -413,7 +440,10 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
             continue
         status = polled.get("status")
         if status in TERMINAL_STATUSES:
-            return {**job, **{k: v for k, v in polled.items() if v is not None}}
+            done = {**job, **{k: v for k, v in polled.items() if v is not None}}
+            if not polled.get("images") and polled.get("outputUrl"):
+                done["images"] = [{"url": polled["outputUrl"]}]
+            return done
     log(f"jobId={job_id} still {status} after {POLL_DEADLINE_S}s. Fetch it later with "
         f"GET /v1/generations/{job_id}; do not resubmit.")
     return {**job, "status": status}
@@ -523,12 +553,13 @@ def lint_placeholders(prompt: str) -> list[str]:
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Round-trip a clone prompt through any Novoads image model (validator, not a generator).",
+        description="Round-trip a clone prompt through gpt-image-2 or nano-banana-pro (validator, not a generator).",
     )
     p.add_argument("--prompt", required=True, help="Image prompt (post-rewrite).")
     p.add_argument(
         "--model",
         required=True,
+        type=model_arg,
         choices=sorted(MODELS),
         help="Which model to validate against. Each has its own aspect-ratio grid.",
     )
@@ -576,7 +607,9 @@ def main() -> int:
         metavar="PATH",
         help=(
             "Reference image path (PNG/JPG/WEBP). Repeatable; the cap depends on "
-            "--model (gpt-image-2: 4, nano-banana-pro: 14, reve-2.1: 8). "
+            "--model ("
+            + ", ".join(f"{n}: {m['max_refs']}" for n, m in sorted(MODELS.items()))
+            + "). "
             "Uploaded once each; order is preserved and may be addressed positionally "
             "by the prompt."
         ),
@@ -639,7 +672,7 @@ def main() -> int:
 
     if editing and args.model != "gpt-image-2":
         log(
-            f"error: editing a source is gpt-image-2 only; {args.model} has no edit "
+            f"error: this validator edits on gpt-image-2 only; {args.model} has no edit "
             f"mode on this API. Drop the source, or switch --model."
         )
         return 2
@@ -771,7 +804,9 @@ def main() -> int:
     credits = job.get("creditsCharged")
     images = job.get("images") or []
     if not images:
-        log(f"generation returned no images (status={job.get('status')}, jobId={job_id})")
+        stopped = (f", reasonCode={job.get('reasonCode')}, error={job.get('error')}"
+                   if job.get("reasonCode") or job.get("error") else "")
+        log(f"generation returned no images (status={job.get('status')}, jobId={job_id}{stopped})")
         return 1
 
     log(f"jobId={job_id} status={job.get('status')} images={len(images)} credits={credits}")

@@ -15,7 +15,7 @@ Exit codes, which are the whole point of the script:
 
 WHY THIS EXISTS. `POST /v1/voice-changes` gates on "does this have an audio
 track", not on "is anyone talking". Send it a music bed and it converts the music
-into vocal noise, bills the full per-minute rate, and returns `200`. That is a
+into vocal noise, bills it like speech, and returns `200`. That is a
 charged success, not an error, and no retry gets the credits back. This check is
 free and takes about a second, so it runs first, every time.
 

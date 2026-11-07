@@ -18,7 +18,8 @@
 #      network call — nothing here needs a key and nothing can spend). The prompt
 #      ceiling gets the same treatment, measured at the exact boundary: a body one
 #      character past what the always-on suffixes leave must be refused naming the
-#      cap, and a body exactly at it must pass.
+#      cap, and a body exactly at it must pass. A retired id passed to the
+#      validator must be refused as retired, before the env gate.
 #   3. Greps the docs for resurrected universal-cap claims, of either kind.
 #
 # Modes:
@@ -52,11 +53,16 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 # them as drift.
 #
 # The two Seedream 5 ids join in API 2.39.0 and are section-1 only for the same
-# reason. Their caps (10 references, 10,000 prompt characters) are read off the
-# API's source (seedream-async: kie-image-reference-caps.ts, image-models.ts),
-# not yet off a deployed spec: until 2.39.0 deploys, section 1 reports them as
-# drift, which is the signal that the pack is ahead of the API.
-EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 gpt-image-2.6-flare=4:32000 gpt-image-2.6-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000 seedream-5-lite=10:10000 seedream-5-pro=10:10000'
+# reason. Their caps (10 references, 10,000 prompt characters) are read off
+# deployed spec 2.59.0 (2026-11-07); on a deployment that does not offer them,
+# section 1 reports them as drift.
+#
+# reve-2.1 left this table when it was retired (API 2.48.0). The spec still
+# carries its request schema, with the old caps, only so an old client gets the
+# named `model_retired` refusal, so section 1 skips any schema whose `model`
+# description says `model_retired`, with a printed line, and fails if this table
+# still names a retired id.
+EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 gpt-image-2.6-flare=4:32000 gpt-image-2.6-sunburst=4:32000 nano-banana-pro=14:50000 seedream-5-lite=10:10000 seedream-5-pro=10:10000'
 
 STATUS=0
 problem() {
@@ -78,6 +84,7 @@ for kv in '''$EXPECTED'''.split():
     expected[name] = (int(refs), int(chars))
 spec = json.load(sys.stdin)
 live = {}
+retired = set()
 for schema in spec.get('components', {}).get('schemas', {}).values():
     props = schema.get('properties') or {}
     model = props.get('model') or {}
@@ -85,18 +92,37 @@ for schema in spec.get('components', {}).get('schemas', {}).values():
     refs = props.get('referenceAssetIds') or {}
     prompt = props.get('prompt') or {}
     for name in names:
+        # A retired id keeps its request schema, old caps and all, only so an old
+        # client gets the named refusal. Those are not live caps: skip the schema,
+        # and say so below. Only a one-model schema counts, so a shared enum (the
+        # estimate's) that mentions the refusal cannot retire its live neighbours.
+        if len(names) == 1 and 'model_retired' in (model.get('description') or ''):
+            retired.add(name)
+            continue
         # Only the /images arms carry BOTH a reference cap and a prompt cap. The
         # estimate arm names the same models but publishes one maxLength across
         # every kind, so requiring both keys is what keeps it out of this table.
         if name in expected and 'maxItems' in refs and 'maxLength' in prompt:
             live[name] = (refs['maxItems'], prompt['maxLength'])
+for name in sorted(retired):
+    if name in expected:
+        print(f'{name} is retired on this deployment (model_retired): drop it from EXPECTED and the docs')
+    else:
+        print(f'note: {name} is retired on this deployment (model_retired): its schema was skipped')
 for name, want in sorted(expected.items()):
+    if name in retired:
+        continue
     got = live.get(name) or (None, None)
     if got[0] != want[0]:
         print(f'{name} references: repo says {want[0]}, live spec says {got[0]}')
     if got[1] != want[1]:
         print(f'{name} prompt chars: repo says {want[1]}, live spec says {got[1]}')
 " 2>/dev/null || echo "spec parse failed")"
+  # A `note:` line is information, not drift: printed in the full audit, kept out
+  # of the soft preflight, and never counted as a problem.
+  NOTES="$(printf '%s\n' "$MISMATCH" | grep '^note: ' || true)"
+  MISMATCH="$(printf '%s\n' "$MISMATCH" | grep -v '^note: ' || true)"
+  [[ -n "$NOTES" && $SOFT -eq 0 ]] && printf '%s\n' "$NOTES" | sed 's/^note: /note(image-caps): /' >&2
   [[ -n "$MISMATCH" ]] && problem "live-spec drift — $MISMATCH"
 fi
 
@@ -126,7 +152,18 @@ check_script "skills/chatgpt-image-ad/scripts/generate_image.py" 4
 check_script "skills/nano-banana-image-ad/scripts/generate_image.py" 14
 check_script "skills/clone-image-ad/scripts/validate_image.py" 4 --model gpt-image-2
 check_script "skills/clone-image-ad/scripts/validate_image.py" 14 --model nano-banana-pro
-check_script "skills/clone-image-ad/scripts/validate_image.py" 8 --model reve-2.1
+
+# A retired id is refused by name in the validator, the one script here that takes
+# --model, before the env gate: never a raw API error after an upload.
+check_retired() { # <id>
+  local out
+  out="$(python3 "$ROOT/skills/clone-image-ad/scripts/validate_image.py" --model "$1" \
+    --prompt probe --aspect-ratio 1:1 --out /tmp/vc-out --env-file /nonexistent/none 2>&1)" \
+    && problem "validate_image.py accepted --model $1, which is retired"
+  [[ "$out" == *"$1 was retired"* ]] || problem "validate_image.py --model $1 was not refused as retired: $out"
+  [[ "$out" == *".env not found"* ]] && problem "validate_image.py --model $1 reached the env gate before refusing it"
+}
+check_retired reve-2.1
 
 # The prompt ceiling, at the exact boundary. The gate measures the FINAL prompt,
 # meaning the body plus the three always-on suffixes, so the boundary is not the
@@ -200,7 +237,6 @@ check_prompt_cap "skills/chatgpt-image-ad/scripts/generate_image.py" 32000
 check_prompt_cap "skills/nano-banana-image-ad/scripts/generate_image.py" 50000
 check_prompt_cap "skills/clone-image-ad/scripts/validate_image.py" 32000 --model gpt-image-2
 check_prompt_cap "skills/clone-image-ad/scripts/validate_image.py" 50000 --model nano-banana-pro
-check_prompt_cap "skills/clone-image-ad/scripts/validate_image.py" 4000 --model reve-2.1
 
 # ── 3. docs carry no resurrected universal-cap claim ─────────────────────────
 #
@@ -246,8 +282,9 @@ $RESIDUE"
 
 # The same check for the PROMPT ceiling, which spec 2.16.0 split three ways. Scoped
 # to the image-ad family, because "4,000 characters" is still the true and current
-# figure for five video models and a repo-wide grep would drown in them. Inside these
-# paths a universal 4,000 claim is by definition about images, and wrong.
+# figure for four video models (the three Seedance variants and veo-3.1) and a
+# repo-wide grep would drown in them. Inside these paths a universal 4,000 claim is
+# by definition about images, and wrong.
 IMAGE_PATHS=()
 for p in "$ROOT/skills/chatgpt-image-ad" "$ROOT/skills/nano-banana-image-ad" \
          "$ROOT/skills/clone-image-ad" "$ROOT/shared/skills/chatgpt-image-ad" \

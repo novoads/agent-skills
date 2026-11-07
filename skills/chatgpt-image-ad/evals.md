@@ -77,7 +77,8 @@ nothing charged.
   which is what `generate_image.py` does.
 - A clean estimate is never reported to the user as "the prompt is fine". It is
   reported as the price.
-- The estimate body carries only `kind`, `prompt`, `model`, `numImages`, `language`.
+- The estimate body carries `kind`, `prompt`, `model`, `numImages`. `quality` stays off it:
+  it moves the price, and the script has no tier flag and renders the default.
   `aspectRatio` or `referenceAssetIds` in it is a `400 Unrecognized key`, and neither
   moves the price.
 - `model` is named in the body. Omitting it prices the API default, and the image
@@ -96,7 +97,7 @@ fired on the pre-suffix prompt.
 "remove the sticker on the bottle".
 
 **Observed live (dogfooding run, RUN-FINDINGS item 6, confirmed live).**
-`sourceAssetId` exists **only** on `gpt-image-2`, and it **rejects `aspectRatio`**: an
+`sourceAssetId` exists **only** on the five GPT models, and it **rejects `aspectRatio`**: an
 edit's output tracks the source's shape, so the pair is a `400`. The second half is
 easier to miss — **the source spends a reference slot**, so source plus
 `referenceAssetIds` must total ≤ 4.
@@ -135,7 +136,7 @@ start frame, a reference on a later call.
 download-and-re-upload dance was performed again, because the field that makes it
 unnecessary had never been named where anyone would read it. `POST /v1/images` returns
 **`assetId` beside `url`** in each `images[]` entry. The `url` is a one-hour presign and
-nothing downstream accepts it. The `assetId` is durable and is accepted directly.
+nothing downstream accepts it. The `assetId` is accepted directly.
 
 `assetId` is **optional** in the schema, so it is read rather than assumed.
 
@@ -157,11 +158,11 @@ to get an id it was already given.
 **Scenario.** The full-library run: one product photo, every template whose Model notes
 mark this model clean or preferred, one flat output folder.
 
-**Why, and it is measured.** A `numImages > 1` call charges for every image and only
-the **first** is recoverable afterwards — `GET /v1/generations/{jobId}` returns a single
-`outputUrl`, and images 2..N exist nowhere but the body of the response that returned
-them. The render blocks inside the POST for 60–90 seconds, so a proxy or CDN idle
-timeout drops a response for work the API already did and charged for. That is the
+**Why, and it is measured.** A `numImages > 1` call charges for every image, and on a
+single-row job only the **first** is recoverable afterwards — `GET /v1/generations/{jobId}`
+returns a single `outputUrl`, and images 2..N exist nowhere but the body of the response
+that returned them. The render blocks inside the POST for 60–90 seconds, so a proxy or CDN idle
+timeout (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and charged for. That is the
 run's own text: **one image per call**, and **write every image to disk the moment it
 arrives**.
 
@@ -171,11 +172,11 @@ arrives**.
   losing images 2..N would be acceptable.
 - Each image is written to disk as it is read, before the next template starts. No
   batch held in memory and saved at the end.
-- A timed-out call is **not** re-sent: there are no idempotency keys, so a retry renders
-  and charges again. `GET /v1/generations` is checked first, matched on `createdAt`.
-- At most 4 requests in flight, against an org ceiling of 5 that is shared with whatever
-  else the account is running.
-- A `429` is branched on `details.reason`: `concurrency_limit` clears only by waiting,
+- A timed-out call is **not** re-sent: `POST /v1/images` takes no idempotency key, so a
+  retry renders and charges again. `GET /v1/generations` is checked first, matched on `createdAt`.
+- At most 4 requests in flight: the run's own cap, under an org image queue of 12 that
+  every other image call the org runs through the API shares.
+- A `429` is branched on `details.reason`: `image_concurrency_limit` clears only by waiting,
   and `Retry-After` is honoured rather than the backoff being tightened.
 
 **Fails if:** a batch is held in memory; or a timeout is retried without a lookup; or
@@ -227,7 +228,7 @@ against first attempts; or the final report sums estimates instead of charges.
   half is spec-read, not probed here.
 - **GI4 is a repeat offence**, which is the argument for it existing: the field was
   available and the run still did the dance, because nothing an operator reads said so.
-- **GI5's premise is measured** (the response is the only copy; the POST blocks long
+- **GI5's premise is measured** (the response can be the only copy; the POST blocks long
   enough for an idle timeout to land). What is untested is an agent losing images to it
   in this pack.
 - **GI6 is prospective and says so.** It is the one case here with no incident behind it.

@@ -45,7 +45,7 @@ submit time.
   out loud — they are substring matches and they do false-positive.
 - One consolidated consent line: per-call number, count, total, balance. One yes covers
   all N.
-- The renders fire concurrently, every variant counted against the five-slot cap.
+- The renders fire concurrently, every variant counted against the ten-slot cap.
 
 **Fails if:** one estimate is fired and its number reused as the quote for all variants; or
 each variant gets its own separate approval gate; or "three variations" silently becomes
@@ -72,9 +72,10 @@ this skill exists to preserve.
 **Assertions.**
 
 - Both routes are named before either is picked.
-- Each carries its tradeoff in one line: one-shot is roughly half the spend with continuous
+- Each carries its tradeoff in one line: one-shot is the cheaper route with continuous
   voice, but the clone no longer matches the source's runtime or pacing; the series
-  preserves both at roughly twice the spend, and pays any resolution multiplier per clip.
+  preserves both at more spend, in step with its total seconds, and pays any resolution
+  multiplier per clip.
 - **No default.** The agent presents the choice and waits. It does not pick one and mention
   the other in passing.
 - If it cites the #13 A/B, it states the mechanism caveat in the same breath.
@@ -109,9 +110,12 @@ holds.
 - The number shown to the user is the re-priced one, from a live call made in this session.
 - The multiplier is never stated from memory as the quote. Approximations orient; the
   estimate decides.
-- `480p` is named as a real draft tier at ≈half the base, not as saving nothing.
-- The key is never sent on `seedance-2.0-mini`, `sora-2` or `veo-3.1` (`400 Unrecognized key`
-  on all three), nor on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
+- `480p` is named as a real draft tier below the base (≈two-thirds on `seedance-2.0`, under
+  half on `seedance-2.5`), not as saving nothing.
+- The key is never sent on `kling-v3-pro` (`400 Unrecognized key`: its body has no such
+  field), nor on `omni-flash` wherever `GET /v1/models` lists only `720p` for it. On
+  `seedance-2.0-mini` and `veo-3.1` (which take it since API 2.34.0) it carries only a tier
+  `GET /v1/models` lists for that model.
 - On a series, the tier is paid per clip and the total says so.
 
 **Fails if:** a tier above the default is chosen and the estimate body does not carry it; or
@@ -176,7 +180,7 @@ the API path."* Step 2 never got the memo.
 **Measured replacement (same probe).** `POST /v1/uploads` with `contentType: "video/mp4"`
 → `PUT` → `POST /v1/transcripts` with that `assetId` returned `200` in one call:
 `model: "transcript-v1"`, `status: "succeeded"`, auto-detected `language`, 38 words with
-`start`/`end` in **seconds**, 5 segments, an `srt`, for **0.1 credits**. The five segments
+`start`/`end` in **seconds**, 5 segments, an `srt`, at the one-minute minimum. The five segments
 are the beat boundaries step 3 needs, already cut.
 
 One thing worth knowing beyond the install: the API transcription rendered **"Owala FreeSip"
@@ -217,7 +221,7 @@ charge for it."* That is the most expensive answer available. The cheap one is a
 still, and the skill does not mention `POST /v1/images` anywhere in its 39 KB.
 
 **Measured for this PR (2026-08-06).** `POST /v1/images` on `gpt-image-2` returned `200`
-synchronously for **0.3 credits**, and its `images[]` entry carries **`assetId` beside
+synchronously, and its `images[]` entry carries **`assetId` beside
 `url`** — added in deployed spec `2.11.0`, after this skill was written. The `assetId` was
 then accepted by `POST /v1/videos` in `referenceAssetIds`: a token-pinned probe came back
 with the `@Image2`-unresolvable error, which is raised *after* the ownership gate and the
@@ -230,8 +234,8 @@ free. **There is no download-and-reupload hop.**
   like any other spend, and consented to before it fires.
 - The returned `assetId` is passed **directly** into `referenceAssetIds` or
   `startImageAssetId`. The skill never instructs a download followed by
-  `POST /v1/uploads` — that mints a second asset and throws away the anchor.
-- The `url` is understood as expiring (3600s) and the `assetId` as durable. Chaining is off
+  `POST /v1/uploads` — that only mints a second id for the same picture and adds a hop.
+- The `url` is understood as expiring (3600s) and the `assetId` as what the next call takes. Chaining is off
   the id, never the URL.
 - "Seedance will invent a design and charge for it" survives only as the third option, after
   a real photo and a generated still — not as the only alternative to a photo.

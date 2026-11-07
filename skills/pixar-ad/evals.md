@@ -204,14 +204,14 @@ than none, because the operator stopped checking.
 
 **Check:** human. Compare the announced total with the balance delta after a full
 run. They should differ by zero. A voice-over line longer than the estimate's
-sample is the likeliest source of a gap — and it should be pennies, not credits.
+sample is the likeliest source of a gap, and it should be small, never a clip's worth.
 
 ---
 
 ### E13 — a timed-out call is recovered, not re-run
 
-**Why:** there are fifteen or more paid calls per run, and no idempotency keys on
-this API, so a blind retry at beat 4 pays twice for the same clip. Two calls make
+**Why:** there are fifteen or more paid calls per run, and a clip sent without an
+`idempotencyKey` (API 2.52.0) pays twice for a blind retry at beat 4. Two calls make
 this easy to get wrong: `POST /v1/videos` returns before the render finishes, and
 `POST /v1/images` blocks for 60 to 90 seconds and can time out on work that was
 already done and already charged.

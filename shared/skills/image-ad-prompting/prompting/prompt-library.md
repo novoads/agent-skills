@@ -17,14 +17,17 @@ Together: ~1,575 chars of always-on guard, leaving headroom under each model's p
 
 - **`gpt-image-2`** (ChatGPT Image 2) — strong text fidelity, dense small-text rendering, faithful UI mimicry (iOS, Slack, Google search, comparison tables). Best for typography-heavy templates. Not the API default (a call naming no `model` renders `gpt-image-2.6-sunburst`, API 2.58.0), so name it. At `low` and `medium` it is on the cheapest tier of image model on this API; at `high` it costs more than `nano-banana-pro` at its default resolution, so price both when the choice is close.
 - **`nano-banana-pro`** (Nano Banana Pro) — strong photorealism, multi-image reference blending, character continuity across runs. Weaker on dense small text.
-- **`reve-2.1`** — the third opinion, reachable through the `clone-image-ad` validator. Most entries list it as `untested`; that is honest, and better than a guess.
 
-**The reference cap is per model, not one number** — `gpt-image-2` takes 4, `reve-2.1` 8,
+`reve-2.1`, once the third opinion here, was retired in API 2.48.0 and is refused before any charge. A second opinion on a template now means rendering it on the other model of these two.
+
+**The reference cap is per model, not one number**: `gpt-image-2` takes 4,
 `nano-banana-pro` 14 (spec 2.7.0; `./scripts/verify-image-caps.sh` is the standing check).
-Every template here fits inside the smallest of those, so a template's reference guidance
-never needs to name a model for capacity reasons; the gap only matters when you carry a
+Every template's own **Reference image:** line fits inside the smallest of those. One case
+does not: T4 with its four publication wordmarks pinned beside the product is five references,
+so that run goes to `nano-banana-pro`. Otherwise the gap only matters when you carry a
 reference set to a model with less room than the one it was written for. Uploads are free
-and each returns a durable `assetId`, so build a library and cite from it.
+and each returns an `assetId` you can reuse across calls, so build a library of the files and
+their ids and cite from it.
 
 When a template renders cleanly on more than one, the entry says `both: clean`. When one
 struggles, the note tells the consuming skill which model to prefer.
@@ -110,7 +113,7 @@ struggles, the note tells the consuming skill which model to prefer.
 Each template recommends an aspect ratio in its **Aspect ratio:** field. Two grids, sourced
 from the live request schemas (`GET /v1/openapi.json` is the authority):
 
-| Ratio | `gpt-image-2` | `nano-banana-pro` / `reve-2.1` |
+| Ratio | `gpt-image-2` | `nano-banana-pro` |
 |---|---|---|
 | `1:1` (API default) | ✅ | ✅ |
 | `2:3` | ✅ | ✅ |
@@ -123,10 +126,10 @@ from the live request schemas (`GET /v1/openapi.json` is the authority):
 | `4:3` | ❌ | ✅ |
 | `5:4` | ❌ | ✅ |
 
-**Every ratio used by the 40 templates in this file (`1:1`, `2:3`, `9:16`) renders natively on
-all three models.** No template in this library needs a fallback-and-crop — that whole class of
+**Every ratio used by the 40 templates in this file (`1:1`, `2:3`, `4:5`, `9:16`) renders natively on
+both models.** No template in this library needs a fallback-and-crop — that whole class of
 workaround is gone. The gap only bites a bespoke prompt asking for `3:2`, `3:4`, `4:3` or `5:4`,
-and the fix there is to route it to `nano-banana-pro` or `reve-2.1`.
+and the fix there is to route it to `nano-banana-pro`.
 
 **`aspectRatio` defaults to `1:1`.** A template whose field says `9:16` must send it explicitly;
 forgetting produces a square image and a wasted charge. The request schemas are strict, so a
@@ -174,25 +177,23 @@ together, so each model's room for a template body is its own cap minus that.
 |---|---|---|---|
 | `gpt-image-2` | 32,000 | **30,425** | 30,025 |
 | `nano-banana-pro` | 50,000 | **48,425** | 48,025 |
-| `reve-2.1` | 4,000 | **2,425** | 2,025 |
 
 On `gpt-image-2` and `nano-banana-pro` the budget is no longer a real constraint on this
 library: the longest template here is 2,909 characters, which leaves over 27,000 spare on the
 tighter of the two. Write the fill the concept needs.
 
-`reve-2.1` keeps the old 4,000 and is the only place the old arithmetic still bites.
-**23 of the 40 templates** have room for the standard pin block on `reve-2.1`; the rest need a
-trim first, and T8, T11 and T14 are over 2,425 and so are refused there before any brand fill.
-That model is reachable only from the `clone-image-ad` validator, so this is a cross-check
-constraint rather than a production one. The refusal costs nothing either way: the scripts measure
-the final prompt against the model you named and die pre-network, naming the exact overage.
+**40 of the 40 templates** have room for the standard pin block on `gpt-image-2`, the tighter
+of the two. The old arithmetic bit only on one model: `reve-2.1`, retired in API 2.48.0, which
+had kept the old 4,000. There, 23 of the 40 had room for the pin block, and T8, T11 and T14
+were refused before any brand fill. If a filled prompt ever outgrows a model's room, the
+refusal costs nothing: the scripts measure the final prompt against the model you named and
+die pre-network, naming the exact overage.
 Run `python3 ../scripts/check_library.py --verbose` for every template's current headroom per
-model, and read [evals.md](../evals.md) L1 for why the
-long ones have not simply been shortened.
+model, and read [evals.md](../evals.md) L1 for the history of the long ones.
 
 Every generation is charged, re-rolls included, so price the run with a live
 `POST /v1/estimates` and get the user's OK first. That call charges nothing and it is the only
-legitimate source of a price. It will not check your prompt — nothing on the API does.
+legitimate source of a price. Its `warnings` are advice on your prompt, never a verdict.
 
 **Variable conventions:**
 - `{brand.name}` — wordmark text on the product label (e.g. `AG1`)
@@ -1935,7 +1936,7 @@ Cinematic museum lighting: a soft warm pool of light around the plinth, rest of 
 
 **When to use:** a promo/offer ad that has to carry 4-6 hard numbers at once (feature count, language count, turnaround, price) without reading as a spec sheet. The lottery-ticket metaphor makes a stat grid feel like a prize reveal, and the unscratched sixth panel is a built-in "there's more" tease. Best for a limited-time discount or trial offer.
 
-**Aspect ratio:** `1:1` — native on all three models.
+**Aspect ratio:** `1:1` — native on both models.
 
 **Reference image:** the brand's logo mark (and wordmark if it is a separate lockup). This template is a photoreal prop, not a product shot: the reference supplies the monogram that gets printed on the card and tiled inside the unscratched panel. `nano-banana-pro` picked up a circular monogram from a flat PNG and re-rendered it as printed ink on the card correctly.
 
@@ -1978,7 +1979,6 @@ EXCLUDE: no hands, no people, no device frames, no watermark.
 **Model notes:**
 - **nano-banana-pro:** strong — **preferred**. Photoreal foil with real scratch striations and torn edges, correct 6-panel grid including the wider offer panel, card fully in frame with the black margin the prompt asked for.
 - **gpt-image-2:** renders it legibly but takes a steeper camera angle and lets the card bleed off the left and right edges despite the always-on edge-safe suffix; the foil flattens to a uniform grey and the wider offer panel reverts to equal width. Usable as a variant, not as the primary.
-- **reve-2.1:** untested — validate before using on that model.
 
 ---
 
@@ -1986,7 +1986,7 @@ EXCLUDE: no hands, no people, no device frames, no watermark.
 
 **When to use:** social proof where the *proof* is a real post someone already wrote. The brutalist headline states the claim, the embedded post substantiates it, and the hand-drawn annotations keep it from reading as a corporate case study. Strong for founder-led or community-led brands.
 
-**Aspect ratio:** `4:5` — native on all three models.
+**Aspect ratio:** `4:5` — native on both models.
 
 **Reference image:** the brand's wordmark and/or logo mark for the footer lockup. No product shot is needed; this template is entirely typographic.
 
@@ -2031,7 +2031,6 @@ headline "HOW TEAMS / USE *Northwind*" · `{canvas.color}` = pale sand `#F3EFE7`
 **Model notes:**
 - **gpt-image-2:** clean — **preferred**. Closest to the source proportions, flat canvas stays flat, and the highlighter swashes land as tidy rectangles behind exactly the clause specified. The outlined script word renders with correct counter shapes.
 - **nano-banana-pro:** also faithful and arguably more striking — it scales the headline and card up and tightens the margins, and renders the highlighter as a painted brush stroke rather than a flat swash. A different ad, not a worse one; pick by whether you want editorial or poster.
-- **reve-2.1:** untested — validate before using on that model.
 
 ---
 
@@ -2039,7 +2038,7 @@ headline "HOW TEAMS / USE *Northwind*" · `{canvas.color}` = pale sand `#F3EFE7`
 
 **When to use:** the calmest social-proof layout in the library — one quote, three result bullets, one attribution. No product, no photography, no chrome. Good for a premium or B2B read, and cheap to re-fill for every customer you can quote.
 
-**Aspect ratio:** `9:16` — native on all three models. The layout is vertically stacked with deliberate empty margins top and bottom, so it survives a `4:5` crop.
+**Aspect ratio:** `9:16` — native on both models. The layout is vertically stacked with deliberate empty margins top and bottom, so it survives a `4:5` crop.
 
 **Reference image:** brand wordmark / logo mark for the badge and footer lockup. Text-only template; no product shot needed.
 
@@ -2083,13 +2082,12 @@ badge "northwind." on ink navy `#16233A` · `{canvas.color}` = warm off-white `#
 **Model notes:**
 - **gpt-image-2:** clean — **preferred**. Card proportions and serif-italic weight are closest to the reference, and the three bullets stay on three lines.
 - **nano-banana-pro:** faithful too, with a smaller card and more negative space around it — reads more like a print ad than a social card. Both are shippable; this one crops better to `4:5`.
-- **reve-2.1:** untested — validate before using on that model.
 
 ---
 
 ## Adding new templates
 
-When a new ad reference is worth turning into a template, use the `clone-image-ad-*` skill (one per model — chatgpt or nano-banana) to:
+When a new ad reference is worth turning into a template, use the `clone-image-ad` skill (one skill for both models: its validator takes `--model`) to:
 
 1. Generate a faithful reproduction with `--image-ref` set to the original reference (round 1).
 2. Strip the chrome from the prompt and re-run (round 2) — verify the standalone creative still reads correctly.

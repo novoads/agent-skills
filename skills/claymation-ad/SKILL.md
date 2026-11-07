@@ -338,7 +338,7 @@ Gates 2 through 8 are `pixar-ad`'s, unchanged, including:
   **STOP at the board gate**. At eight beats there are eight clips waiting behind
   it. This gate is worth more here than anywhere else in the family. A still that
   answers `status: "running"` (API 2.39.0) is polled at `GET /v1/generations/{jobId}` to a
-  terminal status, its `assetId` read from `images[]` there, and never resubmitted: a
+  terminal status, its id read from `outputAssetId` there, and never resubmitted: a
   resubmit is a second charge.
 - **Gate 4** — clips in waves of at most ten. **Eight beats is one wave**: an
   eleventh concurrent `POST /v1/videos` comes back `429` with
@@ -475,8 +475,8 @@ skill's own:
 
 - **The clay turned into plastic by the end of the clip.** The most common
   failure here. The material detail block was thin or the negative block was
-  missing its anti-smoothing lines. Re-render with both, and add "clay texture
-  held to the last frame" to the constraints.
+  missing its anti-smoothing lines. Re-render with both, under a new
+  `idempotencyKey`, and add "clay texture held to the last frame" to the constraints.
 - **The eyes went wet.** A Pixar-style multi-catchlight eye leaked in. `no
   wet-eye highlights` in the negative block and `a single soft highlight, no wet
   shine` in the material block. Both, not either.

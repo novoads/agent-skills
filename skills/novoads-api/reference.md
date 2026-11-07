@@ -19,7 +19,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [POST /videos](#post-videos)
   - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`omni-flash` inputs (API 2.30.0)](#omni-flash-inputs-api-2300) · [`resolution` is a price field, and `GET /models` sets it per model](#resolution-is-a-price-field-and-get-models-sets-it-per-model) · [`kling-v3-pro` (API 2.38.0)](#kling-v3-pro-api-2380) · [`productSwap`: an actor holds your product (API 2.42.0)](#productswap-an-actor-holds-your-product-api-2420)
 - [POST /images](#post-images)
-  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [`preset`: image to ad, product to ad, upscale (API 2.40.0)](#preset-image-to-ad-product-to-ad-upscale-api-2400) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
+  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [`preset`: image to ad, product to ad, upscale (API 2.40.0)](#preset-image-to-ad-product-to-ad-upscale-api-2400) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response can be the only copy of images 2..N](#the-response-can-be-the-only-copy-of-images-2n)
 - [POST /captions, POST /videos/{jobId}/captions](#post-captions-post-videosjobidcaptions)
   - [Presets and pricing](#presets-and-pricing) · [Failure modes](#failure-modes)
 - [POST /transcripts](#post-transcripts)
@@ -45,7 +45,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [Status lifecycle](#status-lifecycle)
 - [Limits](#limits)
 - [Errors](#errors)
-  - [A 400 has one shape](#a-400-has-one-shape) · [The causes of a 429](#the-causes-of-a-429) · [The 500 rule](#the-500-rule)
+  - [The shape of a 400](#the-shape-of-a-400) · [The causes of a 429](#the-causes-of-a-429) · [The 500 rule](#the-500-rule)
 - [Known discrepancies](#known-discrepancies)
 - [Prompt rules](#prompt-rules)
 
@@ -133,7 +133,7 @@ Response `201`:
 
 | Field | Meaning |
 |---|---|
-| `assetId` | Use in `startImageAssetId` and `referenceAssetIds`, and on `omni-flash` in `referenceVideoAssetId`, `firstFrameAssetId` and `lastFrameAssetId`; on `kling-v3-pro` in `lastFrameAssetId` (API 2.44.0); in `imageAssetId` on an image `preset` (API 2.40.0). Scoped to your organization. |
+| `assetId` | Use in `startImageAssetId` and `referenceAssetIds`, and on `omni-flash` in `referenceVideoAssetId`, `firstFrameAssetId` and `lastFrameAssetId`; on `kling-v3-pro` (API 2.44.0) and `wan-3.0` (API 2.53.0) in `lastFrameAssetId`; in `imageAssetId` on an image `preset` (API 2.40.0). Scoped to your organization. |
 | `uploadUrl` | Presigned. PUT the raw bytes here. |
 | `method` | The verb the URL was signed for. |
 | `headers` | Send these on the PUT, byte for byte. |
@@ -142,7 +142,7 @@ Response `201`:
 
 **`Content-Type` and `Content-Length` are both signed into the URL.** If either differs from what was returned, storage rejects the PUT with a 403 that looks like an auth failure and is not one. `image/jpeg; charset=utf-8` is the classic way to lose an hour here. Measure the file, do not estimate it.
 
-**The `assetId` is durable and reusable, without limit.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and nothing consumes it: the same id works on call one and call one hundred, from `startImageAssetId` and from `referenceAssetIds`. Upload the product photo once and reuse it across every iteration and every model. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated.
+**The `assetId` can be reused across calls.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and no call consumes it, from `startImageAssetId` or from `referenceAssetIds`. Upload the product photo once and reuse it across iterations and models. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated. The spec makes no promise of how long an id lasts, so keep your source file: if a call cannot find or read the file behind an old id, or a job built on one fails and its `reasonCode` names no other cause ([Status lifecycle](#status-lifecycle)), upload the file again and send the new id. A second upload of the same bytes is the same picture under a new id.
 
 ---
 
@@ -150,7 +150,7 @@ Response `201`:
 
 Discriminated on `kind`, and strict. Any field not listed is a 400.
 
-**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the one-minute minimum on the three that are billed per minute. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
+**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the minimum charge on the three that read the length of an optional source. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
 
 **An arm's `kind` names the OPERATION, and the job it prices names its OUTPUT.** You estimate `voiceover` and `voice-change`; you poll a job whose `kind` is `"audio"`, exactly as with `music`. Neither is a typo to be fixed. `motion-control` works the same way: its job polls as `kind: "video"`.
 
@@ -159,26 +159,27 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `kind` | required, `"video"` | required, `"image"` |
 | `prompt` | required | required, and refused beside a `preset`, which takes none (API 2.40.0) |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `kling-v3-pro` (API 2.38.0), `wan-3.0` (API 2.53.0). `sora-2` was removed in 2026-09: naming it is a `400` `invalid_input` | `gpt-image-2.6-sunburst` (API 2.57.0; the default since 2.58.0), `gpt-image-2.6-flare` (API 2.57.0), `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `seedream-5-lite`, `seedream-5-pro` (API 2.39.0). `reve-2.1` is retired (API 2.48.0): naming it answers `400` `invalid_input`, `details.reason: "model_retired"`, not a price |
-| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0): the quote of that preset's render. `numImages` on `image-to-ad` and `product-to-ad`; `upscale` takes none. `prompt`, `model`, `quality`, `resolution` and `outputFormat` beside a `preset` are a `400`. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
+| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0): the quote of that preset's render. `numImages` on `image-to-ad` and `product-to-ad`; `upscale` takes none. `prompt`, `model`, `quality`, `resolution`, `outputFormat` and `sourceAssetId` beside a `preset` are a `400`. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
 | `productSwap` | `true` prices the swap and the render together, Seedance family only, refused on any other model (API 2.42.0). See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420) | n/a |
 | `durationSeconds` | 3 to 30 (3 since API 2.38.0) | n/a |
 | `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K` spelled exactly (`4k` is a `400`), `nano-banana-pro` only at 2.36.0, default `2K`; **moves the price** (API 2.36.0) |
 | `numImages` | n/a | 1 to 4 |
 | `quality` | n/a | `high` `medium` `low`, GPT Image models only, default `medium`; **moves the price** (API 2.36.0) |
 | `outputFormat` | n/a | `png` `jpeg` `webp`, GPT Image models only; does not move the price, accepted so the quote carries the body you will send (API 2.36.0) |
+| `sourceAssetId` | n/a | Set when pricing an edit. The asset is not read here, only the shape of the call, so it need not be a real id. Refused beside a `preset` |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | same |
 
-Every model in both lists prices here, `veo-3.1` and `sora-2` included (verified live, 2026-08-02; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07; `kling-v3-pro` and the two Seedream 5 models in API 2.38.0 and 2.39.0, read off their PRs, not probed).
+Every model in both lists prices here, `veo-3.1` included (verified live, 2026-08-02, when `sora-2`, since removed, priced too; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07; `kling-v3-pro` and the two Seedream 5 models in API 2.38.0 and 2.39.0, read off their PRs, not probed; `wan-3.0` in API 2.53.0, read off the deployed spec, not probed).
 
 **The `3 to 30` span is the OUTER bound across the whole set, and no model renders all of it.** Only `seedance-2.5` goes past 15 seconds; asking `seedance-2.0` for 20 is a `400` here rather than a quote for something it cannot render. The spec says so in the field's own description — read `GET /v1/models` for the per-model grid.
 
-**`resolution` is accepted here because it moves the price** (not on `veo-3.1`, one flat price at every tier, so its `720p` is never a saving) — on `seedance-2.0`, `480p` is ≈half the `720p` base, `1080p` is ≈2.5x it and `4k` ≈5x (the 480p arm re-priced 2026-08-07; the rest verified live 2026-08-04). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
+**`resolution` is accepted here because it moves the price** (not on `veo-3.1`, one flat price at every tier, so its `720p` is never a saving) — on `seedance-2.0`, `480p` is ≈two-thirds of the `720p` base, `1080p` is ≈2x it and `4k` ≈5x (read off the deployed spec 2.60.0, 2026-11-07). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
 
 There is **no `styleFamily`** on either arm. The field was deleted from the whole API in spec `2.0.0`, and both arms are strict, so a body carrying it comes back `400 (root): Unrecognized key: "styleFamily"` (verified live, 2026-08-02).
 
-There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, and this endpoint takes only fields that do. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
+There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, so this endpoint does not take it. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
 
-**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: `{"model":"sora-2","durationSeconds":11}` comes back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` prices cleanly (verified live, 2026-08-02). So the call that charges nothing catches an out-of-grid duration before the paid one does — one more reason to run it every time.
+**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: on 2026-08-02, before it was removed from the API, `{"model":"sora-2","durationSeconds":11}` came back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` priced cleanly (verified live). So the call that charges nothing catches an out-of-grid duration before the paid one does — one more reason to run it every time.
 
 Response:
 
@@ -189,14 +190,13 @@ Response:
 | `sufficient` | `balance >= credits` at that moment. |
 | `shortBy` | Present when short. |
 | `topUpUrl` | Present when short. |
-
 | `warnings` | Advisory craft advice: `[{ rule, message }]`. Omitted when nothing fires. **This endpoint is the only one that returns it** (verified live 2026-08-04). |
 
 **`warnings` never refuses the call and never changes `credits`** — and it false-positives. See *Prompt rules* below before you act on one.
 
-Pass `model` explicitly. **At the same length the video schedules span more than 10x across the set, and more than 28x across every cell the deployment publishes** once length and resolution are counted too (both figures are derived by the API itself and printed in the `model` field's description — they moved when `seedance-2.5`'s thirty-second grid landed). Image schedules differ by more than 3x. Pricing the wrong model is a quote that disagrees with the invoice.
+Pass `model` explicitly. **At four seconds the video schedules already span about 44x across the set, and about 180x across every cell the deployment publishes** (the cheapest four-second render against the longest, largest one; both figures are derived by the API itself and printed in the `model` field's description, and they move with the schedules). Image schedules differ by more than 3x. Pricing the wrong model is a quote that disagrees with the invoice.
 
-**The schema's 20,000-character `prompt` ceiling is not the one that binds.** The service applies the *named model's* limit here too, so a 5,000-character prompt priced as `seedance-2.0` is rejected at the estimate, which charges nothing, exactly as the paid call would reject it. Omit `model` and it is judged as `seedance-2.0`. Only `omni-flash` genuinely accepts 20,000.
+**The schema's 20,000-character `prompt` ceiling is not the one that binds.** The service applies the *named model's* limit here too, so a 5,000-character prompt priced as `seedance-2.0` is rejected at the estimate, which charges nothing, exactly as the paid call would reject it. Omit `model` and it is judged as `seedance-2.0`. Only `omni-flash` and `wan-3.0` genuinely accept 20,000; `kling-v3-pro` stops at 2,500.
 
 This endpoint refuses a churned organization with a 403, on purpose. `sufficient` is a claim that the generation would go through, so answering `true` to an account whose generation would then be refused is a quote that disagrees with the invoice.
 
@@ -210,13 +210,13 @@ This endpoint refuses a churned organization with a 403, on purpose. `sufficient
 
 Per-model request bodies, all `.strict()`.
 
-**Shared by the six models before `kling-v3-pro` in the table below** (Kling's body: [its own section](#kling-v3-pro-api-2380)): `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
+**Shared by the five models before `kling-v3-pro` in the table below** (Kling's body: [its own section](#kling-v3-pro-api-2380)): `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
 
-- **`referenceAssetIds`**: the three Seedance variants and, since API 2.30.0, `omni-flash`. `veo-3.1`, `sora-2` and `kling-v3-pro` have no such field.
+- **`referenceAssetIds`**: the three Seedance variants, since API 2.30.0 `omni-flash`, and since API 2.53.0 `wan-3.0` (up to 9). `veo-3.1` and `kling-v3-pro` have no such field.
 - **`referenceVideoAssetIds`, `referenceAudioAssetIds`**: the three Seedance variants, since API 2.35.0. See [Seedance video and audio references](#seedance-video-and-audio-references-api-2350).
-- **`referenceVideoAssetId`, `firstFrameAssetId`, `lastFrameAssetId`, `seed`**: `omni-flash` only, and the last three only where the server publishes them. See [`omni-flash` inputs](#omni-flash-inputs-api-2300). One exception: `kling-v3-pro` also takes `lastFrameAssetId`, beside its `startImageAssetId` (API 2.44.0, [its section](#kling-v3-pro-api-2380)).
+- **`referenceVideoAssetId`, `firstFrameAssetId`, `lastFrameAssetId`, `seed`**: `omni-flash` only, and the last three only where the server publishes them. See [`omni-flash` inputs](#omni-flash-inputs-api-2300). Two exceptions: `kling-v3-pro` (API 2.44.0, [its section](#kling-v3-pro-api-2380)) and `wan-3.0` (API 2.53.0) also take `lastFrameAssetId`, beside the `startImageAssetId` it requires.
 - **`resolution`**: only on a model whose `resolutions` in `GET /models` lists more than one value. See [`resolution`](#resolution-is-a-price-field-and-get-models-sets-it-per-model).
-- **`audioEnabled`**: the three Seedance variants and `kling-v3-pro` (API 2.38.0). See below.
+- **`audioEnabled`**: the three Seedance variants, `kling-v3-pro` (API 2.38.0) and `wan-3.0` (API 2.53.0). See below.
 - **`productSwap`**: the Seedance family, since API 2.42.0. See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420).
 
 There is **no `styleFamily`** on any variant. It was deleted from the API in spec `2.0.0` along with the blocking prompt rules it scoped, and the variants are strict, so sending it is a `400`.
@@ -228,16 +228,16 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 | `seedance-2.0-mini` | 4–15, any integer (**10**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
 | `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
 | `veo-3.1` | 4, 6, 8 (**8**) | `9:16` (default) `16:9` | — | — | 4,000 |
-| `sora-2` | 4, 8, 12 (**4**) | `9:16` (default) `16:9` | — | — | 4,000 |
-| `kling-v3-pro` (2.38.0) | 3–15, any integer | `16:9` `9:16` `1:1` | start frame, and an end frame beside it (2.44.0) | yes | read `GET /models` |
+| `kling-v3-pro` (2.38.0) | 3–15, any integer | `16:9` `9:16` `1:1` | start frame, and an end frame beside it (2.44.0) | yes | 2,500 |
+| `wan-3.0` (2.53.0) | 4–15, any integer (**5**) | `9:16` (default) `16:9` `1:1` `4:3` `3:4` | ≤9 images, or a start frame with an optional end frame (not both) | yes | 20,000 |
 
-Defaults that bite: **the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `sora-2` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `sora-2` to 4, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
+Defaults that bite: **the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `wan-3.0` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `wan-3.0` to 5, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
 
 **`seedance-2.5` is the only model here that renders past 15 seconds**, and its grid is the same continuous integer range Seedance has always had — 4, 5, 6 … 29, 30, with no gaps. It is otherwise shaped exactly like `seedance-2.0`: same six aspect ratios, same `16:9` default, same 9 reference images, same `audioEnabled` toggle, same 4,000-character prompt ceiling. **The one place it is narrower is `resolution`** — see that section.
 
 ### `audioEnabled`
 
-A boolean on **the three Seedance variants** (`seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini`, default `true`) and, since API 2.38.0, **`kling-v3-pro`**, so omitting it renders exactly what the endpoint rendered before the field existed. It controls the synchronized sound effects, ambient sound and lip-synced speech the model generates from the prompt.
+A boolean on **the three Seedance variants** (`seedance-2.0`, `seedance-2.5` and `seedance-2.0-mini`, default `true`), since API 2.38.0 **`kling-v3-pro`** and since API 2.53.0 **`wan-3.0`**, so omitting it renders exactly what the endpoint rendered before the field existed. It controls the synchronized sound effects, ambient sound and lip-synced speech the model generates from the prompt.
 
 Send `false` for a clip that is meant to be silent: a pipeline laying its own voice-over in post otherwise pays for a voice track it throws away, and a product cutaway built to run muted comes back with sound effects nobody hears.
 
@@ -248,14 +248,14 @@ Verified live 2026-08-02, each probe pinned with an out-of-grid `durationSeconds
 | Sent to | Result |
 |---|---|
 | `seedance-2.0`, `seedance-2.0-mini` (and `seedance-2.5`, from its published variant) | accepted — the only complaint was the pinned duration |
-| `omni-flash`, `veo-3.1`, `sora-2` | `400 Unrecognized key: "audioEnabled"` |
+| `omni-flash`, `veo-3.1`, `sora-2` (since removed from the API) | `400 Unrecognized key: "audioEnabled"` |
 | `POST /estimates`, any model | `400 Unrecognized key: "audioEnabled"` |
 
 **Keep the prose silence clause in the prompt as well.** The flag mutes the render; the clause (`a silent product film with no spoken dialogue`) stops the model staging a talking shot in the first place — an actor mouthing nothing, billed in full. They do different jobs and the belt-and-suspenders pair is deliberate.
 
 Response `202`: `jobId`, `status`, `creditsCharged`, `model`. **No `warnings`** — this endpoint does not run the prompt rules. They run on `POST /estimates` only (see *Prompt rules*), so the advice was already on the quote you took before submitting.
 
-`creditsCharged` is in the unit the billing page shows. Internally 1 credit is 10 centi-credits; the API has already converted, so echo the number as given.
+`creditsCharged` is in the unit the billing page shows, so echo the number as given.
 
 ### `startImageAssetId` and `referenceAssetIds` are two modes, not two fields
 
@@ -264,15 +264,15 @@ Confirmed against the deployed spec `2.0.0` on 2026-08-02 (the `1.2.0`-era note 
 | | `startImageAssetId` | `referenceAssetIds` |
 |---|---|---|
 | What the model does with it | Animates the image as the **first frame**; on `omni-flash`, a reference the model may place anywhere | **Composites** the images as visual references — a character, a product, a wardrobe, a setting |
-| How many | 1 | Up to **9** on Seedance; on `omni-flash`, the field's `maxItems` in the OpenAPI document |
-| Which models | all six | the three Seedance variants and, since API 2.30.0, `omni-flash`. The `veo-3.1` and `sora-2` variants omit the field, and both are strict (`400 Unrecognized key`, verified live 2026-08-02) |
+| How many | 1 | Up to **9** on Seedance and `wan-3.0`; on `omni-flash`, the field's `maxItems` in the OpenAPI document |
+| Which models | every video model | the three Seedance variants, since API 2.30.0 `omni-flash`, and since API 2.53.0 `wan-3.0`. The `veo-3.1` and `kling-v3-pro` variants omit the field, and both are strict (`400 Unrecognized key`, verified live on `veo-3.1` 2026-08-02, read off the spec for `kling-v3-pro`) |
 | Addressed in the prompt | no | yes: `@Image1`, `@Image2` … in the order you send them |
 
 **Sending both is a 400**, not a merge: they select different modes on the provider.
 
 **Images only in this field** — `image/jpeg`, `image/png`, `image/webp`. `POST /uploads` also accepts video, and a video `assetId` here is an error rather than a reference. A video goes in `omni-flash`'s `referenceVideoAssetId`, or, on the three Seedance variants since API 2.35.0, in `referenceVideoAssetIds` (audio in `referenceAudioAssetIds`); see the next section.
 
-An `@ImageN` token pointing past the end of the array is refused **before the charge** — an unresolvable reference is a content failure at the provider, and a 400 is a better answer than a refunded render.
+An `@ImageN` token pointing past the end of the array is refused **before the charge** — an unresolvable reference is a content failure at the provider, and a 400 is a better answer than a refunded render. That check runs only when references are sent: in a call with `startImageAssetId`, or with no reference at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
 
 ### Seedance video and audio references (API 2.35.0)
 
@@ -304,33 +304,34 @@ The API adds nothing to the price for a video reference. Re-quote with `POST /v1
 
 ### `resolution` is a price field, and `GET /models` sets it per model
 
-Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row read off deployed spec **2.13.0**, 2026-08-07; `omni-flash`'s row read off the API 2.29.0 changelog and verified live 2026-09-28, and its `4k` read off the API 2.31.0 changelog. The earlier note here — that no variant had the field and `GET /models` published no output size — described an older deployment and is superseded.
+Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row read off deployed spec **2.13.0**, 2026-08-07, and its `1080p` off the API 2.28.0 changelog and deployed spec **2.59.0**, 2026-11-07; `omni-flash`'s row read off the API 2.29.0 changelog and verified live 2026-09-28, and its `4k` read off the API 2.31.0 changelog. The earlier note here — that no variant had the field and `GET /models` published no output size — described an older deployment and is superseded.
 
 | `model` | `resolution` accepted | Default |
 |---|---|---|
 | `seedance-2.0` | `480p`, `720p`, `1080p`, `4k` | `720p` |
-| `seedance-2.5` | **`480p`, `720p` — and nothing above** | `720p` |
+| `seedance-2.5` | `480p`, `720p`, and `1080p` since API 2.28.0 where `GET /models` lists it; never `4k` | `720p` |
 | `seedance-2.0-mini` | `480p`, `720p` since API 2.34.0 (before it, **none**: the variant had no such property) | `720p` |
 | `omni-flash` | depends on the server: `360p`, `720p`, `1080p` where `GET /models` lists them (API 2.29.0), plus `4k` only where it lists that too (API 2.31.0), else **none** | `720p` |
-| `sora-2` | **none** | 720p, fixed |
 | `veo-3.1` | `720p`, `1080p` since API 2.34.0 (before it, **none**, 1080p fixed) | read `defaultResolution` |
+| `wan-3.0` | `480p`, `720p`, `1080p` (API 2.53.0), each tier its own schedule | `720p` |
+| `kling-v3-pro` | **none**: one resolution, and the body has no such field | read `defaultResolution` |
 
 For mini the tiers are their own schedule: quote the tier with `POST /estimates`, never with the Seedance ratios. On `veo-3.1` the tier does not move the quote at 2.34.0 (one flat price), so never offer `720p` as a cheaper option; quote it all the same.
 
-**`seedance-2.5` does not inherit 2.0's high tiers, and that is a provider fact rather than a rollout gap.** Neither provider serves the model above 720p at all, so `1080p` and `4k` are a `400` on it and always will be. Do not carry a resolution across a model switch: a workflow that renders `seedance-2.0` at `1080p` and then swaps the model id to `seedance-2.5` is a rejected request, not a downgrade.
+**`seedance-2.5` has no `4k`, and that is a provider fact rather than a rollout gap.** Its `1080p` arrived in API 2.28.0 and is listed where the deployment renders it (deployed spec 2.59.0 does); `4k` is a `400` on it. Do not carry a resolution across a model switch: a workflow that renders `seedance-2.0` at `4k` and then swaps the model id to `seedance-2.5` is a rejected request, not a downgrade.
 
 **`GET /v1/models` now publishes this**: each entry carries `resolutions[]` and `defaultResolution`. That is the authority — read it rather than trusting this table, which is a snapshot.
 
-**It changes the price**, which makes it unlike every other output-shape field here. Relative to the `720p` base, each tier is its own credit schedule rather than a surcharge on the one below it:
+**It changes the price**, which makes it unlike every other output-shape field here. Relative to the `720p` base, each tier is its own credit schedule rather than a surcharge on the one below it, and these words hold at every length each model sells (API 2.60.0):
 
 | `resolution` | `seedance-2.0` | `seedance-2.5` |
 |---|---|---|
-| `480p` | **≈half** the base | **≈half** the base |
+| `480p` | **≈two-thirds** of the base | **under half** the base |
 | `720p` | base (default) | base (default) |
-| `1080p` | ≈2.5x | **not accepted** |
+| `1080p` | ≈2x | ≈1.7x, where `GET /models` lists it (API 2.28.0): quote it |
 | `4k` | ≈5x | **not accepted** |
 
-**`480p` changed on 2026-08-07.** It used to cost the same as `720p`, so there was no reason to ask for it. The family-wide reprice that shipped alongside `seedance-2.5` put it at roughly half — a price *decrease* on live models, so nothing that rendered yesterday costs more today, but a workflow that skipped `480p` on the old advice should reconsider it. **It is only reachable on the two Seedance models that take the field (`omni-flash` lists no `480p`)**: `seedance-2.0-mini` still publishes no `resolution` property and still range-checks the estimate arm to `720p`, whatever the dashboard charges for a mini draft.
+**`480p` changed on 2026-08-07.** It used to cost the same as `720p`, so there was no reason to ask for it. The family-wide reprice that shipped alongside `seedance-2.5` put it at roughly half then (the table above has today's words) — a price *decrease* on live models, so nothing that rendered yesterday costs more today, but a workflow that skipped `480p` on the old advice should reconsider it. **It is reachable on the three Seedance variants (mini since API 2.34.0) and on `wan-3.0`**; `omni-flash` lists no `480p`, and `veo-3.1` starts at `720p`.
 
 Those are ratios, not a rate card — they exist so you can warn a user that `4k` is a five-fold decision before they ask for it. **The number they approve still comes from `POST /estimates`**, and this repo holds no rate table (see SKILL.md gate 2).
 
@@ -346,9 +347,9 @@ Those are ratios, not a rate card — they exist so you can warn a user that `4k
 
 **So an estimate that accepted `resolution` is not a licence to send it to `POST /videos`.** Against a server older than 2.34.0, never send the key on mini; from 2.34.0 the general rule applies: send it only when `GET /models` lists more than one tier.
 
-Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
+Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
 
-There are **no idempotency keys.** See the 500 note below.
+**`idempotencyKey`** (API 2.52.0, optional, 1 to 255 characters): the same key within 24 hours returns the first submission (`202`, the same `jobId` and `creditsCharged`), whatever the new body says, instead of rendering and charging again, and answers `409` `conflict` while that first one is still being accepted. Scoped to your organization. So a key belongs to one render, not to a clip: reuse it only to retry the identical call, and send a new key for every new or corrected render, a job that failed after its `202` included. See the 500 note below.
 
 ---
 
@@ -393,7 +394,7 @@ On the Seedance family (the models whose body in the OpenAPI document lists the 
 
 **One thing this does not cover: `POST /estimates` does not share these numbers.** Its own request schema caps `prompt` at 50,000 for every image model, so a 20,000-character `seedream-5-lite` prompt prices cleanly and is then refused by `POST /images`. A clean estimate is proof of the price, not of the length.
 
-**The reference cap is per model and is not uniform.** Each of the five GPT models takes 4, `nano-banana-pro` 14 and each Seedream 5 model 10 (API 2.39.0; read `maxItems` in the OpenAPI document). Seedream takes no `quality`, `resolution` or `outputFormat`. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0, and so did the two 2.6 models in 2.57.0 (read off deployed spec 2.59.0 on 2026-11-07). Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
+**The reference cap is per model and is not uniform.** Each of the five GPT models takes 4, `nano-banana-pro` 14 and each Seedream 5 model 10 (API 2.39.0; read `maxItems` in the OpenAPI document). Seedream takes no `quality`, `resolution` or `outputFormat`. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` (since retired) → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0, and so did the two 2.6 models in 2.57.0 (read off deployed spec 2.59.0 on 2026-11-07). Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
 
 The response carries `images[]` (`url`, `expiresInSeconds` 3600, `assetId`, `width`, `height`), `jobId`, `status`, `creditsCharged`, and `model`. **No `warnings`**, for the same reason as video: the prompt rules run on `POST /estimates` only — where an image prompt *does* get read. `banned_polish` and `blank_label` observed on a `kind: "image"` estimate against deployed spec 2.19.0 (verified live 2026-08-12); the older note here, that images returned no `warnings` key at all, described the 2026-08-04 deployment. A render still going after about 105 seconds answers `running` instead: see [below](#a-slow-render-answers-running-poll-it-api-2390). `numImages` multiplies the price.
 
@@ -408,7 +409,7 @@ Images accept **no `startImageAssetId`** — there is no first-frame concept on 
 Most image renders still come back finished in the `200`. Since API 2.39.0 the server waits about 105 seconds for a render; one still going at that point answers **`200` with `status: "running"`, the same `jobId` and `images: []`**.
 
 - That is a paid render in progress, not a failure, and **never a reason to resubmit**: a resubmit renders and charges again. `creditsCharged` is in that first response; log it there.
-- Poll `GET /generations/{jobId}` every 15 seconds to a **terminal** status (see [Status lifecycle](#status-lifecycle)). On `succeeded` the job carries `images[]` in order, the same entries the response would have carried. On `failed` or `blocked` the credits are refunded.
+- Poll `GET /generations/{jobId}` every 15 seconds to a **terminal** status (see [Status lifecycle](#status-lifecycle)). On `succeeded` the job carries `outputUrl` and `outputAssetId`, with `images[]` in order on a job of several (`url`, `expiresInSeconds` and `assetId` on each). On `failed` or `blocked` the credits are refunded.
 - A job with several images is one job, one entry in `GET /generations`, and one slot against the image budget.
 - **Any script that reads `images[]` from the response must branch on `status` first.** A script that does not reports a paid, still-rendering job as an empty result. The pack's own image scripts poll; a hand-rolled `curl` has to do the same.
 
@@ -447,7 +448,7 @@ same size — an edit is one image, charged once.
 
 | | |
 |---|---|
-| Models | The five GPT models only: `gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare` and `gpt-image-2`. The field is ABSENT from the `nano-banana-pro` and `reve-2.1` variants, and `.strict()` refuses it there. |
+| Models | The five GPT models only: `gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare` and `gpt-image-2`. The field is ABSENT from the `nano-banana-pro`, `seedream-5-lite` and `seedream-5-pro` variants, and `.strict()` refuses it there. |
 | `aspectRatio` | **Cannot be combined.** Sending both is `400`, not a silently-ignored field. |
 | Output shape | Tracks the source: the service measures it and renders the closest cell of the model's grid. Portrait never becomes landscape, or the reverse — but the grid has nothing between `1:1` and `16:9`, so a 4:3 source renders `1:1`. |
 | `referenceAssetIds` | Still allowed. The source **counts against the same cap** and is always first. |
@@ -458,17 +459,18 @@ same size — an edit is one image, charged once.
 refused like a typo. So `GET /v1/openapi.json` is the honest capability check: if the
 property is absent, this deployment cannot edit, and no retry will change that.
 
-### The response is the only copy of images 2..N
+### The response can be the only copy of images 2..N
 
 **Except a job that answered `running` (API 2.39.0).** Its images are delivered by `GET /generations/{jobId}` as `images[]`, in order, once it has succeeded, so that read is where they are. Everything below is about a response that came back `succeeded` with its images.
 
-A `numImages > 1` call charges for every image, but only the **first** is recoverable
-afterwards. `GET /generations/{jobId}` returns a single `outputUrl` — image 1 — and images
-2..N exist nowhere but the body of the response that returned them. Lose that response and
-the credits stay spent.
+A `numImages > 1` call charges for every image, and you may not get them all back. A job the
+service rendered as one row per image carries `images[]` on `GET /generations/{jobId}` and on
+the list. A single-row job does not: it has one `outputUrl`, image 1, and images 2..N exist
+nowhere but the body of the response that returned them. Which of the two a call becomes is
+not yours to set, so lose that response and the credits stay spent on images you may not reach.
 
 That is not a hypothetical: the render blocks inside the POST for 60–90 seconds, so a
-proxy or CDN idle-timeout on a long call drops a response for work the API already did and
+proxy or CDN idle-timeout on a long call (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and
 charged for. Two consequences worth building around:
 
 - **Write each image to disk as you read it**, before doing anything else with the response.
@@ -476,15 +478,15 @@ charged for. Two consequences worth building around:
 - **Prefer one image per call in a long batch.** `numImages: 4` is one concurrency slot and
   the same price as four calls, which is the right trade when four variants of one prompt
   are wanted. It is the wrong trade when the four are independent deliverables, because it
-  puts three unrecoverable images behind a single response.
+  can put three unrecoverable images behind a single response.
 
   Since spec `2.12.0` this costs you nothing in throughput: images have their **own** budget
   of **12** concurrent jobs, so twelve single-image calls run at once and each response is
   independently recoverable. Fire the batch twelve wide rather than serialising it — 36
   images is three waves, not thirty-six calls in a row.
 
-If a call does time out, do **not** re-send it — there are no idempotency keys, so a retry
-renders and charges again. Check `GET /generations` first and match on `createdAt`; a job
+If a call does time out, do **not** re-send it — `POST /images` takes no idempotency key, so a
+retry renders and charges again. Check `GET /generations` first and match on `createdAt`; a job
 that landed is already there, and image 1 is retrievable even though its siblings are not.
 
 ---
@@ -513,7 +515,7 @@ Response `202`: `jobId`, `status`, `creditsCharged`, `model`. `model` is always 
 
 `GET /caption-presets` → `{ "presets": [{ "id", "tier", "credits" }] }`. **30 presets in two tiers** — `basic`, and the costlier `dynamic`. The `credits` field on each entry is that preset's per-billed-minute rate and is the only place to read it; this file deliberately does not restate the numbers, because a rate copied into a skill file goes stale without anything going red. The `dynamic` nine are `glass`, `whisper`, `glide`, `glide2`, `fusion`, `terminal`, `handwritten`, `backdrop`, `backdrop2`.
 
-The meter is `rate x whole minutes, rounded up, minimum one`, **doubled again above the 1080p tier, measured on the SHORT edge** — a portrait `1080x1920` is 1080p held sideways and is *not* doubled; a true 4K source is. Duration and resolution are read from the file at request time, not declared. Everything this API generates is ≤30s (`seedance-2.5`'s ceiling; every other model stops at 15), so it bills exactly one minute. An `omni-flash` render at `4k`, where `GET /models` lists that tier, is a true 4K source, so its captions bill doubled; the caption arm of `POST /estimates` prices it.
+The meter is `rate x whole minutes, rounded up, minimum one`, **doubled again above the 1080p tier, measured on the SHORT edge** — a portrait `1080x1920` is 1080p held sideways and is *not* doubled; a true 4K source is. Duration and resolution are read from the file at request time, not declared. A clip from `POST /videos` is ≤30s (`seedance-2.5`'s ceiling; every other model stops at 15), so it bills exactly one minute; a talking actor runs up to 180 seconds and bills once per started minute. An `omni-flash` render at `4k`, where `GET /models` lists that tier, is a true 4K source, so its captions bill doubled; the caption arm of `POST /estimates` prices it.
 
 **`POST /estimates` has a third arm for this:** `{ "kind": "caption", "preset", jobId | assetId }`. `preset` is required; the source is optional but **name it for anything over a minute**, because a sourceless quote is the one-minute minimum. A sourceless quote therefore returns exactly that preset's tier rate for one minute — verified live 2026-08-04 against `basic` (`casper`) and `dynamic` (`glass`), each matching its own entry in `GET /caption-presets`. No prompt, so no `warnings`.
 
@@ -525,7 +527,7 @@ The meter is `rate x whole minutes, rounded up, minimum one`, **doubled again ab
 | `402` | Not enough credits; `details` carries `required` and `available`. |
 | `404` | No such job or asset **for this organization**, or an upload that never completed. A `jobId` from the dashboard answers 404 identically to one that does not exist — a distinguishable response would be a way to probe what else the account holds. |
 | `409` | The source job has not succeeded yet, **or it was rendered with `audioEnabled: false`**. No speech to transcribe, and an empty result you were charged for is worse than a refusal. |
-| `429` | `details.reason: caption_concurrency_limit` — **10** concurrent caption jobs, counted **separately** from the 5-generation `concurrency_limit`, so a batch of captions can never block the next render. |
+| `429` | `details.reason: caption_concurrency_limit` — **10** concurrent caption jobs, counted **separately** from the 10-generation `concurrency_limit`, so a batch of captions can never block the next render. |
 
 **Re-captioning the same video in the same preset is idempotent and free**: the second call returns the *first* job's id and charges nothing, enforced by a database constraint, so two identical requests racing cannot double-charge. **A different preset on the same video is a new job and a new charge** — style iteration is not free.
 
@@ -610,7 +612,7 @@ file's words for free. If you replace media in place and need it re-read, upload
 | `402` | Not enough credits; `details` carries `required` and `available`. |
 | `404` | No such job or asset **for this organization**, or an upload that never completed. **Also a video generated outside this API** — a dashboard `jobId` answers 404 identically to one that does not exist, because a distinguishable response would be a way to probe what else the account holds. **Also a CAPTION job's id**: a caption's output is not a transcript source, and the message says so — pass the jobId of the ORIGINAL video. (An `assetId` that names a still rather than a video is a `400`, not a 404 — nothing is missing, it is the wrong kind.) |
 | `409` | Several causes, and **whether you are charged depends on which** — the message always says so. *Before the debit, nothing is charged:* the source job has not succeeded, it has no stored file yet, its stored file could not be read just now (retryable), it has **no audio stream at all** (every b-roll clip is this shape), or a transcript of this source is **already in flight** (the message names the job to poll). *After the debit, charged and then refunded:* the track exists but carries **only room tone**, so no speech was detected — the pre-charge check reads streams, and a stream of silence is still a stream — or the audio could not be extracted. |
-| `429` | `details.reason: transcript_concurrency_limit` — **10** concurrent transcripts, counted separately from both the 5-generation `concurrency_limit` and the caption ceiling. |
+| `429` | `details.reason: transcript_concurrency_limit` — **10** concurrent transcripts, counted separately from both the 10-generation `concurrency_limit` and the caption ceiling. |
 | `502` | The transcriber failed. **Read the message for the money**, which is not always the same sentence: `Credits were refunded.` means the reversal already landed, while `The refund did not go through on this attempt and has been queued; your credits will be returned automatically.` means it has **not** come back yet and a backstop will return it. |
 
 ### What it does not do
@@ -671,7 +673,7 @@ Sending `prompt` alongside it is a `400` (`Unrecognized key: "prompt"`) — the 
 |---|---|
 | `400` | Missing/over-long `prompt`, an over-long **composed** prompt, an unknown key, or music disabled on this deployment. Nothing is charged. |
 | `402` | Not enough credits; `details` carries `required` and `available`. |
-| `429` | Concurrency ceiling — a music job consumes one of the **5** shared generation slots, the same pool as video. |
+| `429` | Concurrency ceiling — a music job consumes one of the **10** shared generation slots, the same pool as video. |
 | `502` | The provider refused or failed. Terminal, and refunded. |
 
 A prompt the provider's own classifier refuses comes back as terminal status **`blocked`**, not `failed` — rephrase it rather than retrying it, because a retry buys the same refusal.
@@ -768,7 +770,7 @@ call again: the audio was probably rendered and charged.
 
 Body is strict. Response `200`: `jobId`, `assetId`, `url`, `expiresInSeconds`,
 `creditsCharged`, `characters`, `voiceId`. **Download `url` immediately** — it is minted per
-response and time-limited; `assetId` is the durable handle.
+response and time-limited; `assetId` is the handle to keep.
 
 **`voiceId` is required and has no default.** A default voice is a performance you would be
 charged for without hearing it, and it would move under you whenever the catalog is
@@ -784,7 +786,7 @@ own clones — accept any value. Omit it and the model infers the language from 
 
 ### Pricing
 
-**Per 100 characters of the TRIMMED script, rounded up**, with a floor of one centi-credit.
+**Per 400 characters of the spoken text (the TRIMMED script without its stage directions), rounded up**, with a minimum charge.
 The same schedule the dashboard bills for the same render. `POST /estimates` has its own arm:
 `{ "kind": "voiceover", "script": … }` — `script` is **required** there, because it is what
 the price is made of, and it is checked against the same cap, so a script this endpoint
@@ -832,7 +834,7 @@ returns the finished video as a polled job instead — [Video out](#video-out), 
 | `output` | no | `"audio"` (default, the `200` below) or `"video"` (a `202` job; a video source only, enabled per workspace). See [Video out](#video-out) |
 
 Body is strict; exactly one source. Response with audio out, `200`: `jobId`, `assetId`, `url`,
-`expiresInSeconds`, `creditsCharged`, `billedMinutes`, `voiceId`.
+`expiresInSeconds`, `creditsCharged`, `billedSeconds`, `billedMinutes` (deprecated), `voiceId`.
 
 **What it preserves: timing, pacing and delivery, frame-accurately.** The take drops back
 onto the original picture and stays in sync, which is the whole reason this exists rather
@@ -884,12 +886,13 @@ the call is a `400` whose message says to omit `output`, and nothing is charged.
 
 ### Pricing
 
-**Per minute of source audio: whole minutes, rounded UP, one-minute minimum**, with no
-resolution term — the converter reads an audio track and never sees the picture.
-`billedMinutes` on the response says what was counted. `POST /estimates` has its own arm:
+**By the second of source audio, above a minimum charge (API 2.32.0)**, with no
+resolution term: the converter reads an audio track and never sees the picture.
+`billedSeconds` on the response says what was counted; `billedMinutes` is deprecated and no
+longer what the price reads. `POST /estimates` has its own arm:
 `{ "kind": "voice-change", jobId | assetId }`, at most one source. **Name the source for
-anything over a minute**; a sourceless quote is the one-minute minimum, which is why a 15s
-ad and an empty body quoted the same number on the acceptance run.
+anything past a few seconds**: a sourceless quote is the minimum charge, and a source past
+that minimum quotes higher.
 
 ### Failure modes
 
@@ -956,7 +959,7 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 | `resolution` | `1080p` (default) or `720p`. Moves the per-second price. |
 | `keepOriginalSound` | Default: the driving clip's audio is kept. `false` renders the result without it (API 2.44.0; it was refused before). Does not move the price. |
 | `prompt` | Optional scene direction; its ceiling is in the OpenAPI document. Does not move the price. |
-| `idempotencyKey` | Optional. Replaying the same key returns the same job with no second charge. |
+| `idempotencyKey` | Optional. Replaying the same key returns the same job with no second charge, so a new or corrected render takes a new key. |
 | `productId` | Optional. Files the result under a product. |
 
 - **The server measures the clip; a duration you send is never read.** Quote with `POST /estimates` and `kind: "motion-control"` with the same inputs, and the charge equals the quote.
@@ -976,15 +979,15 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 
 Returns `items`, `total`, `limit`, `offset`, `hasMore`. `total` ignores pagination.
 
-This is also the recovery path when a call times out: the work may have run and been charged, and the lost thing is the response carrying the `jobId`.
+This is also the recovery path when a call times out: the work may have run and been charged, and the lost thing is the response carrying the `jobId`. Each item has its `jobId`, `status` and `creditsCharged`, so the list gives back both. A finished item also has its `outputUrl`, and `images[]` where the job was rendered as one row per image, but no `error` and no `reasonCode`: read the job by its id for those.
 
 ## GET /generations/{jobId}
 
-`jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`, and once succeeded, `outputUrl` plus `outputUrlExpiresInSeconds` (3600). On failure, `error` carries our own wording, never a provider's raw text, and the credits are already refunded.
+`jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`, `creditsCharged` where the job has one, and once succeeded, `outputUrl` plus `outputUrlExpiresInSeconds` (3600); a succeeded image job can also carry `outputAssetId`, the id to chain instead of downloading the picture and uploading it again. On failure, `error` carries our own wording, never a provider's raw text, the credits are already refunded, and `reasonCode` says why where that is known ([Status lifecycle](#status-lifecycle)). `creditsCharged` is what the job was charged, not a net of refunds.
 
 **The echoed `prompt` can carry raw newlines, and a strict JSON parser will reject the whole response.** Observed live 2026-08-12 on a multi-line video prompt: the control characters arrive unescaped inside the string, so `json.loads()` raises and a poll loop that treats a parse error as "not ready yet" spins until it times out on a job that finished. Parse the poll response tolerantly — `json.loads(body, strict=False)` in Python, or the equivalent lenient mode elsewhere. It is a server-side escaping bug, not a signal about the job; nothing about the render or the charge is affected.
 
-**On a `kind: "image"` job that answered `running`, there is `images[]` once it has succeeded (API 2.39.0)**: every image of the job in order, the same entries the `POST /images` response carries, and `creditsCharged` for the whole job.
+**On a `kind: "image"` job rendered as one row per image, there is `images[]` once it has succeeded (API 2.39.0)**: every image of the job in order, each with `url`, `expiresInSeconds` and `assetId`, and `creditsCharged` for the whole job. A single-row job has no `images[]`: its image is `outputUrl`, and its id `outputAssetId`. A one-image job is a single row, whichever answer it gave.
 
 **On a `kind: "audio"` job that has succeeded, there is also `audio[]`** — the two tracks a music request delivered, each `{ url, expiresInSeconds, durationSeconds, title }`. `audio[0]` is the canonical one and is what `outputUrl` points at; `audio[1]` is a second take of the same prompt, and **`audio[]` is the only place it is published** — it is not a separate library asset and it will not turn up in a listing. Both URLs are presigned and minted **when you read the job**, so re-poll for fresh ones instead of storing them.
 
@@ -1042,7 +1045,7 @@ curl -sS -X POST https://api.novoads.ai/v1/products \
 
 The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`**, and on image models that offer them, `qualities`, `outputFormats` and `resolutions`, each with its `default*` (API 2.36.0) (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
 
-**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `sora-2` returns `["720p"]`; `seedance-2.0-mini` returned `["720p"]` and `veo-3.1` `["1080p"]` until API 2.34.0, which lists `480p` and `720p` for mini and `720p` and `1080p` for Veo; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
+**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returned `["480p","720p"]`** (API 2.28.0 adds `1080p` where the deployment renders it, and deployed spec 2.59.0 lists it); `sora-2`, since removed, returned `["720p"]`; `seedance-2.0-mini` returned `["720p"]` and `veo-3.1` `["1080p"]` until API 2.34.0, which lists `480p` and `720p` for mini and `720p` and `1080p` for Veo; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
 
 **`durationsSeconds` is the same kind of authority for length**, and since 2.13.0 the entries no longer agree with each other: `seedance-2.5` publishes 4 … 30, every other model stops at or below 15. Read the model's own array rather than assuming a family shares a grid.
 
@@ -1061,6 +1064,8 @@ queued -> running -> finalizing -> succeeded
 
 **Poll for terminal, not for `succeeded`.** A loop waiting only on `succeeded` never exits on a failed job.
 
+**A job that stopped says why in `reasonCode`, where that is known, and its `error` can be one general line, so read the field before you send anything again.** `moderation` is a content refusal: change the prompt or the picture. `input_image_size`, `input_image_format` and `input_image_shape` mean the model refused a picture for that reason: a new upload of the same bytes has the same size, format and shape, so send a file that fixes it. `input_image_unreadable` means the model could not open a picture the job sent it, and sending the same id fails the same way: upload the picture again or use another. `vendor_error`, `vendor_timeout` or no `reasonCode` at all name no other cause: the render failed or never came back, and another try may work (on a video call, under a new `idempotencyKey`), so on a job built on an old id make that try with a new upload. On `POST /images` a job that fails inside the call answers `502` `provider_failed` with `details.jobId` and, where the reason is known, the same field at `details.reasonCode`.
+
 `queued` means charged and submitted but not yet rendering. It is normal, not a stall. A video-out voice change is different: it is charged once the job finds speech in the source, not at `queued` ([Video out](#video-out)).
 
 Measured on production renders (all providers, succeeded only, p10 to p90):
@@ -1072,11 +1077,13 @@ Measured on production renders (all providers, succeeded only, p10 to p90):
 | `seedance-2.0-mini` | 2 to 3 minutes | ~2.3 minutes | — |
 | `omni-flash` | not published | — | — |
 | `veo-3.1` | not published | — | — |
-| `sora-2` | not published | — | **~123s** (2026-08-02, n=1) |
+| `kling-v3-pro` | not published | | |
+| `wan-3.0` | not published | | |
+| `sora-2` (removed from the API in 2026-09) | not published | — | **~123s** (2026-08-02, n=1) |
 
 The right-hand column is `createdAt` → first observed `succeeded` at 15-second poll granularity, so it is an upper bound on a handful of renders — not a distribution, and not a contradiction of the fleet range next to it. **Quote the fleet range where there is one and say the number is a range.** Both renders anyone here has actually timed came back under three minutes, so "about five minutes" is a promise the API did not make: a user told five who waits nine has been misled, and the p90 says nine happens.
 
-For `seedance-2.5`, `omni-flash`, `veo-3.1` and `sora-2` there is no published range at all. Say the wait is unknown rather than borrowing another model's — and for `seedance-2.5` specifically, do not borrow `seedance-2.0`'s on the strength of the shared family name: a thirty-second render is six times the output of the five-second clips those numbers were measured on.
+For `seedance-2.5`, `omni-flash`, `veo-3.1`, `kling-v3-pro` and `wan-3.0` there is no published range at all. Say the wait is unknown rather than borrowing another model's — and for `seedance-2.5` specifically, do not borrow `seedance-2.0`'s on the strength of the shared family name: a thirty-second render is six times the output of the five-second clips those numbers were measured on.
 
 About 4% of `seedance-2.0` renders run past 10 minutes. Failures are usually reported faster than successes, but their tail is much worse, so a wait that is far past p90 is more likely a slow success than a silent failure.
 
@@ -1107,11 +1114,11 @@ Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateL
 - The headers always describe **your per-key budget**. A `429` from the organization ceiling or from the pre-auth ceiling can arrive while they still show room.
 - The pre-auth ceiling reports `Retry-After` and **no** `X-RateLimit-*` headers at all.
 
-Concurrency detail worth knowing: the count covers the organization's **API surface only**, so dashboard renders do not consume an integration's slots, and a row stops counting after 30 minutes unfinished, so a stuck job cannot jam an organization permanently. Reads, estimates and uploads are not affected by it.
+Concurrency detail worth knowing: the count covers the organization's **API surface only** (the API and the connector), so dashboard renders do not consume an integration's slots. A row that never finishes stops counting on its own, so a stuck job cannot jam an organization permanently, but the wait depends on the queue: 5 minutes for an analysis, 30 for a caption, transcript, sweep, voice-over or voice change, and up to about two hours from its send for a video, an image or a talking actor the provider still reports as running. Reads, estimates and uploads are not affected by it.
 
 The video and image budgets are counted by two queries that cannot see each other's rows, and that separation runs **both ways**: a batch of images in flight never refuses a `POST /videos`, and ten videos rendering never refuse a `POST /images`. Before `2.12.0` images spent video slots and both halves of that were false. So do not treat a `429` on one as a reason to stop calling the other — branch on `details.reason`, which is exactly what it is for.
 
-Cloudflare's edge timeout of roughly 125 seconds is the real ceiling on any single request, which is why video generation is asynchronous, and why since API 2.39.0 an image render still going after about 105 seconds answers `running`, before the edge would cut it, and is collected by polling instead of holding the request open.
+The CDN in front of this API can cut a long request at around 125 seconds, which is why video generation is asynchronous, and why since API 2.39.0 an image render that outlasts its bounded wait answers `running` and is collected by polling instead of holding the request open.
 
 ---
 
@@ -1127,7 +1134,7 @@ Envelope, on every failure:
 
 | `code` | Status | Notes |
 |---|---|---|
-| `invalid_input` | 400 | **Malformed request only.** `details.issues` names each bad field. Nothing charged. See below. |
+| `invalid_input` | 400 | **Refused before any charge.** `details.issues` names each bad field; a refusal with a name of its own carries `details.code` (`upload_incomplete`, `reference_kind`, the others the spec lists) or `details.reason` (`model_retired`) instead, and its `message` says what to do. See below. |
 | `unauthorized` | 401 | Missing, malformed or revoked key. Carries `WWW-Authenticate: Bearer`. |
 | `insufficient_credits` | 402 | `details` has `required` and `available`, in credits. |
 | `forbidden` | 403 | `details.reason` is `plan_required` or `subscription_inactive`, or the API is not enabled for that organization. |
@@ -1135,13 +1142,13 @@ Envelope, on every failure:
 | `method_not_allowed` | 405 | Real path, wrong verb. Carries an `Allow` header. |
 | `conflict` | 409 | Includes `/watch` on an unfinished job. |
 | `content_policy` | 422 | Moderation, and the **only** refusal of a prompt for what it says. Nothing charged. |
-| `rate_limited` | 429 | **Twelve causes**, nine of them broken out. See below. |
+| `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |
-| `provider_failed` | 502 | Credits refunded automatically. |
+| `provider_failed` | 502 | Credits refunded automatically. On `POST /images`, `details.jobId` names the job and `details.reasonCode` says why, where that is known ([Status lifecycle](#status-lifecycle)). |
 
-### A 400 has one shape
+### The shape of a 400
 
-It is a schema rejection, and it names the fields:
+A schema rejection names the fields:
 
 ```json
 { "error": { "code": "invalid_input", "message": "(root): Unrecognized key: \"styleFamily\"",
@@ -1151,23 +1158,26 @@ It is a schema rejection, and it names the fields:
 An out-of-grid `durationSeconds` and a prompt past the model's ceiling land the same way — the
 response names the field and the limit.
 
-**There is no second shape.** Until spec `2.0.0` a prompt-rule failure was also a 400, carrying `details.rule` and `details.violations[]`. Those keys no longer appear on any response — the rules that replaced them are **advisory only** and arrive as the `warnings` array on a `200` from `/estimates`, never as an error. Code that branches on `details.rule` is reading for something that will never arrive; code that wants the craft advice reads `warnings` off the estimate. (The earlier claim here that `warnings` was itself removed in spec `3.0.0` was wrong — deployed spec is `2.6.0` and it returns the field; verified live 2026-08-04.)
+**There is no prompt-rule shape.** Until spec `2.0.0` a prompt-rule failure was also a 400, carrying `details.rule` and `details.violations[]`. Those keys no longer appear on any response — the rules that replaced them are **advisory only** and arrive as the `warnings` array on a `200` from `/estimates`, never as an error. Code that branches on `details.rule` is reading for something that will never arrive; code that wants the craft advice reads `warnings` off the estimate. (The earlier claim here that `warnings` was itself removed in spec `3.0.0` was wrong — deployed spec is `2.6.0` and it returns the field; verified live 2026-08-04.)
 
 ### The causes of a 429
 
 Every one carries `details.reason` and a `Retry-After` header. Those two are the documented
 contract: sleep on the header, branch on the reason. `error.details` is a free-form object, so a
-response may carry more than the spec names — `details.inFlight` on a concurrency refusal is the
-only extra it does name. Do not branch on an undocumented `details` key.
+response may carry more than the spec names. `details.inFlight` on a concurrency refusal, and
+`details.limit`, `details.remainingSeconds` and `details.retryAfterSeconds` on the reasons the spec lists
+them for, are the extras it does name. Do not branch on an undocumented `details` key.
 
-**The deployed spec names twelve reasons** (read off `2.21.0`, 2026-08-12). Nine are broken
-out below; the three this pack has never hit are `competitor_ads_concurrency_limit`,
-`analysis_concurrency_limit` and `analysis_hourly_limit`. Read the live spec's `429`
-description if you meet one that is not here — this table is a working set, not the contract.
+**The deployed spec names seventeen reasons** (counted off `2.60.0`, 2026-11-07). Nine are broken
+out below; the other eight are `competitor_ads_concurrency_limit`, `analysis_concurrency_limit`,
+`analysis_hourly_limit`, `voice_change_daily_cap`, `talking_actor_concurrency_limit`,
+`talking_actor_preview_limit`, `reference_check_concurrency_limit` and
+`assembly_concurrency_limit`. Read the live spec's `429` description if you meet one that is
+not here — this table is a working set, not the contract.
 
 | `details.reason` | Cause | What to do |
 |---|---|---|
-| `concurrency_limit` | 5 **video** generations already in flight for the organization; `details.inFlight` says how many | Wait for one to reach a terminal state, then submit. A longer backoff does not help; a finished job does. Video generation only — images have their own queue below. |
+| `concurrency_limit` | **10 video** generations already in flight for the organization (API 2.51.0, up from 5); `details.inFlight` says how many | Wait for one to reach a terminal state, then submit. A longer backoff does not help; a finished job does. Generation endpoints only, and music shares this queue with video; images have their own queue below. |
 | `image_concurrency_limit` | **12 image generations already in flight** for the organization (verified against the deployed spec `2.12.0`, 2026-08-06) | Same shape: wait, do not slow down. Counted **separately** from `concurrency_limit` in both directions — images never block a render, renders never block an image. |
 | `caption_concurrency_limit` | **10 caption jobs already in flight** for the organization (verified in spec 2.6.0, 2026-08-04) | Same shape as above: wait, do not slow down. Counted **separately** from `concurrency_limit`, deliberately — a batch of captions can never block your next render, and vice versa. |
 | `transcript_concurrency_limit` | **10 transcripts already in flight** for the organization, where `POST /transcripts` is offered (verified against the deployed spec `2.12.0`, 2026-08-06) | Wait. A transcript is synchronous, so this bounds how many you can hold open at once and is often the first ceiling a batch meets. |
@@ -1177,13 +1187,13 @@ description if you meet one that is not here — this table is a working set, no
 | `organization_limit` | 180 requests per minute across every key the organization holds | Honor `Retry-After`. `X-RateLimit-*` will still show room on your key — correct, not a broken limiter. Minting another key does not raise it. |
 | `client_limit` | 1,200 requests per minute from one address, **pre-authentication** | Honor `Retry-After`. Carries no `X-RateLimit-*` trio. |
 
-An agent that reads only "429 means slow down" backs off on the wrong axis when the real problem is jobs in flight — and, with five separate concurrency queues, it may be backing off the wrong queue entirely. Branch on `details.reason`.
+An agent that reads only "429 means slow down" backs off on the wrong axis when the real problem is jobs in flight — and, with several separate concurrency queues, it may be backing off the wrong queue entirely. Branch on `details.reason`.
 
-**The in-flight count is per organization, not per key or per session**, so `concurrency_limit` is the ordinary outcome of running several workflows at once — two agents each holding three renders open is a sixth submission refused, with neither of them individually misbehaving (observed live 2026-08-12 across parallel callers on one org). **Nothing is charged on the refusal**: the row is never created, so there is no job to find and no credit to reclaim. A render clears in roughly two minutes at the short durations, so resubmit the same body after one — the fix is a finished job, and minting a second key does not buy a slot.
+**The in-flight count is per organization, not per key or per session**, so `concurrency_limit` is the ordinary outcome of running several workflows at once — two agents each holding five renders open is an eleventh submission refused, with neither of them individually misbehaving (observed live 2026-08-12 across parallel callers on one org, under the old ceiling of five). **Nothing is charged on the refusal**: the row is never created, so there is no job to find and no credit to reclaim. A render clears in roughly two minutes at the short durations, so resubmit the same body after one — the fix is a finished job, and minting a second key does not buy a slot.
 
 ### The 500 rule
 
-The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice, and there are no idempotency keys yet.
+The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice. Video calls take an `idempotencyKey` (API 2.52.0), and a retry with the same key returns the first job instead of a second charge, so a key is only for a retry of the identical call; `POST /images` takes none.
 
 On a 500: call `GET /v1/generations` first. If the job is there, poll it. Only resubmit if it is genuinely absent.
 
@@ -1217,6 +1227,6 @@ Neither rule can distinguish a physical package from a UI, or narration from sta
 
 **How to use them:** read every one, judge it against what your prompt actually says and where the matched substring sits, and state your reasoning if you override it. Never paste a suggested fix into a prompt it does not fit, and never drop a warning silently — an unexplained override is indistinguishable from not having read it.
 
-**The skill layer is still the real quality gate.** The prompt libraries carry a practitioner's craft notes and cover everything these four rules do not — which is nearly all of it. Read the formula file for the route before composing; a clean estimate is not a reviewed prompt. Moderation remains the only thing that can *refuse* a prompt for what it says, and it refuses content, not craft — see the `422` row in the error table.
+**The skill layer is still the real quality gate.** The prompt libraries carry a practitioner's craft notes and cover everything these rules do not — which is nearly all of it. Read the formula file for the route before composing; a clean estimate is not a reviewed prompt. Moderation remains the only thing that can *refuse* a prompt for what it says, and it refuses content, not craft — see the `422` row in the error table.
 
 What that leaves the estimate doing is the one thing it was always for: **the price.** It is still mandatory before every render, and it is still the only legitimate source of a number.

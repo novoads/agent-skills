@@ -6,19 +6,20 @@ The platform rules for `seedance-2.0` and `seedance-2.0-mini`. Read this before 
 
 ## Request fields
 
-Only `model` and `prompt` are required. The body is **strict** — any key not in this table is a `400` and nothing is charged.
+Only `model` and `prompt` are required. The body is **strict**: a key its schema does not name is a `400` and nothing is charged. This table holds the fields these formulas use; `audioEnabled`, `referenceVideoAssetIds` and `referenceAudioAssetIds` are below, and `productSwap` is in [reference.md](../../reference.md).
 
 | Field | Value / range | Notes |
 |---|---|---|
-| `model` | `seedance-2.0`, `seedance-2.0-mini` | Mini is half the price on the same grid. Ask once per workflow; see *Mini-draft tier* below. |
+| `model` | `seedance-2.0`, `seedance-2.0-mini` | Mini is about a fifth of the price on the same grid. Ask once per workflow; see *Mini-draft tier* below. |
 | `prompt` | required | The video prompt. See *Length* below. |
-| `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
+| `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5, and to 10 on mini**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
 | `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9`.** Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
 | `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. On `seedance-2.0-mini` only from API 2.34.0, and only the tiers `GET /v1/models` lists for it. |
-| `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | The language the ad is rendered in. Write the prompt in it too. |
+| `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | Recorded against the job; it does not change what the model is sent. Defaults to `en`. The spoken language comes from the quoted line, so write the prompt in it too. |
 | `startImageAssetId` | one `assetId` | Animates that image as the **first frame**. |
 | `referenceAssetIds` | up to **9** `assetId`s | **Composites** them as visual references. Addressed in the prompt as `@Image1`…`@ImageN`. |
 | `productId` | UUID | Optional. What makes `GET /v1/generations?productId=…` a useful history later. |
+| `idempotencyKey` | 1 to 255 characters | Makes a retry safe: the same key within 24 hours returns the first job, whatever the new body says. Reuse it only to retry the identical call; every new or corrected render takes a new key. |
 
 **`startImageAssetId` and `referenceAssetIds` are two modes, not two fields.** Sending both is a `400` that says so in as many words:
 
@@ -26,13 +27,13 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 
 `referenceAssetIds` is **images only** (`image/jpeg`, `image/png`, `image/webp`); since API 2.35.0 mp4 and mp3 references go in `referenceVideoAssetIds` and `referenceAudioAssetIds`, with caps from the OpenAPI document (`GET /v1/openapi.json`: each field's `maxItems` and description, which also state the summed-seconds and total-file caps), and cannot be combined with `startImageAssetId`; an audio reference needs an image or video reference beside it. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` takes `referenceAssetIds` too since API 2.30.0 (images only as well, with one separate `referenceVideoAssetId`); read its guide before carrying a Seedance reference prompt across.
 
-**`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈half**, `1080p` is **≈2.5x**, `4k` is **≈5x**. The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: measured live 2026-08-12, exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5`, so a rehearsal render has an honest cheap tier to go to.
+**`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈two-thirds**, `1080p` is **≈2x**, `4k` is **≈5x** (deployed spec 2.60.0). The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: it measured exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5` on 2026-08-12, the schedules have moved since, and a rehearsal render still has an honest cheap tier to go to.
 
 Those are ratios for warning the user, **not a rate card — never quote a credit number from them.** Price the exact cell with `POST /v1/estimates`, which takes `resolution` on its video arm, and get the usual approval before rendering.
 
 Stay at `720p` unless someone asks for more: it is what Reels, TikTok and Stories re-encode to anyway. Reach for `1080p` or `4k` only for a client deliverable, a placement with a quality floor, or a render you plan to crop into.
 
-**Before API 2.34.0, never send `resolution` on `seedance-2.0-mini`** (from 2.34.0 read its `resolutions` in `GET /v1/models`; it lists `480p` and `720p`). `POST /v1/estimates` will accept `720p` for mini and price it, which reads like permission and is not: mini's `POST /v1/videos` variant has no such property and answers `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — confirming it costs a paid render). Mini renders 720p, fixed.
+**Before API 2.34.0, never send `resolution` on `seedance-2.0-mini`** (from 2.34.0 read its `resolutions` in `GET /v1/models`; it lists `480p` and `720p`). `POST /v1/estimates` will accept `720p` for mini and price it, which reads like permission and is not: mini's `POST /v1/videos` variant has no such property and answers `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — confirming it costs a paid render). Before 2.34.0 mini rendered 720p, fixed.
 
 Default output measured at `9:16`: 720x1280 (2026-08-02, at the `720p` default); do not carry that number to other models.
 
@@ -42,9 +43,9 @@ Every one of these comes back `400 (root): Unrecognized keys: …` — verified 
 
 `duration` (it is `durationSeconds`) · `referenceImages` (it is `referenceAssetIds`) · `referenceVideos` · `referenceAudios` (since API 2.35.0 they are `referenceVideoAssetIds` and `referenceAudioAssetIds`) · `startFrame` / `endFrame` (it is `startImageAssetId`) · `nbGenerations` · `projectId` (the API has products, not projects).
 
-**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is still rejected on `sora-2` (and on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0), and on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
+**`resolution` was on this list and no longer belongs on it** — it is a real field on `seedance-2.0` as of spec 2.6.0 (verified live 2026-08-04). It is rejected on `kling-v3-pro`, whose body has no such field, and on `omni-flash` wherever `GET /v1/models` lists only `720p` for it; `seedance-2.0-mini` and `veo-3.1` rejected it too before API 2.34.0.
 
-**`audioEnabled` is the one exception, and it is a mute switch, not an audio track.** It arrived in spec `2.2.0` on `seedance-2.0` and `seedance-2.0-mini` only — the other three video models still `400` on it, and so does `POST /v1/estimates` for every model, because it does not move the price. It defaults to `true`. Send `false` for a clip that is meant to be silent (a pipeline laying its own VO in post, a cutaway built to run muted); otherwise leave it alone.
+**`audioEnabled` is the one exception, and it is a mute switch, not an audio track.** It arrived in spec `2.2.0` on `seedance-2.0` and `seedance-2.0-mini` only — today it is on the three Seedance variants, `kling-v3-pro` and `wan-3.0`, while `omni-flash` and `veo-3.1` still `400` on it, and so does `POST /v1/estimates` for every model, because it does not move the price. It defaults to `true`. Send `false` for a clip that is meant to be silent (a pipeline laying its own VO in post, a cutaway built to run muted); otherwise leave it alone.
 
 What it does **not** give you is control over the audio. Seedance still renders the dialogue and the lip-sync from the prompt itself, in the same call, at no extra cost — which is why the spoken line has its own approval gate in `SKILL.md` before anything is submitted. The flag decides whether that track exists, not what is in it.
 
@@ -52,15 +53,15 @@ What it does **not** give you is control over the audio. Seedance still renders 
 
 The four style formulas write `@Image1`, `@Image2`, `@Image3` inline in the prompt text. Those tokens resolve **positionally** against `referenceAssetIds`: `@Image1` is the first `assetId` in the array, `@Image2` the second, in the order you send them. Order is the contract — the array is what binds, the token is how the prompt points at it.
 
-A token pointing past the end of the array is refused **before the charge**, so `@Image2` in a prompt that ships one reference fails free rather than billing a render the provider cannot resolve.
+A token pointing past the end of the array is refused **before the charge**, so `@Image2` in a prompt that ships one reference costs nothing. That check runs only when references are sent: in a call with `startImageAssetId`, or with no reference at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
 
-Upload once and reuse: the `assetId` is durable across calls, across models, and across sessions. Re-uploading the same bytes mints a **second** asset and throws away the identity anchor a multi-clip series exists to hold.
+Upload once and reuse: the `assetId` can be reused across calls and across models. Re-uploading the same bytes only mints a **second** id for the same picture, so do it only when a call or a job built on the old id fails.
 
 Which mode a formula wants:
 
 | Formula | Mode | Why |
 |---|---|---|
-| UGC selfie review | `startImageAssetId` | The product photo is literally the opening frame. |
+| UGC selfie review | `referenceAssetIds` | The formula writes `@Image1`, so the product photo goes first in the array and the model composites it into the scene. To open on the photo itself, send `startImageAssetId` and name the product in words: a start frame takes no token. |
 | Premium reveal, product hero | `referenceAssetIds` | The product emerges from a void it was never photographed in — the model has to composite it, not animate the flat photo. |
 | Studio lookbook, feature walkthrough | `referenceAssetIds` | Two references earn their keep: `@Image1` the product, `@Image2` the actor. |
 
@@ -143,7 +144,7 @@ Include at least one: `documentary` (natural, observational), `photorealistic` (
 
 Never use in Seedance 2.0 prompts: `cinematic`, `professional`, `stunning`, `8k`, `studio`, `perfect`.
 
-These are craft advice, not a gate. **Nothing on the API rejects them, and nothing reports them** — the estimate prices the render and says nothing about how the prompt is written. Delete the word anyway and describe the real thing in its place: the light source, the surface, the flaw. "Cinematic kitchen" is a wish; "sunlit kitchen, soft window light from camera-left, natural skin texture with visible pores" is a shot.
+These are craft advice, not a gate. **Nothing on the API rejects them.** The estimate's `warnings` name `cinematic`, `8k` and `perfect` (rule `banned_polish`) and not the other three, so a clean estimate does not clear this list. Delete the word anyway and describe the real thing in its place: the light source, the surface, the flaw. "Cinematic kitchen" is a wish; "sunlit kitchen, soft window light from camera-left, natural skin texture with visible pores" is a shot.
 
 One route overrides this list: `studio` is correct on the [studio lookbook](seedance-2-studio-lookbook.md), whose whole premise is a lit studio with the rig in frame. The list is written for UGC, which is where most of this library lives — see note 3 in that file.
 
@@ -156,11 +157,11 @@ Change **one** element at a time:
 3. Product drifts between shots → add a consistency anchor.
 4. Motion stiff → add degree adverbs and a second comma-joined cue.
 
-## What the estimate is for
+## What the estimate flags
 
-`POST /v1/estimates` is the price, and that is the whole of it. It is mandatory before every render because it is the **only** source of a number — never quote a cost from memory, from this file, or from a previous session. It spends nothing, so there is no reason to skip it.
+`POST /v1/estimates` is the price first. It is mandatory before every render because it is the **only** source of a number — never quote a cost from memory, from this file, or from a previous session. It spends nothing, so there is no reason to skip it.
 
-It has no opinion about your prompt. Nothing in the API reads a prompt for craft, on this endpoint or any other: a prompt that breaks every rule in this file is priced, charged and rendered exactly as written. Everything above is the quality gate. There is no second one.
+It also lints your prompt: `warnings` carries what the craft rules noticed, such as `banned_polish`, `label_without_hold` and `no_spoken_line`, and all of it is advice. A prompt that breaks every rule in this file is still priced, charged and rendered exactly as written. Everything above is the quality gate; the warnings are a second opinion on a call you were making anyway.
 
 ## Duration and dialogue
 
@@ -184,11 +185,11 @@ Embed the line in the prompt with natural attribution: `she says: "…"` or `he 
 
 ## Mini-draft tier
 
-`seedance-2.0-mini` is the same grid, the same fields, and the same formulas at **half the price**, and it returns in 2–3 minutes instead of 3–8. Use it as a draft tier:
+`seedance-2.0-mini` is the same grid, the same fields, and the same formulas at **about a fifth of the price**, and it returns in 2–3 minutes instead of 3–8. Use it as a draft tier:
 
 1. Ask once per workflow which tier to use (`SKILL.md` makes this an explicit question; no preference means `seedance-2.0`).
-2. Upload the reference **once**. The `assetId` is durable, so the final render reuses it with no second upload.
-3. Draft on `seedance-2.0-mini` until the prompt is right — wrong framing, a garbled label, or a rushed line costs half as much to discover.
+2. Upload the reference **once**. The `assetId` can be reused across calls, so the final render reuses it with no second upload.
+3. Draft on `seedance-2.0-mini` until the prompt is right — wrong framing, a garbled label, or a rushed line costs about a fifth as much to discover.
 4. Re-price at `POST /v1/estimates` with `model` set to the final tier and re-confirm before the finishing render. **Show both numbers side by side** when the user is choosing; never quote either from memory.
 
 The prompt does not change between tiers. If it renders well on mini, the only thing the full model changes is fidelity.
@@ -209,12 +210,12 @@ Pick the formula that matches the goal, then read its file before composing:
 
 If none fits, compose a custom prompt directly from the platform rules above, following Subject + Action + Camera + Style + Constraints.
 
-Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in this folder is a **cross-model** UGC guide whose formulas target Veo 3.1, Sora 2 and Kling 3.0. All three are on this API: Veo and Sora with the grids in [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md), Kling 3.0 as `kling-v3-pro` since API 2.38.0. None of the three takes `referenceAssetIds`, so for Seedance UGC use [seedance-2-ugc.md](seedance-2-ugc.md) rather than porting a cross-model formula across. The other video model here is `omni-flash`: narrower grids, references since API 2.30.0, and a 20,000-character prompt ceiling, guide at `shared/skills/gemini-omni-flash/prompting/guide.md`.
+Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in this folder is a **cross-model** UGC guide whose formulas target Veo 3.1, Sora 2 and Kling 3.0. Two are on this API: Veo with the grid in [veo-3-1.md](veo-3-1.md), and Kling 3.0 as `kling-v3-pro` since API 2.38.0; Sora 2 was removed from the API in 2026-09. Neither of the two takes `referenceAssetIds`, so for Seedance UGC use [seedance-2-ugc.md](seedance-2-ugc.md) rather than porting a cross-model formula across. The other video models here are `omni-flash` (narrower grids, references since API 2.30.0, and a 20,000-character prompt ceiling, guide at `shared/skills/gemini-omni-flash/prompting/guide.md`) and `wan-3.0` (API 2.53.0).
 
 ## Adaptation checklist (all styles)
 
 - [ ] **Word count** — prompt is between 100–260 words
-- [ ] **`durationSeconds` set explicitly** — from the dialogue word count, or 15 for no-dialogue. The default is 5.
+- [ ] **`durationSeconds` set explicitly** — from the dialogue word count, or 15 for no-dialogue. The default is 5, and 10 on mini.
 - [ ] **`aspectRatio` set explicitly** — `9:16` for social. The default is `16:9`.
 - [ ] **Motion specificity** — degree and direction, two or three cues on one action, no `then`
 - [ ] **Consistency anchors** — product and wardrobe stated as unchanged across cuts

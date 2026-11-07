@@ -248,8 +248,8 @@ before the UGC row's 720p render. A dated capture, not a rate table.
     "prompt": "15 seconds UGC style honest review video, filmed on smartphone, grey morning light through the kitchen window blinds, casual handheld selfie angle. … (2,646 characters)"
   },
   "response": {
-    "credits": 7,
-    "balance": 243.2,
+    "credits": "<the quote>",
+    "balance": "<your balance>",
     "sufficient": true
   },
   "responseHeaders": {
@@ -258,8 +258,9 @@ before the UGC row's 720p render. A dated capture, not a rate table.
 }
 ```
 
-`credits` and `balance` are display credits, the same unit `POST /v1/videos` reports back as
-`creditsCharged`. The prompt is abridged here for width; the call carried it in full.
+`credits` and `balance` are in the unit `POST /v1/videos` reports back as `creditsCharged`. The two
+figures are left out because a dated quote reads as a price, and the estimate is the only source of
+one. The prompt is abridged here for width; the call carried it in full.
 
 ## What you can make
 
@@ -286,9 +287,10 @@ Five prompt formulas ship, each with a worked example that has been priced live:
 The platform guide — grids, the two reference modes, prompt length by shot count, the mini-draft
 tier — is [seedance-2.md](skills/novoads-api/prompting/prompt-library/seedance-2.md).
 
-**Draft on Mini first.** `seedance-2.0-mini` takes the same grid and the same formulas at half the
-price and comes back in 2–3 minutes. Upload once, draft on Mini, re-price naming the final tier,
-render once. The agent asks which tier you want before the first Seedance call of a workflow.
+**Draft on Mini first.** `seedance-2.0-mini` takes the same grid and the same formulas at about a
+fifth of the price and comes back in 2–3 minutes. Upload once, draft on Mini, re-price naming the
+final tier, render once. The agent asks which tier you want before the first Seedance call of a
+workflow.
 
 ### 🎬 Seedance 2.5 — the long one
 
@@ -297,25 +299,28 @@ Any integer duration from **4 to 30 seconds**, which makes it the only model her
 `referenceAssetIds`, the same `audioEnabled` toggle, the same 4,000-character prompt ceiling — so
 the five Seedance formulas apply unchanged.
 
-Two differences worth knowing before you pick it. It renders **`480p` and `720p` only** — no
-`1080p`, no `4k`, on either provider — so a resolution carried over from a 2.0 workflow is a
-rejected request rather than a downgrade. And it is the **dearest** model on the API at the same
-length; thirty seconds of it is the most expensive single call this API takes. Price it, like
-everything else, at `POST /v1/estimates`.
+Two differences worth knowing before you pick it. It renders **`480p`, `720p` and, where
+`GET /v1/models` lists it, `1080p`** (API 2.28.0; the deployed spec lists it), and never `4k`, so a
+`4k` carried over from a 2.0 workflow is a rejected request rather than a downgrade. And from `720p`
+up it is **dearer** than `seedance-2.0` at the same length (at `480p` the two match); thirty seconds
+of it at `1080p` is the dearest cell the video schedules publish. Price it, like everything else, at
+`POST /v1/estimates`.
 
 > "Make a 30-second Seedance 2.5 ad — the founder walks through the workshop and explains why they
 > built it"
 
 A longer clip wants **more beats**, not slower delivery. If the script only fills 15 seconds, render
-15 seconds on `seedance-2.0`, which is cheaper at that length.
+15 seconds on `seedance-2.0`, which is cheaper at that length from `720p` up.
 
 ### 🎬 Omni Flash — fast vertical clips
 
 > "Give me a fast 8-second vertical clip of the product on a kitchen counter, no dialogue"
 
-`omni-flash` carries a **20,000-character** prompt ceiling, the roomiest of any video model here
-against 4,000 everywhere else, which is what makes long structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`,
-aspect ratios `9:16` or `16:9` only — and it takes **no** reference images. Prompt craft in
+`omni-flash` carries a **20,000-character** prompt ceiling, the roomiest of any video model here,
+shared only with `wan-3.0` (`kling-v3-pro` takes 2,500, the rest 4,000), which is what makes long
+structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`,
+aspect ratios `9:16` or `16:9` only — and since API 2.30.0 it also takes reference images.
+Prompt craft in
 [shared/skills/gemini-omni-flash/prompting/guide.md](shared/skills/gemini-omni-flash/prompting/guide.md),
 which is Google DeepMind's own guide with the parts this API cannot reach marked as such.
 
@@ -372,7 +377,7 @@ weather UI, scratch-off tickets, founder letters, dating-app cards, and more.
 
 - **[`chatgpt-image-ad`](skills/chatgpt-image-ad/SKILL.md)** — typography / UI mimicry, on `gpt-image-2`
 - **[`nano-banana-image-ad`](skills/nano-banana-image-ad/SKILL.md)** — photoreal / lifestyle / multi-reference, on `nano-banana-pro`
-- **[`clone-image-ad`](skills/clone-image-ad/SKILL.md)** — reverse-engineer an existing ad into a new library entry; asks which backend to validate against at Phase 1 (`gpt-image-2`, `nano-banana-pro` or `reve-2.1`) and can cross-validate against another at Phase 8
+- **[`clone-image-ad`](skills/clone-image-ad/SKILL.md)** — reverse-engineer an existing ad into a new library entry; asks which backend to validate against at Phase 1 (`gpt-image-2` or `nano-banana-pro`) and can cross-validate against the other at Phase 8
 
 **Read [shared/skills/image-ad-prompting/OVERVIEW.md](shared/skills/image-ad-prompting/OVERVIEW.md)
 first** — it holds the decision tree, the per-backend aspect-ratio matrix, and the standard
@@ -438,8 +443,8 @@ balance — how short you are and where to top up. You approve the number, then 
 
 The estimate charges nothing, and what it does *not* do is worth stating:
 
-- **The estimate lints a video prompt, advisorily.** It returns a `warnings` array of craft notes
-  (`{rule, message}`) — verified live 2026-08-04. `POST /v1/videos` and `POST /v1/images` do not
+- **The estimate lints a video or image prompt, advisorily.** It returns a `warnings` array of craft notes
+  (`{rule, message}`) — verified live 2026-08-04 on video and 2026-08-12 on image. `POST /v1/videos` and `POST /v1/images` do not
   run these rules and return no such field. **Nothing in it can refuse or reprice a call**, so a
   weak prompt is still priced, charged and rendered exactly like a strong one, and the warnings
   are substring matches that **do** false-positive. Read them, judge each against your prompt,
@@ -463,12 +468,13 @@ is the current answer, this table is a map.
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
 |---|---|---|---|---|---|
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
-| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p` / `720p` only, no `1080p` or `4k`.** Dearest per second; nothing has timed one, so quote the wait as unknown. |
-| **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, half the price, back in 2–3 min. The drafting tier. |
+| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
+| **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, about a fifth of the price, back in 2–3 min. The drafting tier. |
 | **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
-| **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | read `GET /v1/models` | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | 2,500 chars | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`wan-3.0`** | Video | 4–15s, any integer | `9:16` `16:9` `1:1` `4:3` `3:4` | **20,000 chars** | Wan 3.0 (API 2.53.0). Defaults to `9:16` and 5s. Audio on by default, off with `audioEnabled: false`. Text alone, `startImageAssetId` (plus an optional `lastFrameAssetId`, which needs it), **or** up to 9 `referenceAssetIds`; never a start frame and references together. `resolution` `480p` `720p` `1080p`, default `720p`, each tier its own price. Unmeasured here: no render time on record. |
 | **`gpt-image-2.6-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default** (added in API 2.57.0, the default since 2.58.0): a call with no `model` and no `preset` renders this. The newest; slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
 | **`gpt-image-2.6-flare`** | Image | — | same six | **32,000 chars** | The newest fast one, for most images (API 2.57.0). Can answer `running`: poll it. |
 | **`gpt-image-2.5-sunburst`** | Image | — | same six | **32,000 chars** | Slower, keeps fine detail and labels exact. Can come back larger than 2.6, up to 2160 x 3840 at `9:16` at `high`: read `width` and `height`. Can answer `running`: poll it. |
@@ -490,16 +496,20 @@ they share one grid. Images have no start-frame concept. Videos are
 asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body,
 or answer `running` and are polled the same way.
 
-`audioEnabled` (default `true`) is on the three Seedance variants and, since API 2.38.0,
-`kling-v3-pro`; send `false` for a clip meant to run silent. `omni-flash`, `veo-3.1` and `sora-2` are
+`audioEnabled` (default `true`) is on the three Seedance variants, `kling-v3-pro` (API 2.38.0)
+and `wan-3.0` (API 2.53.0); send `false` for a clip meant to run silent. `omni-flash` and `veo-3.1` are
 strict and `400` on it, as does `POST /v1/estimates` for every model: it does not move the price.
 
-`resolution` is on **`seedance-2.0`, `seedance-2.5`, and `omni-flash` where `GET /v1/models` lists
-more than one tier for it**, and it is the one output-shape field
-that moves the price: each tier is its own credit schedule, not a surcharge on the one below it.
-Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, which makes it a real
-draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`,
-`720p` and `1080p`, plus `4k` where the server publishes it: read the live list, never assume `4k`.
+`resolution` is on **`seedance-2.0`, `seedance-2.5`, `seedance-2.0-mini` and `veo-3.1` (both since
+API 2.34.0), `wan-3.0` (API 2.53.0), and `omni-flash` where `GET /v1/models` lists more than one
+tier for it**. On every one of them but `veo-3.1`, which quotes the same at both of its tiers, it
+is the one output-shape field that moves the price: each tier is its own credit schedule, not a
+surcharge on the one below it. Since 2026-08-07 `480p` costs less than `720p` rather than the same
+(about two-thirds on `seedance-2.0`, under half on `seedance-2.5`, about half on Mini), which makes
+it a real draft tier on all three Seedance variants (quote each tier).
+`seedance-2.5` stops at `1080p` where `GET /v1/models` lists it, and never takes `4k`. `omni-flash`
+may list `360p`, `720p` and `1080p`, plus `4k` where the server publishes it: read the live list,
+never assume `4k`.
 
 **Kling 3.0 is on this API as `kling-v3-pro` since API 2.38.0**, where `GET /v1/models` lists it:
 any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, audio on or off, text or a start frame, and
@@ -555,9 +565,9 @@ Drop images into `references/` and the agent finds them before asking you for an
 - **`references/aesthetics/`** — mood boards, lighting and style references
 
 The folder is gitignored, so the files stay on your machine. Uploads are minted through
-`POST /v1/uploads` and the resulting `assetId` is **durable and reusable forever** — upload the
-product shot once and reuse it across every iteration and every model, which is what makes drafting
-on Mini cheap. (The presigned *upload URL* expires in 900 seconds; the `assetId` does not.)
+`POST /v1/uploads` and the resulting `assetId` **can be reused across calls** — upload the
+product shot once and reuse it across iterations and models, which is what makes drafting
+on Mini cheap. (The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`.)
 
 ## Project memory
 

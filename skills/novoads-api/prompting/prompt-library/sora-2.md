@@ -1,20 +1,29 @@
-# Sora 2 — prompt craft
+# Sora 2 — prompt craft (removed from the API)
 
-**Live on this API** since spec `2.1.0`. `POST /v1/videos` with `"model": "sora-2"`.
+> **Removed from the API in 2026-09.** When OpenAI ended the Sora 2 API, `sora-2` left
+> `POST /v1/videos`, `POST /v1/estimates` and `GET /v1/models`: a call naming it is a `400`
+> `invalid_input`, and nothing is charged. This page is kept as history, so an old link still
+> lands on a page that says what happened; nothing below is a live route. A talking clip whose
+> first word must land at once now goes to `seedance-2.0` with a reference or a start frame
+> (measured at about 0.5s of leading silence), the eye-contact-break beat dropped from the
+> prompt, and the first `silence_end` checked and trimmed: see the model router and
+> *Script length → duration* in [SKILL.md](../../SKILL.md).
 
-Read this before composing a Sora prompt. Every HTTP detail comes from [SKILL.md](../../SKILL.md) and [reference.md](../../reference.md), which win whenever this file and they disagree.
+Was on this API from spec `2.1.0` until 2026-09, as `POST /v1/videos` with `"model": "sora-2"`.
+
+It was written to be read before composing a Sora prompt. Every HTTP detail comes from [SKILL.md](../../SKILL.md) and [reference.md](../../reference.md), which win whenever this file and they disagree.
 
 **Vendor guide (read for craft):** [OpenAI — Sora 2 prompting guide](https://developers.openai.com/cookbook/examples/sora/sora2_prompting_guide)
 
-## When to route here
+## When it was routed here
 
-**Pick `sora-2` when the first spoken word has to land immediately.** That is its one measured advantage over Seedance and it is a large one: on an identical prompt, Sora started speaking at frame one and finished the line by 6.1s of an 8s clip, while `seedance-2.0` spent **3.71s in silence** before the first word — 37% of a 10s ad. See *Measured behavior* below.
+**`sora-2` was the pick when the first spoken word had to land immediately.** That was its one measured advantage over Seedance and it was a large one: on an identical prompt, Sora started speaking at frame one and finished the line by 6.1s of an 8s clip, while `seedance-2.0` spent **3.71s in silence** before the first word — 37% of a 10s ad. See *Measured behavior* below. That job now goes to `seedance-2.0` with a reference or a start frame, as the notice above says.
 
-**Do not pick it when the ad needs several photos composited.** Sora takes `startImageAssetId` but **no `referenceAssetIds`** — there is no reference-to-video mode. An ad that has to carry both the actor's face and the user's product is a Seedance job.
+**It was never the pick for an ad that needed several photos composited.** Sora took `startImageAssetId` but **no `referenceAssetIds`** — there was no reference-to-video mode. An ad that has to carry both the actor's face and the user's product is a Seedance job.
 
-## Request body
+## Request body (as it was)
 
-`.strict()` — any key not in this table is a `400 Unrecognized key`, and nothing is charged.
+`.strict()` — any key not in this table was a `400 Unrecognized key`, and nothing was charged. Today any body naming `sora-2` is a `400` `invalid_input`.
 
 | Field | Value |
 |---|---|
@@ -26,9 +35,11 @@ Read this before composing a Sora prompt. Every HTTP detail comes from [SKILL.md
 | `startImageAssetId` | one `assetId`, animated as the first frame |
 | `productId` | files the job under a product. Organizational only |
 
-**Not on this model:** `referenceAssetIds`, `audioEnabled`, `resolution`, `styleFamily`. All are `400`.
+**Not on this model:** `referenceAssetIds`, `audioEnabled`, `resolution`, `styleFamily`. All were `400`.
 
-The duration grid is **coarse** — there is no 6s and no 10s. A line that lands between two rungs goes up, never down; a 9-second script renders at 12s or gets cut.
+The duration grid was **coarse** — there was no 6s and no 10s. A line that landed between two rungs went up, never down; a 9-second script rendered at 12s or got cut.
+
+The call it took, kept for the record (it is a `400` now):
 
 ```bash
 curl -sS -X POST https://api.novoads.ai/v1/videos \
@@ -44,7 +55,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   }'
 ```
 
-Price it at `POST /v1/estimates` with `"kind":"video"` and `"model":"sora-2"` first — always, and especially here, because the video schedules differ by roughly 5x across the set and Sora's is not Seedance's.
+It was priced at `POST /v1/estimates` with `"kind":"video"` and `"model":"sora-2"` first; that call is now a `400` too.
 
 ## Measured behavior (2026-08-02, n=1)
 
@@ -61,14 +72,14 @@ One `sora-2` render at 8s, `9:16`, `en`, no start frame, against a byte-identica
 | Output | 720x1280, mean volume −22.5 dB |
 | Identity / wardrobe drift | none across the clip |
 
-**Two things to write differently because of this:**
+**Two things it changed in how a prompt was written:**
 
 - **Name the framing harder than "medium".** `Medium selfie shot` produced a **tight close-up with shallow depth of field** on Sora, where the same three words gave a true medium — torso, chair, desk, shelf, deep focus — on Seedance. If the product has to be in frame next to the face, say so in the shot layer; do not trust a shot-size word to carry it.
-- **Reserve no silence.** The dead-air reservation in [SKILL.md](../../SKILL.md) is a *Seedance* rule — there it is a draw that can land anywhere from 1s to 5s, so you reserve against the worst. Sora drew none. Applying the Seedance reservation here buys dead air at the end instead of the start.
+- **No silence was reserved.** The dead-air reservation in [SKILL.md](../../SKILL.md) is a *Seedance* rule — there it is a draw that can land anywhere from 1s to 5s, so you reserve against the worst. Sora drew none, so applying the Seedance reservation to it bought dead air at the end instead of the start.
 
-The phonetic-brand rule from gate 1 is **untested on this model** — Sora got the name right unaided, so there was nothing to fix. That is not evidence the rule is unnecessary here, only that this brand did not need it.
+The phonetic-brand rule from gate 1 was **never tested on this model** — Sora got the name right unaided, so there was nothing to fix. That was not evidence the rule is unnecessary there, only that this brand did not need it.
 
-## Checklist (after reading the vendor guide)
+## Checklist (as it was used, after reading the vendor guide)
 
 - [ ] Clear subject and setting; camera behavior described, not just "cinematic" — a forbidden word here as well as weak direction.
 - [ ] Motion: what moves, what stays stable across the clip.
@@ -80,7 +91,7 @@ The phonetic-brand rule from gate 1 is **untested on this model** — Sora got t
 - [ ] If using `startImageAssetId`, say how the motion should relate to that first frame.
 - [ ] Aspect ratio stated in the prose as well as the field.
 
-## Template
+## Template (as it was)
 
 ```text
 {{HOOK_OPEN}}. {{SUBJECT}} in {{SETTING}}. Camera: {{CAMERA_MOVE}}, {{SHOT_SIZE_CONCRETE}}.
@@ -100,11 +111,11 @@ comes back to camera, and says: "I kept saying AI ads look fake until I made one
 and nobody could tell." No on-screen text, no captions, no background music. Vertical 9:16.
 ```
 
-> This prompt was priced live on `sora-2`, `veo-3.1` and `seedance-2.0` (2026-08-02) and renders
+> This prompt was priced live on `sora-2`, `veo-3.1` and `seedance-2.0` (2026-08-02) and rendered
 > on all three. Note the clean-plate clause — `No on-screen text, no captions, no background
 > music` — which every correct UGC prompt in this pack carries, and which nothing on the API
 > will add for you.
 
 ## QA
 
-`sora-2` renders are subject to the same mandatory video QA as everything else — see §7 of [SKILL.md](../../SKILL.md). Sora produced no leading silence and a recognisable brand name here, which is a reason to expect less from the check, not a reason to skip it.
+`sora-2` renders were subject to the same mandatory video QA as everything else (§7 of [SKILL.md](../../SKILL.md)). Sora produced no leading silence and a recognisable brand name here, which was a reason to expect less from the check, not a reason to skip it.

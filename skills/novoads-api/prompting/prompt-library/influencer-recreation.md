@@ -15,11 +15,11 @@
 **Image route:** `POST /v1/images` with `model: "nano-banana-pro"`. The original photo is
 uploaded via `POST /v1/uploads` and cited in `referenceAssetIds` — there is no base64 field on
 this API. The call usually returns the images: it blocks for the render (typically 60–90 seconds) and
-returns the finished image. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+returns the finished image. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there. Never resubmit it; that job is already paid.
 
 **Video route (after approval):** upload the approved still → pass its `assetId` as
 `startImageAssetId` on a Seedance video. See the `novoads-api` skill's SKILL.md for the call.
-Veo 3.1 and Sora 2 are **not** on this API.
+Veo 3.1 is on this API as `veo-3.1` (start frame only; see [veo-3-1.md](veo-3-1.md)); Sora 2 was removed from it in 2026-09.
 
 ## Workflow
 
@@ -99,7 +99,7 @@ Once the user approves the prompt:
 
 1. Read **[nano-banana.md](nano-banana.md)** and follow the vendor guide's formula.
 2. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show the user `credits` against their `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
-3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable: reuse it for every later generation of this person instead of re-uploading.
+3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`, and keep the photo. It can be reused across calls: pass it on later generations of this person, and upload the photo again only if a call or a job built on the id fails.
 4. Optionally upscale a small reference first (good practice for likeness; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 5. Call `POST /v1/images` with:
    - `model` — **`nano-banana-pro`** (the only Nano Banana on this API; there is no variant to choose)
@@ -107,7 +107,7 @@ Once the user approves the prompt:
    - `aspectRatio` — match the reference image or user preference. **It defaults to `1:1`**, so set it explicitly.
    - `referenceAssetIds` — `[original_assetId]`, up to **14** total on `nano-banana-pro` (spec 2.7.0)
    - `productId` (optional — organizational only)
-6. **Post-generation QA:** the response carries the image only when the render finishes in time; one still going after about 105 s answers `status: "running"` with no images, so poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there, and never resubmit it (that job is already paid). Inspect the image as soon as you have it (see [nano-banana.md](nano-banana.md) — Post-generation QA and Regeneration loop). If you see defects (extra fingers, bad hands, etc.), regenerate with a refined prompt — up to **2** retries after the first attempt, each billed. **Do not show the user a still as "the result" until QA passes or retries are exhausted** (if still bad after retries, explain and show attempts).
+6. **Post-generation QA:** the response carries the image only when the render finishes in time; one still going after about 105 s answers `status: "running"` with no images, so poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, and never resubmit it (that job is already paid). Inspect the image as soon as you have it (see [nano-banana.md](nano-banana.md) — Post-generation QA and Regeneration loop). If you see defects (extra fingers, bad hands, etc.), regenerate with a refined prompt — up to **2** retries after the first attempt, each billed. **Do not show the user a still as "the result" until QA passes or retries are exhausted** (if still bad after retries, explain and show attempts).
 7. **Show the QA-passed (or best-effort) still next to the original reference**, and report the cumulative `creditsCharged`.
 
 ### Step 5: User approves the still image
@@ -147,5 +147,5 @@ sheen on blouse. Photorealistic.
 
 - Save the approved prompt text in `MASTER_CONTEXT.md` under a heading like **"Influencer: [name/alias]"** so future sessions can reuse it without re-analyzing.
 - When generating video from the recreation, pass the approved still's `assetId` as `startImageAssetId` on a Seedance video (see [reference.md](../../reference.md) for the upload → assetId pipeline).
-- **Reuse the same `assetId`** rather than re-uploading the same photo. A fresh upload gives a different id and quietly loses the identity anchor that was holding the face steady.
+- **Reuse the same `assetId`** rather than re-uploading the same photo: a fresh upload is the same picture under a new id, so it is needed only when a call or a job built on the old id fails.
 - Small wording changes between generations will drift the face. Keep the core description **frozen** and only vary pose, clothing, or setting in subsequent prompts.

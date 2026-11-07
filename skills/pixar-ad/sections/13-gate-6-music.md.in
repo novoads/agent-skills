@@ -38,7 +38,7 @@ second take is published.
 
 `prompt` is capped at 500 characters, and the cap applies to the **composed**
 prompt: `style` and the instrumental sentence are concatenated into it before
-submission. A music job spends one of the five shared video slots.
+submission. A music job spends one of the ten shared video slots.
 
 **If `/v1/music` is absent from `GET /v1/openapi.json`, skip this step.** It sits
 behind a deployment flag; where music is off the path answers `400 invalid_input`

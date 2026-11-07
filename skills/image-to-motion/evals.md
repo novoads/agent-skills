@@ -87,27 +87,29 @@ craft half matters as much as the mechanism: **four is the number that gives use
 and a port that translated the mechanism while dropping the recommendation quietly made one
 take the default.
 
-**Check:** ask for several takes. Confirm the skill offers four, fires the identical payload four times,
+**Check:** ask for several takes. Confirm the skill offers four, fires the identical payload four times (any key new on each),
 says out loud that four takes is four charges, and puts that multiplication inside the cost
 gate rather than after it. Confirm it fires at most ten concurrently: an eleventh returns
 `429` with `details.reason: concurrency_limit`, which is a refusal to wait out, not a
 backoff to lengthen.
 
-### P3 — 720p is the ceiling on this model, not a floor
+### P3 — `4k` does not exist on this model, and `1080p` is read from the list
 
-**Why:** the source said `"720p"` or higher. On `/v1`, `seedance-2.5` publishes `480p` and
-`720p` and nothing above, so "or higher" is a `400`
-(`Invalid option: expected one of "480p"|"720p"`). The wider grid belongs to
-`seedance-2.0`, and lending it to 2.5 quotes a tier neither of our providers serves.
+**Why:** the source said `"720p"` or higher. On `/v1`, `seedance-2.5` publishes `480p`,
+`720p` and, since API 2.28.0 where `GET /v1/models` lists it, `1080p`, so "or higher" is a
+`400` at `4k`. That tier belongs to `seedance-2.0`, and lending it to 2.5 quotes a tier
+neither of our providers serves.
 
-**Check:** ask for 1080p. Confirm the skill says 720p is this model's ceiling and offers
-the render at 720p, rather than submitting and reporting a failure.
+**Check:** ask for 4k. Confirm the skill says this model has no `4k` and offers its top
+listed tier, rather than submitting and reporting a failure. Ask for 1080p: confirm it
+reads `GET /v1/models` first and prices that tier with `POST /v1/estimates` before
+offering it.
 
-### P4 — the asset is durable, and the old warning was backwards
+### P4 — the asset can be reused across calls, and the old warning was backwards
 
 **Why:** the source warned that uploaded objects die within minutes and told the agent to
 upload and generate in one uninterrupted burst. On this API the opposite is true: the
-`assetId` is the storage key, it is reusable without limit, and the 900-second expiry
+`assetId` is the storage key, it can be reused across calls, and the 900-second expiry
 belongs to the **upload URL**, not to the asset. A skill carrying the old warning wastes a
 re-upload on every iteration and teaches a false model of the API.
 

@@ -112,16 +112,16 @@ character a brand has already published.
 ## Forbidden words, and what to write instead
 
 Two lists collapse into one table. The first column pulls the render away from
-the look; the second is what our own prompt lint refuses.
+the look; the second is what our own prompt lint flags.
 
 | Do not write | Write instead | Why |
 |---|---|---|
-| `cinematic` | `3D animated film look` | Both: pulls to live-action grade, and our lint errors on it |
-| `perfect`, `flawless` | `ivory white matte`, `even` | Our lint errors on it |
-| `8k`, `4k`, `hyper-detailed` | `high fidelity`, `rich material detail` | Our lint errors on it |
+| `cinematic` | `3D animated film look` | Both: pulls to live-action grade, and our lint flags it |
+| `perfect`, `flawless` | `ivory white matte`, `even` | Our lint flags it |
+| `8k`, `4k`, `hyper-detailed` | `high fidelity`, `rich material detail` | Our lint flags it |
 | `stunning`, `professional` | `polished` | Pulls to stock-render gloss |
 | `studio`, any studio or franchise name | `stylized 3D animated feature film look` | IP rule. Non-negotiable |
-| `masterpiece`, `award-winning` | delete | Our lint errors on it |
+| `masterpiece`, `award-winning` | delete | Our lint flags it |
 | `anime`, `Ghibli`, `2D`, `cel-shaded` | delete | Pulls out of the 3D look |
 | `cartoon` | `stylized 3D animated` | Pulls to flat 2D |
 | `realistic photo`, `photorealistic`, `live action` | delete | Pulls out of the look entirely |
@@ -329,7 +329,7 @@ Six things every beat prompt says, in this order:
 **Write them as flowing prose, not as labelled fields.** The six labels are
 headings for the author. Our renders read prose, and a prompt shaped as
 `Subject: ... Action: ...` risks the labels arriving as literal on-screen text;
-our own prompt lint refuses the shape for that reason. Cover all six blocks in
+our own prompt lint flags the shape for that reason. Cover all six blocks in
 that order, in sentences.
 
 **Aim for 100 to 260 words.** Under a hundred and the render fills the gaps with

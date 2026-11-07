@@ -12,6 +12,225 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**No skill routes to `reve-2.1` or `sora-2` any more (`reve-2.1` retired in API 2.48.0, `sora-2`
+removed from the API in 2026-09).** v1.4.0 marked the two models in the tables it touched; this
+makes every other line true. For an agent:
+
+- **A second opinion on a still goes to the other image family.** `clone-image-ad`'s Phase 1
+  chooser, its Phase 8 cross-check and its shared guide validate on `gpt-image-2` or
+  `nano-banana-pro` only, and send a second opinion to the other of the two. Its validator,
+  `validate_image.py`, takes `--model gpt-image-2|nano-banana-pro`; the retired `reve-2.1` is
+  refused in argument parsing, before any upload, with a line that says so and names the model
+  to use instead.
+- **The image-ad overview's model table drops the retired `reve-2.1` column**, because the table
+  lists only what differs between models a call can still name; one line under it says what
+  happened. The prompt library's model notes and its ratio and cap tables, `template-format.md`,
+  the image-ad evals and the generator, thumbnail and character-sheet docs drop that model's caps
+  and ratios.
+- **`check_library.py` measures against `gpt-image-2` as the tightest model**, now that the
+  retired `reve-2.1` is gone: the baseline of over-long templates is empty (T8, T11 and T14 were
+  over only that model), and the library header says 40 of the 40 templates have room for the
+  pin block.
+- **A talking clip whose first word must land at once goes to `seedance-2.0`** with a reference or
+  a start frame, the eye-contact-break beat dropped and the first `silence_end` trimmed, in
+  `clone-video-ad`, `analyze-video` and the cross-model UGC guide, where they used to point at
+  `sora-2`; `seedance-2.md` and `ugc-product-selfie.md` no longer list it as live. `sora-2.md`
+  opens with a removed notice and keeps its measurements as history, so an old link still lands
+  on a page that says what happened.
+- **Field lists name the live video models.** The `referenceAssetIds`, `audioEnabled`,
+  `resolution`, default and duration lines in `novoads-api` and the README, and the `audioEnabled`
+  lines in `clone-video-ad`, drop `sora-2` (removed) and add `wan-3.0` and `kling-v3-pro` where the
+  spec has them. The README's model table gets a `wan-3.0` row read off its request schema, and
+  `reference.md`'s `POST /videos`, `resolution` and timings tables get `wan-3.0` rows (`kling-v3-pro`
+  joins the last two), so a Wan body can be built from the reference. `novoads-api`'s router names
+  Wan, and its timing and script-length sections say Kling and Wan are unmeasured.
+- **Guards.** `verify-image-caps.sh` no longer expects the retired `reve-2.1` caps: it skips a
+  schema whose `model` description says `model_retired`, with a printed note, fails if its own
+  table still names a retired id, and checks that the validator refuses `--model reve-2.1` as
+  retired before the env gate. `check-skill-targets.sh` no longer exempts the removed `sora-2`, so
+  a sentence that says use, see, switch to, route to or offer `sora-2` fails there, and it now
+  exempts `kling-v3-pro` and the two Seedream 5 ids, so a correct line naming one passes.
+
+**Facts the pack had stale, made true against the deployed spec (2.59.0, re-read on 2.60.0).** For
+an agent:
+
+- **`seedance-2.5` renders `1080p`** where `GET /v1/models` lists it (API 2.28.0), and still never
+  `4k`. `novoads-api`, the README and `image-to-motion` no longer call `720p` its ceiling, and
+  `image-to-motion`'s eval case now holds the `4k` refusal.
+- **Video prompt ceilings are per model:** 20,000 on `omni-flash` and `wan-3.0`, 4,000 on the three
+  Seedance variants and `veo-3.1`, 2,500 on `kling-v3-pro`. The old lines gave `omni-flash` the only
+  20,000 and everything else 4,000, which over-filled a Kling prompt and cut a Wan brief for nothing.
+- **Ten video generations in flight (API 2.51.0).** The video lines v1.4.0 missed now say ten:
+  `analyze-video`, `novoads-api` and its reference (the error table and the caption, transcript
+  and music rows), the log recipe, the feature-walkthrough formula, `clone-image-ad`'s guide and
+  two evals.
+- **`audioEnabled` is on `kling-v3-pro` and `wan-3.0` too**, in `novoads-api`'s decision list and
+  `reference.md`, so a clip meant to be silent on either gets its `false`.
+- **Image editing is on the five GPT models**, where the overview and `clone-image-ad`'s docs said
+  `gpt-image-2` alone. The route is unchanged: an edit goes to `chatgpt-image-ad`, whose script
+  sends `gpt-image-2`, and `clone-image-ad`'s validator edits on `gpt-image-2`.
+- **Video calls take an `idempotencyKey` (API 2.52.0):** the same key within 24 hours returns the
+  first job and its charge. `novoads-api`, `clone-video-ad` and `pixar-ad` no longer say there are
+  no keys; `POST /v1/images` still takes none.
+- **Images have their own queue of 12, `image_concurrency_limit`,** counted apart from video in
+  both directions. The image lines that gave a ceiling of 5 or 10, or named `concurrency_limit`,
+  now say so, in `chatgpt-image-ad`, `nano-banana-image-ad`, `generate-youtube-thumbnail`, the
+  image-ad overview, the two character-sheet recipes and `novoads-api`. The cap of 4 in those runs
+  is the run's own choice, and the lines now call it that: its value and every script's calls to the
+  API are unchanged, and for this `generate-batch.sh` changes only in comments and the words of one
+  printed line. The thumbnail eval YT5 now fills the image queue, and says its two measurements were taken
+  on the render queue.
+- **The relative price words are re-read off the spec's cells, at every length each schedule
+  sells.** Against `720p`: on `seedance-2.0`, `480p` is about two-thirds, `1080p` about 2x and `4k`
+  about 5x; on `seedance-2.5`, `480p` is under half and `1080p` about 1.7x, so the tier tables give
+  each model its own words. `seedance-2.0-mini` is about a fifth of the price of `seedance-2.0`, not
+  half. `seedance-2.5` is dearer than `seedance-2.0` from `720p` up and matches it at `480p`, and
+  thirty seconds of it at `1080p` is the dearest cell the video schedules publish, where the lines
+  called it the dearest model and the dearest call on the API. The spread across the set is the
+  spec's: about 44x at four seconds, about 180x across every cell. A stitched series costs more in
+  step with its total seconds, and "about half" and "roughly double" now read as a dated A/B's
+  result. `POST /v1/estimates` stays the only source of a figure.
+- **`clone-video-ad` no longer says `seedance-2.0-mini` refuses `resolution`,** which stopped being
+  true at API 2.34.0.
+- **A `429` has seventeen reasons (2.60.0),** counted off the spec. `reference.md` breaks out nine
+  and names the other eight, and the lines that said four or twelve causes are gone.
+- **The image lines about idempotency name `POST /v1/images`,** in the thumbnail, `chatgpt-image-ad`
+  and `nano-banana-image-ad` skills and `novoads-api`'s reference, where they said this API or
+  "there are no keys": video calls take one.
+- **The old credit figures are gone from the skills.** Each figure a skill still quoted was written
+  in an older credit unit, so it read about ten times too small: `POST /v1/analyses`,
+  `POST /v1/transcripts`, the sweep and caption quotes, and the image, video and voice-change calls
+  of dated runs. Those lines now name the meter (one flat fee, or by the minute with a one-minute
+  minimum) or the ordering a dated A/B found, and `POST /v1/estimates` stays the only source of a
+  figure. `reference.md` no longer gives a ratio between credits and an internal unit, and
+  `check-no-rates.sh` now exempts no skill line. The voice-change eval dates the run where a
+  15-second source and a sourceless quote agreed: today a source past the minimum quotes higher, so
+  name it.
+- **`concurrency_limit` covers music as well as video,** where `reference.md`'s reason table said
+  video only.
+- **`reference.md` prices voice change and voice-overs as the API bills them:** voice change by the
+  second of source above a minimum charge (API 2.32.0), so a sourceless quote is that minimum and
+  anything longer has to name its source; a voice-over per 400 characters of the spoken text.
+- **A caption on a talking actor bills every started minute.** The lines that said everything this
+  API generates bills one minute now say that of a clip from `POST /v1/videos`.
+- **No line says the API cannot edit an image.** The overview's limits list and
+  `nano-banana-image-ad`'s out-of-scope list now send an edit to `chatgpt-image-ad`.
+- **The image skills' estimate lines name `quality` and `resolution`,** which move the price, where
+  they said five fields were the only ones accepted.
+- **The README's dated estimate capture keeps its shape and drops its two figures.**
+- **The last line that said five shared slots says ten,** in `pixar-ad`'s music step.
+- **`novoads-api`'s two estimate examples show plainly made-up numbers,** where they read like
+  quotes the schedules could produce.
+- **The estimate's field lists are whole.** `novoads-api`'s table adds `productSwap`, `sourceAssetId`
+  and `preset`, `reference.md`'s adds `sourceAssetId`, and `clone-video-ad` names `productSwap`. The
+  lines that said an arm takes only what moves the price now say it takes only what it lists:
+  `outputFormat` is accepted and moves nothing.
+- **Worked `POST /v1/videos` calls send an `idempotencyKey`, a new one per render,** in
+  `novoads-api`, `clone-video-ad`, `pixar-ad`, `analyze-video` and the Seedance and Veo recipes. A
+  key is only for a retry of the identical call: the same key within 24 hours returns the first job
+  whatever the new body says, so a corrected clip sent under an old key comes back as the old clip,
+  with no error and no render. `reference.md`, the Seedance and Veo tables and the re-render lines
+  in `novoads-api`, `clone-video-ad`, `pixar-ad` and `claymation-ad` now say so, and the lines about
+  firing N variations or re-sampling a stutter say each take gets a new key.
+- **A `429`'s other `details` keys are named:** `details.limit`, `details.remainingSeconds` and
+  `details.retryAfterSeconds`, where the lines called `details.inFlight` the only one.
+- **`nano-banana-pro` takes 14 references on every line.** Its guide's ceiling line and input table,
+  the character-sheet and product-selfie recipes, a comment in `generate-batch.sh` and two lines of
+  `shared/references/README.md` said 4. The two recipes keep four as their own budget and now call
+  it that, and the product-selfie recipe loads the two style images it uploads, where it said three.
+- **No line says nothing reads a prompt.** `POST /v1/estimates` lints every image and video prompt,
+  and its `warnings` are advice. The Seedance guide and recipes, the image guides, the overview, the
+  prompt library, the thumbnail skill and `novoads-api` now say what the estimate names and that a
+  clean estimate does not clear the forbidden-word lists, which are longer than what `banned_polish`
+  catches. `seedance-2.md`'s section is now called *What the estimate flags*, the name the lines
+  pointing at it already used. The formulas files say the lint flags a word or a shape, where they
+  said it refuses one or errors on it.
+- **A row that never finishes stops counting on a clock of its own queue:** 5 minutes for an
+  analysis, 30 for a caption, transcript, sweep, voice-over or voice change, and up to about two
+  hours from its send for a video, an image or a talking actor the provider still reports as
+  running. `reference.md` said 30 minutes for all of them.
+- **The Seedance and Veo tables list `idempotencyKey`,** and `seedance-2.md` no longer says a field
+  outside its table is a `400`: the table holds the fields the formulas use, and the body takes more.
+- **The two silent recipes' worked calls send `audioEnabled: false`,** as their prose orders.
+  `seedance-2-product-hero.md` also says under its call that the flag mutes the bass and foley its
+  prompt describes, and to drop the flag to keep them.
+- **The image skills say what their run sends:** `kind`, `prompt`, `model`, `numImages`. The scripts
+  have no tier or size flag and render the default, so `quality` and `resolution` belong on the
+  estimate only for a direct `POST /v1/images` at that tier.
+- **`language` is described as a record.** The spoken language comes from the quoted line, where two
+  lines called the field the language the ad is rendered in.
+- **A UGC prompt's `@Image1` goes with `referenceAssetIds`.** `seedance-2.md` routed the UGC formula
+  to `startImageAssetId`, where the token names nothing, nothing refuses it and the call is charged.
+  The table and `novoads-api`'s first-run route now send the product photo first in the array,
+  `seedance-2-ugc.md` says which mode its `@Image1` means and how to open on the photo instead, and
+  `seedance-2.md` and `reference.md` say the check on a token past the end of the array runs only
+  when references are sent.
+- **No line promises how long an upload lasts.** An `assetId` can be reused across calls. The lines
+  that called it durable, reusable forever or without limit, or said it does not expire, now say that
+  instead, and `reference.md` says the spec makes no promise of how long an id lasts, so keep the
+  source file and upload it again if a call cannot find or read the file behind an old id, or a job
+  built on one fails and its `reasonCode` names no other cause. The lines that called a second
+  upload a bug that loses the anchor now say what it is: the same picture under a new id.
+- **A job read carries its charge and says why it stopped.** `creditsCharged` is on
+  `GET /v1/generations/{jobId}` and on the list, where the lines said the `202` was the only copy:
+  log it from the `202` as before, and a lost `202` is one read away. `reasonCode` is in the manual
+  now: `reference.md`'s Status lifecycle says what to do for each reason, the recovery lines ask
+  for it, and the image scripts print it.
+- **A polled image job is read by its own fields.** A one-image job has `outputUrl` and
+  `outputAssetId` and no `images[]`, whichever answer it gave, so the lines that said to read
+  `images[]` after a `running` answer now name those fields, with `images[]` on a job of several.
+  The lines that called the response the only copy of images 2..N now say that of a single-row
+  job: a job rendered as one row per image has them on the read and on the list.
+- **A `400` is a request refused before any charge.** `reference.md`'s *The shape of a 400* and
+  `novoads-api` no longer call it a malformed request and nothing else: a refusal with a name of
+  its own, such as `upload_incomplete` or `model_retired`, carries `details.code` or
+  `details.reason` and no `details.issues`, and its `message` says what to do.
+- **The image library's reference line names its one exception.** T4 with its four publication
+  wordmarks pinned beside the product is five references, so that run goes to `nano-banana-pro`.
+- **`check-no-rates.sh` reads three more shapes:** a figure after `creditsCharged`, a decimal after
+  `quoted`, and `a fraction of a credit`. It also reads `centi-credit` with or without a number.
+- **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
+  family that already failed: when both draw a template wrong, the template is the problem. The
+  overview says `clone-image-ad` renders through its own validator, and the template library's
+  ratio set includes `4:5`. The README's `resolution` paragraph lists `seedance-2.0-mini` and
+  `veo-3.1`, and it no longer says `omni-flash` takes no reference images. `image-to-motion` says
+  which cell is dearest moves with the schedules, where it blamed a provider. Fifteen seconds is
+  named as `seedance-2.0`'s ceiling, where three lines said Seedance's, and `seedance-2.0-mini`'s
+  default of 10 seconds is on the lines that gave 5 for it. `kling-3.md` no longer waits for a model
+  that is live. `reference.md`'s `warnings` row is back inside its table, and its line about the CDN
+  in front of the API, which cuts a long request at around 125 seconds, names no provider.
+  `clone-image-ad`'s guide lists every automatic refund, where it called `502 provider_failed` the
+  only one. `nano-banana.md`'s model table says it is the models that page routes between. The
+  sample line in `logs/README.md` shows a plainly made-up charge. `safety-suffixes.md` says
+  `--no-safe-zone` waives the safe-zone suffix for one run. `template-format.md` and the library's
+  closing section name the one `clone-image-ad` skill and its Phase 9, the entry skeleton uses the
+  id `nano-banana-pro`, and its ratio line says the two Seedream 5 ids refuse `4:5` and `21:9`.
+  `seedance-2-ugc.md` says what its two worked examples leave out, and of the two lines that said
+  they pass validation, `novoads-api/SKILL.md` now says what they draw and `ugc-selfie-style.md`
+  drops the claim. `seedance-2-product-hero.md` says at its top that its worked example leaves out
+  the clause and the ratio line, where it said they were in place, and the thumbnail skill no longer
+  points at a phase it does not have. `character-sheet.md` and its GPT twin point at Step 7 for the
+  folder and the ids, where they pointed at the QA step. `logs/README.md` and the two image skills'
+  logging lines say a slow render is polled, where they said images have nothing to poll.
+
+### Fixed
+
+- **A picture that outlasted the POST's wait is downloaded, not reported missing.** The two
+  `generate_image.py` scripts, `validate_image.py` and `generate-batch.sh` read only `images[]`
+  after a poll, and the read of a one-picture job has its picture in `outputUrl` and no
+  `images[]`, so a paid, finished render that answered `running` ended in "no images" and exit 1.
+  They now take `outputUrl` when the read lists no `images[]`. The new `scripts/test-image-poll.sh`
+  checks the three Python scripts with every call stubbed, how they print why a job stopped
+  included, the batch's own function with a stand-in `curl`, and its run total on planted job
+  files; the doctor and CI run it.
+- **The thumbnail batch says why a polled job stopped, and its total counts only what stayed
+  charged.** When a job that answered `running` stops, `generate-batch.sh`'s FAILED line now names
+  its `reasonCode` and `error`, as the Python scripts' line does. Its run total counted a failed or
+  blocked job, whose credits come back on their own: it now leaves those out, and it parses each
+  job file as the rest of the script does, so a file with a raw newline in its prompt is counted.
+
 ## v1.4.0 — 2026-11-07
 
 ### Changed

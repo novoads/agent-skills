@@ -26,7 +26,7 @@ swipe-up arrows). Just the standalone image.
 
 ## 2. `SAFE_ZONE_SUFFIX` — keep text and focal subjects in the central 84%
 
-Always on (no escape hatch). Solves the "headline clipped at the edge" failure mode.
+On by default; `--no-safe-zone` waives it for one run. Solves the "headline clipped at the edge" failure mode.
 
 ```
 [EDGE-SAFE] All text, headlines, CTAs, table headers, sign/board content, product wordmarks, and

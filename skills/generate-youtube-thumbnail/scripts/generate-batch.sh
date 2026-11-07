@@ -12,7 +12,7 @@
 #   - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 #   - Upload ONCE, reuse the assetIds across every prompt in the batch
 #   - POST /v1/images returns the image, or answers "running" and is polled (API 2.39.0)
-#   - Bounded parallelism that respects the API's concurrency ceiling
+#   - Bounded parallelism at the script's own cap, under the API's image queue
 #
 # Requires:
 #   - .env with NOVOADS_API_KEY
@@ -36,9 +36,11 @@ ASPECT="16:9"  # thumbnails are 16:9; nano-banana-pro also takes 1:1 2:3 3:2 3:4
 # PRODUCT_ID is optional and organizational only. Leave empty to use the
 # account's default product; it does not influence what is generated.
 PRODUCT_ID="${PRODUCT_ID:-}"
-# The API allows 5 concurrent generations per organization. Stay under it —
-# a 6th in flight is a 429 with details.reason=concurrency_limit, and waiting
-# is the only thing that clears it.
+# This cap is the script's own choice, not the API's limit. The API allows 12
+# concurrent image generations per organization, counted apart from video in both
+# directions, so 4 leaves room for other image calls the organization runs through
+# the API. A 13th in flight is a 429 with details.reason=image_concurrency_limit,
+# and waiting is the only thing that clears it.
 MAX_PARALLEL=4
 
 OUTPUT_DIR="${OUTPUT_BASE:-output}/thumbnails-$(date +%Y%m%d-%H%M%S)"
@@ -51,10 +53,10 @@ mkdir -p "$TMP_DIR"
 #
 # Aim for 5+ face references for good likeness alignment. nano-banana-pro takes
 # up to 14; gpt-image-2 is capped at 4.
-# You may UPLOAD more than 4 (assetIds are durable and cost nothing to keep) and
-# pick the best 4 per prompt — but a single call may reference at most 4.
-# For likeness work, spend those 4 on: one straight-on headshot, one 3/4 angle,
-# one close-up, and the single most important brand asset.
+# You may UPLOAD more than a call cites (an assetId can be reused across calls) and
+# pick the best per prompt: a single call may reference at most REF_CAP.
+# For likeness work, start with one straight-on headshot, one 3/4 angle, one
+# close-up, and the single most important brand asset.
 REF_BASE="$(pwd)/references/youtube thumbnail"
 
 declare -a COMMON_REFS=(
@@ -67,8 +69,8 @@ declare -a COMMON_REFS=(
 )
 
 # nano-banana-pro takes 14 (fal's published ceiling for the /edit arm, probed
-# 2026-08-03). gpt-image-2 is still 4 and reve-2.1 is 8, so this guard tracks
-# the model this script actually calls.
+# 2026-08-03). gpt-image-2 is still 4, so this guard tracks the model this
+# script actually calls.
 REF_CAP=14
 if [ "${#COMMON_REFS[@]}" -gt "$REF_CAP" ]; then
   echo "ERROR: ${#COMMON_REFS[@]} references configured; nano-banana-pro caps at $REF_CAP." >&2
@@ -107,7 +109,7 @@ img.save(out, "JPEG", quality=92)
 PY
 }
 
-# Upload one file via POST /v1/uploads, PUT the bytes, echo the durable assetId.
+# Upload one file via POST /v1/uploads, PUT the bytes, echo the assetId.
 #
 # The PUT must send the signed headers byte for byte — Content-Type and
 # Content-Length are both part of the URL signature, so storage 403s if either
@@ -196,7 +198,8 @@ print(json.dumps(body))
   # Since API 2.39.0 a render still going after about 105 s answers 200 with
   # status "running", the same jobId and no images. It is paid and still
   # rendering: poll GET /v1/generations/{jobId} to a terminal status and read
-  # images[] there. Never resubmit it.
+  # the picture there: a one-picture job's read has it in outputUrl, with no
+  # images[]. Never resubmit it.
   while [ -n "$job_id" ] && { [ "$status" = "queued" ] || [ "$status" = "running" ] || [ "$status" = "finalizing" ]; }; do
     if [ "$waited" -ge "$POLL_DEADLINE_S" ]; then
       echo "[#$idx] still $status after ${waited}s. Fetch it later with GET /v1/generations/$job_id; do not resubmit."
@@ -230,11 +233,18 @@ print(json.dumps(body))
 import json,sys
 d=json.loads(sys.stdin.read(), strict=False)
 imgs=d.get('images') or []
-print(imgs[0].get('url','') if imgs else '')
+print(imgs[0].get('url','') if imgs else (d.get('outputUrl') or ''))
 " 2>/dev/null || echo "")
 
   if [ -z "$url" ]; then
-    echo "[#$idx] FAILED: no image (status=$status, jobId=$job_id)"
+    # A job that stopped says why in reasonCode, where that is known, and in error.
+    local why
+    why=$(echo "$response" | python3 -c "
+import json,sys
+d=json.loads(sys.stdin.read(), strict=False)
+print(''.join(', %s=%s' % (k, d[k]) for k in ('reasonCode', 'error') if d.get(k)))
+" 2>/dev/null || echo "")
+    echo "[#$idx] FAILED: no image (status=$status, jobId=$job_id$why)"
     return 1
   fi
 
@@ -244,7 +254,7 @@ print(imgs[0].get('url','') if imgs else '')
 }
 
 # ─── NO RETRY, ON PURPOSE ───────────────────────────────────────────────────
-# The API has no idempotency keys, so a blind retry after a timeout or a 500 can
+# POST /v1/images takes no idempotency key, so a blind retry after a timeout or a 500 can
 # render and charge twice. If a generation fails, check GET /v1/generations for a
 # job that already landed before resubmitting it by hand.
 
@@ -273,7 +283,7 @@ for f in "${COMMON_REFS[@]}"; do
 done
 REF_JSON="[$REF_IDS]"
 echo "Reference assetIds: $REF_JSON"
-echo "(assetIds are durable — reuse them in later runs instead of re-uploading.)"
+echo "(An assetId can be reused across calls: every prompt in this batch uses these.)"
 
 echo "═══════════════════════════════════════"
 echo "Generating ${#PROMPTS[@]} thumbnail(s), max $MAX_PARALLEL in flight..."
@@ -282,7 +292,7 @@ echo "════════════════════════�
 
 for i in "${!PROMPTS[@]}"; do
   idx=$((i + 1))
-  # Block until a slot frees up, so we never exceed the concurrency ceiling.
+  # Block until a slot frees up, so we never exceed MAX_PARALLEL.
   while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$MAX_PARALLEL" ]; do
     sleep 1
   done
@@ -301,7 +311,10 @@ import glob, json, sys
 total = 0.0
 for p in glob.glob(sys.argv[1] + "/*_job.json"):
     try:
-        total += float(json.load(open(p)).get("creditsCharged") or 0)
+        job = json.loads(open(p).read(), strict=False)
+        # A failed or blocked job's credits come back on their own, so it is not counted.
+        if job.get("status") not in ("failed", "blocked"):
+            total += float(job.get("creditsCharged") or 0)
     except Exception:
         pass
 print(round(total, 4))

@@ -30,6 +30,7 @@ Read this before composing a Veo prompt. Every HTTP detail comes from [SKILL.md]
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi`. Defaults to `en` |
 | `startImageAssetId` | one `assetId`, animated as the first frame |
 | `productId` | files the job under a product. Organizational only |
+| `idempotencyKey` | optional, 1 to 255 characters. The same key within 24 hours returns the first job, whatever the new body says, so reuse it only to retry the identical call; every new or corrected render takes a new key |
 | `resolution` | from API 2.34.0, the tiers `GET /v1/models` lists for `veo-3.1` (`720p`, `1080p`); default is its `defaultResolution` (`1080p`). One flat price at every tier, so `720p` is never a saving; quote with `POST /v1/estimates` all the same. Before 2.34.0 the key is a `400` |
 
 **Not on this model:** `referenceAssetIds`, `audioEnabled`, `styleFamily`. All are `400` (verified live 2026-08-02). `resolution` was on this list until API 2.34.0.
@@ -40,6 +41,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Content-Type: application/json" \
   -d '{
     "model": "veo-3.1",
+    "idempotencyKey": "<a new one per render>",
     "prompt": "...",
     "durationSeconds": 8,
     "aspectRatio": "9:16",
@@ -48,7 +50,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   }'
 ```
 
-**Price it at `POST /v1/estimates` before you commit, and price Seedance next to it.** The video schedules differ by roughly 5x across the set. Quoting one model's number for another is the failure this repo has no rate tables in order to prevent.
+**Price it at `POST /v1/estimates` before you commit, and price Seedance next to it.** The video schedules span about 44x across the set at four seconds. Quoting one model's number for another is the failure this repo has no rate tables in order to prevent.
 
 ## Checklist
 

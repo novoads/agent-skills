@@ -52,11 +52,11 @@ LOCKED_MODEL = "nano-banana-pro"
 #   model             referenceAssetIds   prompt chars
 #   gpt-image-2                       4         32,000
 #   nano-banana-pro                  14         50,000
-#   reve-2.1                          8          4,000
 #
-# 2.16.0 is what ended the single 4,000 budget: only reve-2.1 still carries it, and
-# reve-2.1 is reachable only from the clone-image-ad validator. This model has the
-# most room on the API, which is what makes a long layered brief sendable here.
+# 2.16.0 is what ended the single 4,000 budget. The one model that kept it was
+# reve-2.1, retired in API 2.48.0, and the clone-image-ad validator refuses it by name. This
+# model has the most room on the API, which is what makes a long layered brief
+# sendable here.
 MAX_REFS = 14
 MAX_IMAGES = 4  # numImages enum: 1, 2, 3, 4
 MAX_PROMPT_CHARS = 50000  # nano-banana-pro prompt ceiling; the API 400s above it
@@ -183,6 +183,8 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> RuntimeError:
             hint += ")"
         elif details.get("issues"):
             hint = f" (issues: {json.dumps(details['issues'])[:300]})"
+        elif details.get("reasonCode"):
+            hint = f" (reasonCode: {details['reasonCode']})"
     return RuntimeError(f"HTTP {e.code} {code} on {url}: {msg}{hint}")
 
 
@@ -305,9 +307,9 @@ def probe_dimensions(path: Path) -> tuple[int, int]:
 
 
 def upload_reference(local_path: Path, base_url: str, auth_hdr: str) -> str:
-    """Upload a local image via POST /v1/uploads. Returns a durable assetId.
+    """Upload a local image via POST /v1/uploads. Returns a reusable assetId.
 
-    The assetId keeps working across later calls, so callers should cache it rather
+    The assetId can be reused across calls, so callers should cache it rather
     than re-uploading the same file per variant.
     """
     if not local_path.exists():
@@ -383,7 +385,9 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
 
     A job that is already terminal (the usual case) comes back untouched. The
     poll payload is merged over the POST response, so creditsCharged and model
-    from the POST survive a poll that omits them.
+    from the POST survive a poll that omits them. The read lists `images` only on
+    a job of one row per picture; a one-picture job's picture is its `outputUrl`,
+    so that becomes the one entry of `images`.
     """
     job_id = job.get("jobId")
     status = job.get("status")
@@ -407,7 +411,10 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
             continue
         status = polled.get("status")
         if status in TERMINAL_STATUSES:
-            return {**job, **{k: v for k, v in polled.items() if v is not None}}
+            done = {**job, **{k: v for k, v in polled.items() if v is not None}}
+            if not polled.get("images") and polled.get("outputUrl"):
+                done["images"] = [{"url": polled["outputUrl"]}]
+            return done
     log(f"jobId={job_id} still {status} after {POLL_DEADLINE_S}s. Fetch it later with "
         f"GET /v1/generations/{job_id}; do not resubmit.")
     return {**job, "status": status}
@@ -484,7 +491,7 @@ def main() -> int:
     # the sibling's EDIT mode, and nano-banana-pro has no edit or inpainting path
     # on this API — a source would be a flag with nowhere to go. Reference-only is
     # the whole surface, so an existing image is reused as a REFERENCE, never a
-    # source: `--ref-asset-id` is the durable way to do that.
+    # source: `--ref-asset-id` is the way to do that.
     p.add_argument(
         "--ref-asset-id",
         action="append",
@@ -493,7 +500,7 @@ def main() -> int:
         help=(
             "An assetId already returned by POST /v1/uploads, used as a reference "
             "without re-uploading the bytes. Repeatable, and counts against the same "
-            "cap as --image-ref. An assetId is durable, so a batch that reuses one "
+            "cap as --image-ref. An assetId can be reused across calls, so a batch that reuses one "
             "product photo across many prompts should upload it once and pass the id "
             "here. These are sent before any --image-ref ids."
         ),
@@ -632,7 +639,9 @@ def main() -> int:
     credits = job.get("creditsCharged")
     images = job.get("images") or []
     if not images:
-        log(f"generation returned no images (status={job.get('status')}, jobId={job_id})")
+        stopped = (f", reasonCode={job.get('reasonCode')}, error={job.get('error')}"
+                   if job.get("reasonCode") or job.get("error") else "")
+        log(f"generation returned no images (status={job.get('status')}, jobId={job_id}{stopped})")
         return 1
 
     log(f"jobId={job_id} status={job.get('status')} images={len(images)} credits={credits}")

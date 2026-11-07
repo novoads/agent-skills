@@ -44,12 +44,12 @@ between the two models, that is a real tiebreaker — but confirm the actual fig
 These come from the live API contract (`GET /v1/openapi.json` is the authority):
 
 1. **Model is `nano-banana-pro`.** The script refuses everything else, including the retired `nano-banana-2` / `nano-banana-edit` strings and `gpt-image-2`.
-2. **Max 14 reference images.** `referenceAssetIds` caps at 14 on `nano-banana-pro` (spec 2.7.0 — `gpt-image-2` takes 4, `reve-2.1` 8). The script enforces it. Headroom is not a goal: 2-4 well-chosen references usually beat many.
+2. **Max 14 reference images.** `referenceAssetIds` caps at 14 on `nano-banana-pro` (spec 2.7.0 — `gpt-image-2` takes 4). The script enforces it. Headroom is not a goal: 2-4 well-chosen references usually beat many.
 3. **Prompts are capped**, and the three always-on suffixes count against it (roughly 1,500 together). The script checks the assembled prompt and fails locally, before spending anything.
 4. **No platform/screenshot chrome in output.** `NO_CHROME_SUFFIX` is always on (unless `--allow-chrome`).
 5. **Edge-safe rule always on.** Text and focal subjects must sit inside the central 84% of the canvas.
 6. **Glyph-safety rule always on.** Plain words inside body-text blocks; emoji OK in headlines.
-7. **No edit mode on THIS model.** `nano-banana-pro` does not publish `sourceAssetId`: no inpainting, no mask, no `--source`, no img2img. Here, "swap the background" is a fresh generation with the original passed as a reference. It is **not** true of the API as a whole — `gpt-image-2` does edit from a prompt (spec `2.10.0`), so route a genuine edit to `chatgpt-image-ad` instead of re-drawing it here.
+7. **No edit mode on THIS model.** `nano-banana-pro` does not publish `sourceAssetId`: no inpainting, no mask, no `--source`, no img2img. Here, "swap the background" is a fresh generation with the original passed as a reference. It is **not** true of the API as a whole — the five GPT models edit from a prompt, so route a genuine edit to `chatgpt-image-ad` instead of re-drawing it here.
 
 ## Aspect ratios
 
@@ -74,13 +74,13 @@ Always send it explicitly.
 
 ## Reference images — the one mechanic worth mastering
 
-`POST /v1/uploads` returns a **durable, reusable `assetId`**. That single fact drives most of
+`POST /v1/uploads` returns a **reusable `assetId`**. That single fact drives most of
 what this model is good for:
 
-- Upload the hero portrait once; pass the same `assetId` on every run in the campaign. That is what holds a face steady across generations — not a model flag.
+- Upload the hero portrait once and pass its `assetId` on every call of the run. The same portrait on every call is what holds a face steady across generations, not a model flag.
 - Upload the product and the brand wordmark once each; they are the two references that most often stop drift.
 - Order is preserved, so positional language in the prompt works ("the product in the first reference image").
-- Four is the ceiling. When a brief seems to need five, one of them is usually style guidance that belongs in the prose instead.
+- The ceiling is 14, and 2 to 4 well-chosen references usually beat many. When a brief seems to need five, one of them is usually style guidance that belongs in the prose instead.
 
 ## Workflow phases (`nano-banana-image-ad`)
 
@@ -99,7 +99,7 @@ Verify in this exact order; bail on the first failure with a fix-it message.
 | Input | Source | Notes |
 |---|---|---|
 | Seed prompt | User | Creative direction in their words. You will rewrite it (see Phase 3). |
-| Reference image(s) (`--image-ref`) | User | Optional but strongly recommended. Up to **4**. |
+| Reference image(s) (`--image-ref`) | User | Optional but strongly recommended. Up to **14**; 2 to 4 usually beat many. |
 | Variant count `N` | User, default 1 | Cap at 4. Sent as `numImages` in one call; every image is charged. |
 | Aspect ratio | User | One of the ten above. Reject anything else. |
 
@@ -128,7 +128,7 @@ When writing or completing a prompt, anchor on:
 - **Material specifics** — "subsurface scattering on skin," "satin foil reflectivity," "knit fabric weave," "marker bleed at stroke edges." This model renders material distinctions; lean into them.
 - **Standalone-creative scope** — never describe iOS chrome, Sponsored badges, engagement counts, or platform UI.
 - **Avoid keyword-soup prompts** — one well-written paragraph beats a comma-separated keyword list.
-- **Concrete over polished.** "Cinematic", "ultra-detailed" and "hyperrealistic" produce the plastic look this format exists to avoid. Nothing on the API will catch one — describe the light source, the surface, the flaw instead.
+- **Concrete over polished.** "Cinematic", "ultra-detailed" and "hyperrealistic" produce the plastic look this format exists to avoid. The estimate's `warnings` name `cinematic` and not the other two, and nothing refuses a call, so describe the light source, the surface, the flaw instead.
 
 Show the rewritten prompt to the user as one block. Tell them which template (if any) it's
 based on. Ask: "Use this, edit it, or start over?" Loop until approved.
@@ -142,13 +142,13 @@ Free. Show the user `credits` and whether it fits their `balance`, and wait for 
 `model` prices `gpt-image-2.6-sunburst`, the API default, and understates this run. This is the **only** legitimate source of
 a price: not memory, not the logs, not `MASTER_CONTEXT.md`.
 
-The call says nothing about the prompt. No endpoint on this API reads one for quality, so the
-rewrite rules in Phase 3 are the only check there is — apply them before you price, not after.
+The call's `warnings` are advice on the prompt, worth reading and never a verdict, so the
+rewrite rules in Phase 3 stay the real check: apply them before you price, not after.
 
-Price the **assembled** prompt including the safety suffixes. The estimate body is strict — it
-takes only `kind`, `prompt`, `model`, `numImages`, `language`. It never sees `aspectRatio` or
-references, and neither changes the price. It also does not run moderation, so a priced prompt
-can still come back `422`.
+Price the **assembled** prompt including the safety suffixes. The estimate body is strict: this
+run sends `kind`, `prompt`, `model`, `numImages`. `resolution` moves the price, but the script has
+no size flag and renders the default `2K`, so leave it off. It never sees `aspectRatio` or references, and neither changes the price. It
+also does not run moderation, so a priced prompt can still come back `422`.
 
 ### Phase 5: Generate
 
@@ -164,7 +164,7 @@ can still come back `422`.
   --env-file .env
 ```
 
-The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid.
 
 Each line on stdout is JSON for one image (`variant`, `path`, `job_id`, `width`, `height`,
 `aspect_ratio`, `model`, `credits_charged`). Display the paths to the user.
@@ -185,7 +185,7 @@ Common Nano Banana defects + their fix prompts:
 
 - **Garbled small text** → If text is essential, switch to `chatgpt-image-ad`; that is the real fix. Otherwise scale the text block up to occupy ≥30% of the canvas and re-render.
 - **Wordmark drift** → Pass the wordmark as `--image-ref` AND name it ("the brand wordmark from the first reference image"). There is no higher-fidelity variant to escalate to — references are the lever.
-- **Wrong character identity across runs** → Reuse the **same `assetId`** for the portrait on every call, and name its role in the prompt. Re-uploading the same file gives a new id and loses the anchor.
+- **Wrong character identity across runs** → Send the **same portrait** on every call, one upload and one `assetId`, and name its role in the prompt. Re-uploading the same file gives a new id for the same picture, so it neither causes this nor cures it.
 - **Extra fingers / wrong limb count** → Add an explicit anatomy clause: "exactly two hands, five fingers each, anatomically correct arms, no extra limbs."
 
 **Retry cap: 2 regeneration attempts** (3 total including the first). Every retry is a fresh
@@ -199,5 +199,5 @@ proceed.
 - **Ad copy writing** — different skill.
 - **Video, carousel, DCO ads** — image only; video lives in the `novoads-api` skill.
 - **ChatGPT Image 2 / gpt-image-2 generation** — use `chatgpt-image-ad` instead.
-- **Editing or retouching an existing image** — not on this model. `gpt-image-2` takes `sourceAssetId` (spec 2.10.0); send it to `chatgpt-image-ad`.
+- **Editing or retouching an existing image** — not on this model. The five GPT models take `sourceAssetId`; send it to `chatgpt-image-ad`.
 - **Editing the prompt library** — use `clone-image-ad` to add new validated templates.

@@ -52,7 +52,7 @@ These come from the live API contract (`GET /v1/openapi.json` is the authority):
 
 One model, one enum — no per-broker matrix any more:
 
-| Ratio | `gpt-image-2` | `nano-banana-pro` / `reve-2.1` |
+| Ratio | `gpt-image-2` | `nano-banana-pro` |
 |---|---|---|
 | `1:1` (default) | ✅ | ✅ |
 | `2:3` | ✅ | ✅ |
@@ -62,7 +62,7 @@ One model, one enum — no per-broker matrix any more:
 | `21:9` | ✅ | ✅ |
 | `3:2` `3:4` `4:3` `5:4` | ❌ | ✅ |
 
-**Every ratio the shared template library uses (`1:1`, `2:3`, `9:16`) renders natively here**,
+**Every ratio the shared template library uses (`1:1`, `2:3`, `4:5`, `9:16`) renders natively here**,
 so no template needs a fallback-and-crop. Only a bespoke prompt asking for `3:2`, `3:4`, `4:3`
 or `5:4` hits the gap — for those, switch to `nano-banana-image-ad`.
 
@@ -119,7 +119,7 @@ When writing or completing a prompt, anchor on:
 - **Reference roles** — if `--image-ref` is being used, name each reference's role explicitly in the prompt (e.g. "the product in the first reference image", "the lighting from the second"). Order is preserved, so positional language works. Multi-reference quality improves when each reference is labeled.
 - **Standalone-creative scope** — never describe iOS chrome, Sponsored badges, engagement counts, or platform UI. The script's no-chrome guard catches violations, but write the prompt as if the rule is on you.
 - **gpt-image-2 strengths to lean on** — explicit typography (font weight + size feel), UI proportions ("iOS dialog with rounded corners ~24px"), small-text body content (treat lines as exact strings).
-- **Concrete over polished.** Words like "cinematic", "ultra-detailed" and "hyperrealistic" produce the plastic look this format exists to avoid. Nothing on the API will catch one — describe the real thing instead: the light source, the surface, the flaw.
+- **Concrete over polished.** Words like "cinematic", "ultra-detailed" and "hyperrealistic" produce the plastic look this format exists to avoid. The estimate's `warnings` name `cinematic` and not the other two, and nothing refuses a call, so describe the real thing instead: the light source, the surface, the flaw.
 
 Show the rewritten prompt to the user as one block. Tell them which template (if any) it's
 based on. Ask: "Use this, edit it, or start over?" Loop until approved.
@@ -130,13 +130,13 @@ based on. Ask: "Use this, edit it, or start over?" Loop until approved.
 Free. Show the user `credits` and whether it fits their `balance`, and wait for an explicit yes.
 
 This is the **only** legitimate source of a price — not memory, not the logs, not
-`MASTER_CONTEXT.md`. It says nothing about the prompt: no endpoint on this API reads one for
-quality, so the rewrite rules in Phase 3 are the only check there is. Apply them before you
+`MASTER_CONTEXT.md`. Its `warnings` are advice on the prompt, worth reading and never a verdict,
+so the rewrite rules in Phase 3 stay the real check. Apply them before you
 price, not after.
 
 Price the **assembled** prompt including the safety suffixes, and remember the estimate body is
-strict — it takes only `kind`, `prompt`, `model`, `numImages`, `language`. It never sees
-`aspectRatio` or references, and neither changes the price.
+strict: this run sends `kind`, `prompt`, `model`, `numImages`. `quality` moves the price, but the
+script has no tier flag and renders the default, so leave it off. It never sees `aspectRatio` or references, and neither changes the price.
 
 ### Phase 5: Generate
 
@@ -151,7 +151,7 @@ strict — it takes only `kind`, `prompt`, `model`, `numImages`, `language`. It 
   --env-file .env
 ```
 
-The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid.
 
 Each line on stdout is JSON for one image (`variant`, `path`, `job_id`, `width`, `height`,
 `aspect_ratio`, `model`, `credits_charged`). Display the paths to the user.

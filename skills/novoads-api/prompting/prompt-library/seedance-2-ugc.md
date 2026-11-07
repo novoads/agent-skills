@@ -4,6 +4,8 @@
 
 **Model guide:** Read [seedance-2.md](seedance-2.md) first for platform rules, API parameters, and the adaptation checklist.
 
+**Mode:** this formula's `@Image1` is the product photo, sent first in `referenceAssetIds`. With `startImageAssetId` instead, write the product by name where the formula writes `@Image1`: a start frame takes no token.
+
 ## The anatomy of a UGC video prompt
 
 Every effective UGC video prompt has **9 layers**, stacked in order. Skip a layer and the output falls apart.
@@ -314,6 +316,8 @@ The overall feel is {{VIBE_ADJECTIVES}} — {{RELATABLE_METAPHOR}}.
 ---
 
 ## Quick-start examples
+
+Note what both examples leave out and add both before you send one: a label-hold clause, and the ratio line. Without them the estimate warns (`label_without_hold`, `no_aspect_ratio`).
 
 ### Example A: Skincare serum (bedroom, excited fan)
 

@@ -9,7 +9,7 @@ with `model`.
 
 It usually answers with the images: the call blocks for the render (typically 60–90 seconds) and comes back
 with the finished images in `images[]`, along with `creditsCharged` and the `model` that ran.
-A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid.
 
 Use it for:
 - Influencer recreation stills (see [influencer-recreation.md](influencer-recreation.md))
@@ -27,7 +27,7 @@ There is **one** Nano Banana here: `nano-banana-pro`. The `nano-banana-2` / `nan
 legacy `nano-banana` split is gone, so **there is no variant question to ask the user** — the
 old "Nano Banana 2 or Pro?" prompt is void.
 
-The image models, all on the same endpoint:
+The image models this page routes between, all on the same endpoint (the two Seedream 5 ids are in [reference.md](../../reference.md)):
 
 | API `model` value | When to use |
 |---|---|
@@ -64,23 +64,23 @@ See [reference.md](../../reference.md) for the full schema. Key fields:
 The request schema is **strict**: an unrecognized field, or an aspect ratio from another model's
 grid, is a `400` before anything is charged.
 
-**References are uploaded once.** `POST /v1/uploads` returns a durable `assetId` that keeps
-working across calls and sessions. Re-uploading the same file produces a different id and loses
-whatever identity anchor it was holding.
+**References are uploaded once.** `POST /v1/uploads` returns an `assetId` you can reuse
+across calls. Re-uploading the same file produces a different id for the same picture, so do it
+only when a call or a job built on the old id fails.
 
 ## Checklist
 
 - [ ] Follow the vendor guide for framing **subject**, **style**, and **constraints**.
 - [ ] State whether the output should be **photoreal**, **illustration**, **product hero**, etc.
 - [ ] Set `aspectRatio` explicitly — never rely on the `1:1` default.
-- [ ] Avoid polish words (`cinematic`, `ultra-detailed`, `hyperrealistic`). They produce the plastic "looks AI" render; describe the light source, the surface, the flaw instead. Nothing on the API checks this — the checklist is the check.
+- [ ] Avoid polish words (`cinematic`, `ultra-detailed`, `hyperrealistic`). They produce the plastic "looks AI" render; describe the light source, the surface, the flaw instead. The estimate's `warnings` name `cinematic` and not the other two, so the checklist is the check.
 - [ ] Price the run with `POST /v1/estimates` and get an explicit yes before generating.
 - [ ] Run **post-generation QA** (below) before treating the image as final.
 
 ### Post-generation QA (mandatory)
 
-The response already contains the finished image, so QA happens immediately — there is no
-polling gap. Check for:
+The response usually contains the finished image, so QA starts at once. A render that outlasts
+the POST's wait answers `running` instead: QA it once the polled job has `succeeded`. Check for:
 
 - Extra or missing **hands** or **fingers**; wrong finger count; fused or blurred digits
 - Wrong number of **limbs**; duplicated or missing arms/legs; impossible **joints** or poses
@@ -94,12 +94,12 @@ user as the only option without at least one retry (unless they explicitly waive
 
 ### Regeneration loop
 
-1. **Inspect** the image from the `images[].url` in the response, or in the polled job if it answered `running` (the URL is presigned and expires: `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
+1. **Inspect** the image from the `images[].url` in the response, or from `outputUrl` on the polled job if it answered `running` (the URL is presigned and expires: `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
 2. If **defective:** compose a **new prompt** that names the fix (e.g. "exactly two hands visible, five fingers each," "single coherent face," "product label sharp and readable"). Keep the creative intent; add corrective constraints rather than resending the identical body.
 3. Call `POST /v1/images` again with the same `model`, `aspectRatio`, `referenceAssetIds` and `productId` as before unless you are intentionally changing them.
 4. **Cap:** at most **2** regeneration attempts after the first image (**3** total per deliverable). After that, describe the remaining issues, show the best attempt, and ask the user how to proceed.
 5. **Credits:** each generation bills separately and there are no free re-rolls. QA retries use the QA-fix exception (no second pre-confirmation inside the cap) but are still billed — report the cumulative `creditsCharged` when you present results.
-6. **Do not blindly retry a `500`.** There are no idempotency keys, so a resubmit can render and charge twice. Check `GET /v1/generations` for a job that already landed first. (A `502 provider_failed` is different — the provider broke and credits are refunded automatically.)
+6. **Do not blindly retry a `500`.** `POST /v1/images` takes no idempotency key, so a resubmit can render and charge twice. Check `GET /v1/generations` for a job that already landed first. (A `502 provider_failed` is different — the provider broke and credits are refunded automatically.)
 
 Full agent steps: [SKILL.md — Generated image QA](../../SKILL.md).
 
@@ -131,7 +131,7 @@ source .env && curl -sS -X POST \
 
 The response is the finished job only when the render finishes in time: `images[]` with presigned URLs, plus `creditsCharged` and the
 `model` that ran. One still going after about 105 s answers `status: "running"` with no images (API 2.39.0): poll
-`GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Price it first:
+`GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid. Price it first:
 
 ```bash
 source .env && curl -sS -X POST \

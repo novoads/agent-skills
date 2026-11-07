@@ -27,8 +27,8 @@ transcribe the dialogue, extract the visual style and beat structure, then gener
 - **clone-video-ad** → the output is a rendered video delivered to the user.
 
 Steps 1 to 3 are the same analysis in both. The only charge in that half is the transcript
-in step 2 — a fraction of a credit, and free on a re-read of the same source. Everything
-from step 9 on is the real spend.
+in step 2, billed by the minute with a one-minute minimum, and nothing on a re-read of the
+same source. Everything from step 9 on is the real spend.
 
 ## If `shared/` is missing from disk
 
@@ -64,14 +64,14 @@ before any charge, and re-verified field-for-field against the deployed spec `2.
 | The old shape | Here |
 |---|---|
 | Chain clip 1 → clip 2 → clip 3 as reference **videos**, so each clip inherits the last | **Chaining a clip's output in is not how a series holds.** `referenceVideos` is `400 (root): Unrecognized key`; since API 2.35.0 the Seedance variants take mp4 references in `referenceVideoAssetIds` (see novoads-api), but this skill does not rely on them. What holds a series together is passing the **same image `assetId`s to every clip** plus repeating the actor tag verbatim — see step 5 |
-| `audioEnabled: true` to switch speech on, `false` for a silent clone | **`audioEnabled` exists here now, on the two Seedance variants only** (added in spec `2.2.0`; `400 Unrecognized key` on `omni-flash`, `veo-3.1` and `sora-2`). It defaults to `true`, so a clone with dialogue needs nothing. Send `false` only for a deliberately silent clone — and **still write the silence into the prose**, because the flag mutes the render while the prose is what stops the model staging a talking shot. It does not change the price, and `POST /v1/estimates` refuses the field |
+| `audioEnabled: true` to switch speech on, `false` for a silent clone | **`audioEnabled` exists here now** (added in spec `2.2.0` on two Seedance variants; now on the three Seedance variants, `kling-v3-pro` (API 2.38.0) and `wan-3.0` (API 2.53.0), and `400 Unrecognized key` on `omni-flash` and `veo-3.1`). It defaults to `true`, so a clone with dialogue needs nothing. Send `false` only for a deliberately silent clone — and **still write the silence into the prose**, because the flag mutes the render while the prose is what stops the model staging a talking shot. It does not change the price, and `POST /v1/estimates` refuses the field |
 | Upload the source audio as `referenceAudios` to clone the voice | **There is no voice cloning on this API** (`referenceAudios` is `400 Unrecognized key`; the Seedance `referenceAudioAssetIds` field from API 2.35.0 takes an mp3 reference, and nothing in this pack has verified it matches a voice). Describe the voice in the prompt — age, accent, pace, energy — and accept that it is a different person's voice. Do not offer the user a voice match you cannot deliver |
 
 Also gone, in the same probe: `endFrame`, `projectId` (this
 API has products, not projects), `duration` (it is `durationSeconds`) and `referenceImages`
 (it is `referenceAssetIds`).
 
-**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2.5x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs ≈half of `720p`** since the 2026-08-07 family reprice — measured live 2026-08-12, exactly half on both `seedance-2.0` and `seedance-2.5` — so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. On `seedance-2.0-mini` send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on; before it Mini rendered 720p only and the key was a `400`).
+**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs less than `720p`** since the 2026-08-07 family reprice: today ≈two-thirds on `seedance-2.0` and under half on `seedance-2.5` (it measured exactly half on both on 2026-08-12, and the schedules have moved since), so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. On `seedance-2.0-mini` send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on; before it Mini rendered 720p only and the key was a `400`).
 
 **And one the old shape got wrong in the other direction:** aspect ratio is not
 `9:16`-or-`16:9`. Seedance takes `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` — probed live, `1:1`
@@ -153,7 +153,7 @@ a product shot, so an empty listing means "ask", not "there is nothing to use".
 **No photo? Three routes, in this order — and the last one is the expensive one.**
 
 1. **A real photo of the real product.** Always the best clone. Ask for it first.
-2. **Generate a still with `POST /v1/images`**: one call (a slow render answers `running`: poll `GET /v1/generations/{jobId}` for its `images[]`), priced through
+2. **Generate a still with `POST /v1/images`**: one call (a slow render answers `running`: poll `GET /v1/generations/{jobId}` for its `outputAssetId`), priced through
    `POST /v1/estimates` and consented to like any other spend. Its response carries an
    **`assetId`** that goes straight into `referenceAssetIds` (step 10). This is the right
    answer for a concept product, a product that does not exist yet, or a user who simply
@@ -263,7 +263,7 @@ prompt text (steps 6 and 8).
 **There is a hosted alternative, and it is not the default.** `POST /v1/analyses` returns the
 same class of read (hook boundary and the observable signal behind it, beat timeline,
 on-screen text, casting, layer zones labelled by where their pixels come from) in one
-synchronous call, flat **1 credit**, priced through `POST /v1/estimates` with
+synchronous call, one flat fee per call, priced through `POST /v1/estimates` with
 `{"kind":"analysis"}` first like every other spend. The pass below costs nothing, covers the
 whole runtime, and you already have the frames on disk from step 1, so it stays the front
 door. Reach for `/analyses` when ffmpeg is not installed, when the clone needs zone labels
@@ -386,7 +386,7 @@ the tradeoff and let them pick — do not choose one and mention the other in pa
 | Route | What survives | What it costs |
 |---|---|---|
 | **One-shot compression** — the beats become jump cuts inside a single ≤15s render | Continuous voice, no stitching, one charge | The clone no longer matches the source's runtime or pacing, and those are transferable traits too |
-| **Multi-clip series** — split at beat boundaries taken from the beat map, never from arithmetic | The source's runtime and pacing | Roughly twice the spend: a charge per clip, and any `resolution` tier paid per clip |
+| **Multi-clip series** — split at beat boundaries taken from the beat map, never from arithmetic | The source's runtime and pacing | More spend, in step with its total seconds (a 30s series is about twice a 15s render): a charge per clip, and any `resolution` tier paid per clip |
 
 The evidence that one-shot is viable is #13's measured A/B — one render carrying its beats
 internally came back at roughly half the spend of a stitched arm whose voice was absent for
@@ -400,30 +400,30 @@ That is not a downgrade. This repo's own animation rule says the same thing on i
 merits: *"Don't chain by using an animated end-frame as the next beat's anchor — drift
 compounds"* (`skills/claymation-ad/references/formulas.md`). Every clip
 anchoring to the same approved stills is the more stable pattern, and because the `assetId`
-is **durable across calls, models and sessions**, it costs one upload for the whole series.
-Re-uploading the same bytes mints a second asset and throws away the anchor.
+**can be reused across calls and models**, it costs one upload for the whole series.
+Re-uploading the same bytes only mints a second id for the same picture.
 
 **Fire the clips of a series concurrently, not sequentially** — nothing downstream depends
 on an earlier clip's output any more. Ten generations per organization may be in flight at
 once; an eleventh comes back `429` with `details.reason` of `concurrency_limit`, which is
 solved by waiting for a slot and not by backing off harder.
 
-**Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at half the
-price, back in 2–3 minutes instead of 3–8. Its fields are the same **except `resolution`**,
-which it does not take at all — it renders 720p, and sending the key is a `400`. A clone is
-exactly the case
+**Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at about a
+fifth of the price, back in 2–3 minutes instead of 3–8. Its fields are the same **except
+`resolution`**: send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on;
+before it Mini rendered 720p only and the key was a `400`). A clone is exactly the case
 for it: the first render is where you find out whether your reading of the source survived
 into the prompt. Draft on mini, re-price with `model` set to the final tier, and show both
 numbers side by side. `SKILL.md` makes the tier an explicit question, asked once per
 workflow.
 
 **Ask how many variations, and which kind — here, not at generation time.** Default 1. Two
-different things share the word: the **same script rendered N times** (identical payload,
-seed-level variety only) or **N script variants** (distinct dialogue adaptations on one beat
-structure). A clone usually wants the second. Ask it now, because everything downstream needs
-the answer: step 6 writes N scripts, step 7 gates them together, and step 9 prices each one
-before the single yes. Asking at step 11 means the user approved a spend for one prompt and
-is then handed three.
+different things share the word: the **same script rendered N times** (identical payload but
+for a new key on each, seed-level variety only) or **N script variants** (distinct dialogue
+adaptations on one beat structure). A clone usually wants the second. Ask it now, because
+everything downstream needs the answer: step 6 writes N scripts, step 7 gates them together,
+and step 9 prices each one before the single yes. Asking at step 11 means the user approved a
+spend for one prompt and is then handed three.
 
 Tell the user which mode you picked and why.
 
@@ -463,7 +463,7 @@ composing, and the closest formula for structure —
 a fast demo, [seedance-2-premium-reveal.md](../novoads-api/prompting/prompt-library/seedance-2-premium-reveal.md)
 or [seedance-2-product-hero.md](../novoads-api/prompting/prompt-library/seedance-2-product-hero.md) for a
 product-only source, [seedance-2-studio-lookbook.md](../novoads-api/prompting/prompt-library/seedance-2-studio-lookbook.md)
-for a polished voiceover source. Cloning onto a different model reads that model's own grid first, never a Seedance formula carried across: [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) when the source's hook speaks from frame one (it measured no leading silence, where Seedance front-loads 3–5s of it), [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo — neither takes `referenceAssetIds`, so a clone carrying both the actor and the product stays on Seedance. [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) is the cross-model UGC guide: its *Core principles* transfer, its per-model formulas do not.
+for a polished voiceover source. Cloning onto a different model reads that model's own grid first, never a Seedance formula carried across: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo — it takes no `referenceAssetIds`, so a clone carrying both the actor and the product stays on Seedance. A source whose hook speaks from frame one stays on `seedance-2.0` too: with a reference or a start frame (measured at about 0.5s of leading silence, where a render with neither front-loads 3–5s of it), the eye-contact-break beat dropped from the prompt, and the first `silence_end` checked and trimmed. `sora-2`, which measured no leading silence, was removed from the API in 2026-09; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) is kept as history. [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) is the cross-model UGC guide: its *Core principles* transfer, its per-model formulas do not.
 
 **If the mode is a one-shot compression, read
 [seedance-2-ugc-v2.md](../novoads-api/prompting/prompt-library/seedance-2-ugc-v2.md) as well — for structure and
@@ -494,7 +494,7 @@ Then:
 - **One primary action per shot**, two or three comma-joined cues on it. `then` /
   `and then` / `followed by` renders as a smear — split it into two shots.
 - **No forbidden words:** `cinematic`, `professional`, `stunning`, `8k`, `studio`,
-  `perfect`. Nothing on the API rejects or reports them — this is craft advice, and the
+  `perfect`. Nothing on the API rejects them and the estimate names only three: this is craft advice, and the
   reason to drop them is the render. Describe the real thing instead: the light source,
   the surface, the flaw.
 - **Write it in the source's language** if that is what the user wants rendered. Nothing on
@@ -578,12 +578,12 @@ Add `"resolution":"1080p"` to that body when the clone is going above the model'
 see the bullet below.
 
 Returns `credits`, `balance`, `sufficient` and a `warnings` array, plus `shortBy` and
-`topUpUrl` when it is short. The body is strict and takes exactly six fields: `kind`,
+`topUpUrl` when it is short. The body is strict and takes these six fields (and `productSwap` on a swap): `kind`,
 `prompt`, `model`, `durationSeconds`, `language`, `resolution` — checked field-for-field
 against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio`,
 `audioEnabled`, the asset fields and `productId` are a `400` here.
 
-- **Pass `model` explicitly.** It defaults to `seedance-2.0`, and mini is half the price —
+- **Pass `model` explicitly.** It defaults to `seedance-2.0`, and mini is about a fifth of the price —
   pricing the wrong tier is a quote that disagrees with the invoice.
 - **Pass `resolution` whenever the tier is above the default.** It is the second price
   axis: the high tiers are their own credit schedules, not a surcharge on the low one.
@@ -640,13 +640,13 @@ set. Then generate.
 3. **A still you generated is already an asset — do not upload it again.** `POST /v1/images`
    returns `assetId` beside `url` on every image (deployed spec `2.11.0`). Pass that id
    straight into `referenceAssetIds` or `startImageAssetId`. Downloading the bytes and
-   pushing them back through `POST /v1/uploads` mints a **second** asset and throws away the
-   anchor the rest of the workflow is pinned to. The `url` expires in 3600 seconds; the
-   `assetId` does not — chain from the id, never from the URL.
+   pushing them back through `POST /v1/uploads` only mints a **second** id for the same
+   picture and adds a hop. The `url` expires in 3600 seconds, so
+   chain from the `assetId`, never from the URL.
 
-4. **Keep the `assetId`.** It is durable across calls, models and sessions — the whole
-   series, the mini draft and the final render all reuse it. The presigned *upload URL*
-   expires in 900 seconds; the id does not.
+4. **Keep the `assetId`.** It can be reused across calls and models — the whole
+   series, the mini draft and the final render all reuse it. The 900-second expiry belongs
+   to the presigned *upload URL*, not to the id.
 
 5. If a reference's longest side is under 1024 px, upscale with Lanczos to 1080 px on the
    long side and re-encode as RGB JPEG at quality 90–95. (No minimum is documented for this
@@ -679,7 +679,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "seedance-2.0",
+    "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
     "prompt": "<the adapted prompt>",
     "durationSeconds": 14,
     "aspectRatio": "9:16",
@@ -695,7 +695,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   but the **estimate does** return them (verified live 2026-08-05). Collect the craft advice at
   gate 2; there is no second chance at submit time.
 - **Set `aspectRatio` and `durationSeconds` explicitly.** Seedance defaults to `16:9` and to
-  5 seconds, and neither is what a cloned ad wants.
+  5 seconds (10 on mini), and neither is what a cloned ad wants.
 - **Carry `resolution` into this body whenever the estimate carried it.** The estimate
   priced the tier; this call is what renders it. Quote `1080p` at gate 2 and then omit the
   key here and the user approved one video and receives another — billed at the `720p`
@@ -703,8 +703,8 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   belongs **only** here, because `POST /v1/estimates` refuses it.
 - **The variation count came from step 5**, and by now it has been through gate 1 (step 7)
   and priced per variant (step 9). Do not ask again here, and do not fire a count the user
-  has not approved a price for. Either kind is N calls and N charges — there is no batch
-  parameter.
+  has not approved a price for. Either kind is N calls and N charges, a key each — there is
+  no batch parameter.
 - **At most ten in flight** across the organization, counting every clip and every
   variation. Fire ten, then start the next as each reaches a terminal state.
 - **Log each submission immediately** — one line appended to `logs/novoads-api.jsonl` with
@@ -725,7 +725,7 @@ curl -sS https://api.novoads.ai/v1/generations/$JOB_ID \
 - Tell the user the wait up front: `seedance-2.0` is usually **3 to 8 minutes**, most often
   around 5. `seedance-2.0-mini` is **2 to 3**.
 - Update each job's log line with the terminal status and elapsed time, carrying `creditsCharged`
-  over from the `202` — the poll response does **not** carry it. Never reconstruct it from a rate.
+  over from the `202`; if that is lost, read it off the job. Never reconstruct it from a rate.
 
 Download through `/watch`, which 302s to a URL signed at request time, so it never hands
 you an expired link:
@@ -748,7 +748,7 @@ Then:
    three-variant run was reopened four days later with its three ads intact and its source
    gone, which left no way to show the clone had been faithful to anything.
 3. **Transcribe every finished clip and diff it against the approved script.** (Doctrine: [shared/references/craft.md](../../shared/references/craft.md) § 1.) One
-   `POST /v1/transcripts` per clip, 0.1 credits each, and it is the only thing that catches
+   `POST /v1/transcripts` per clip, billed by the minute with a one-minute minimum, and it is the only thing that catches
    a spoken line that drifted. A reference image pins the **label**; nothing pins the
    **audio**, and the two fail independently. Measured 2026-08-06 across three clones of one
    source: the on-screen label was glyph-perfect in all three while the brand name was spoken
@@ -775,7 +775,7 @@ Then:
    Re-encode if the codecs differ. Hand back both the stitched file and the individual clips.
 7. Report the total spend by summing the `creditsCharged` values the API returned — those,
    never a number you calculated from a rate.
-8. If a job came back `failed` or `blocked`, say which and quote the `error` it carries.
+8. If a job came back `failed` or `blocked`, say which, quote the `error` it carries, and give its `reasonCode` where it has one.
 
 Next steps worth offering: iterate the one beat that missed rather than re-firing the whole
 set, hand the file to the `meta-ad-builder` skill to publish it as a Meta creative, or burn
@@ -791,16 +791,16 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | `startImageAssetId` **XOR** `referenceAssetIds` | Separate modes on the model. A body with both is a `400` whose message says exactly that. Nothing is charged |
 | `referenceAssetIds` ≤ **9**, images only | Ten is `Too big: expected array to have <=9 items`. A video asset id is refused here; from API 2.35.0 Seedance video and audio go in `referenceVideoAssetIds` and `referenceAudioAssetIds` |
 | No `referenceVideos`, no `referenceAudios`, no `endFrame`, no `projectId` | All `400 Unrecognized key`. Nothing is charged, and no clone workflow can depend on them |
-| `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2.5x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈half** the base since the 2026-08-07 reprice (measured live 2026-08-12), so it is a real draft tier. `400 Unrecognized key` on `sora-2` (and on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0, which gives mini `480p`/`720p` and Veo `720p`/`1080p`: read `resolutions` from `GET /v1/models`), and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
-| `audioEnabled` — **Seedance only**, optional, default `true` | Send `false` for a silent clone. `400 Unrecognized key` on the three non-Seedance video models, and on `POST /estimates` for every model |
-| `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5** |
+| `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈two-thirds** of the base (before the 2026-08-07 reprice it cost the same), so it is a real draft tier. `400 Unrecognized key` on `kling-v3-pro`, whose body has no such field (as it was on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0, which gives mini `480p`/`720p` and Veo `720p`/`1080p`: read `resolutions` from `GET /v1/models`), and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
+| `audioEnabled` — **the Seedance variants, `kling-v3-pro` and `wan-3.0`**, optional, default `true` | Send `false` for a silent clone. `400 Unrecognized key` on `omni-flash` and `veo-3.1`, and on `POST /estimates` for every model |
+| `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5**, and **10** on mini |
 | `aspectRatio` `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | Default is **`16:9`**. Set it, or a vertical clone ships landscape |
 | Prompt within the model's cap | Enforced on the estimate too, against whichever `model` you name |
 | Audio is rendered from the prompt | The spoken line is lip-synced in this same call at no extra cost, which is why gate 1 exists. `audioEnabled: false` mutes the render; it does not give you a separate audio track to direct |
 | Prompt rules are advisory and live on `/estimates` only | The estimate returns a `warnings` array of `{rule, message}` craft advice; `POST /videos` does not. None of it can refuse or reprice a call, so a weak prompt still renders and bills exactly like a strong one. The warnings are substring matches and **do false-positive** — read them, judge each against the prompt, and say so when you override one |
 | Moderation is `422 content_policy` | The only refusal of a prompt for what it says, and the estimate skips it, so a clean quote can still be blocked. **Nothing is charged** |
 | Ten generations in flight per organization | An eleventh is `429` with `details.reason: concurrency_limit`. Wait for a slot; backing off harder does nothing |
-| No idempotency keys | Which is why a 500 is never blindly retried — see below |
+| `idempotencyKey` on every video call (API 2.52.0) | The same key within 24 hours returns the first job and its charge, whatever the new body says, so reuse a key only to retry the identical call, and send a new key for every new or corrected render; without a key, a 500 is never blindly retried: see below |
 
 ## Error recovery
 
@@ -817,13 +817,13 @@ quote when reporting a problem.
 | `403 forbidden` | `details.reason` is `plan_required` or `subscription_inactive` — the key is fine, the plan is not | Say which one it is; they are different fixes |
 | `409 conflict` | `/watch` on a job that has not finished | Keep polling |
 | `422 content_policy` | Moderation blocked the prompt. Nothing was charged | Rewrite the flagged idea or stop. Do not resend the same payload |
-| `429 rate_limited` | Four causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
+| `429 rate_limited` | Several causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
 | `500 internal_error` | Possibly charged | **Do not retry blindly.** `GET /v1/generations` first: if the job is there, poll it instead of resubmitting |
 | `502 provider_failed` | The model provider failed | Credits are refunded automatically |
-| Job `status: failed` or `blocked` | Read the `error` on the job | If it is content-related, rewrite. If it is a provider failure, credits are already refunded |
+| Job `status: failed` or `blocked` | Read `reasonCode` and the `error` on the job | Credits are already refunded. `moderation`: rewrite. Any other reason: see Status lifecycle in the `novoads-api` skill's `reference.md` |
 | The clone looks nothing like the source | The reading was wrong, not the render | Go back to the beat map with the user before spending again. Change **one** element per iteration — framing, or pacing, or the anchor — never three |
 | The label came back garbled | Seedance preserves logos and destroys printed text | Say in the prompt that the label stays sharp and unchanged, and check the reference photo actually shows it sharp |
-| The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only. The label being perfect tells you nothing about the audio |
+| The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only, under a new `idempotencyKey`. The label being perfect tells you nothing about the audio |
 | Source longer than 15s | Not a failure | Present the two routes from step 5 and let the user pick. Do not split on your own initiative |
 
 ## Related files

@@ -11,7 +11,7 @@ envelopes are in [`skills/novoads-api/reference.md`](../novoads-api/reference.md
 POST /v1/uploads      { contentType: "image/jpeg" | "video/mp4", sizeBytes: <n> }
                       → 201 { assetId, uploadUrl, method, headers } — PUT the
                         bytes with `headers` VERBATIM. Free. The upload URL
-                        expires in 900s; the assetId does not expire at all.
+                        expires in 900s; the assetId can be reused across calls.
 
 POST /v1/estimates    { kind: "image" | "video" | "voiceover" | "music" | "caption", … }
                       → { credits, balance, sufficient, shortBy?, topUpUrl?,
@@ -28,9 +28,9 @@ POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16
 
 POST /v1/videos       { model: "seedance-2.0", prompt, durationSeconds: 4-15,
                         aspectRatio: "9:16", startImageAssetId: <this beat's still>,
-                        audioEnabled: true }
+                        audioEnabled: true, idempotencyKey: <a new one per render> }
                       → 202 { jobId, status, creditsCharged, model } — not ready
-                        yet. `creditsCharged` is HERE and nowhere else.
+                        yet. Log `creditsCharged` from HERE.
 
 GET  /v1/voices       → { voices: [{ id, name, source, languages?, category?, labels? }] }
                         Read once. Pick one. Reuse it for every line. Unpaginated

@@ -126,12 +126,12 @@ rule mechanically for its own files — `scripts/check-no-rates.sh` exists becau
 failure happened in both repos: someone writes a figure that was true the day they
 measured it, the agent quotes it at spend time, the price moves, and nothing goes red.
 
-**Observed drift, in this skill, today.** The rule is broken by the file that teaches
-it. This skill's `/v1/analyses` paragraph states the endpoint's fee as a literal figure
-in its prose, and `check-no-rates.sh` carries it as **recorded debt** in allowlist §B2
-rather than as a violation — explicitly *"left for the owner of those files"*. So the
-teaching file currently models the behaviour it forbids, and an agent reading it for
-tone learns that a number in prose is acceptable.
+**Observed drift, in this skill, since fixed.** The rule was broken by the file that
+teaches it. This skill's `/v1/analyses` paragraph stated the endpoint's fee as a literal
+figure in its prose, and `check-no-rates.sh` carried it as recorded debt rather than as a
+violation, so the teaching file modelled the behaviour it forbids. The paragraph now names
+the flat shape of the fee and sends the reader to the estimate arm, and the guard's
+allowlist is empty.
 
 **Assertions.**
 
@@ -212,7 +212,7 @@ nothing checks is a promise that erodes.
 - Step 7, when it runs, goes through **both** gates: the spoken line, and a fresh
   estimate — approving the template is not approving the sentence, and neither is
   approving a spend.
-- A draft is offered on `seedance-2.0-mini` first, reusing the same durable `assetId`
+- A draft is offered on `seedance-2.0-mini` first, reusing the same `assetId`
   for the final render.
 - The poll loop waits for a **terminal** status, not for `succeeded`.
 
@@ -228,8 +228,8 @@ template was approved.
   silence, and a shipped guidance figure that the measurement contradicts. It is also
   the one whose damage compounds — the wrong number propagates into every prompt written
   from the template.
-- **AV4's drift is live.** The allowlist entry is in `scripts/check-no-rates.sh` as this
-  is written, and its own comment says it is debt awaiting the file's owner.
+- **AV4's drift is closed.** `scripts/check-no-rates.sh` exempts no skill line now, so a
+  figure in a shape it reads, outside a fenced block, fails it in any skill file.
 - **AV1, AV2 and AV3 restate rules the skill says are defects found in shipped
   formulas.** That provenance is the skill's own claim; this file does not add
   independent evidence for it, and none of the three has a named incident attached here.

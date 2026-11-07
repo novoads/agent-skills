@@ -17,14 +17,20 @@ The three always-on safety suffixes are IMPORTED from the generator script rathe
 than restated here, so this file cannot drift from the script it is checking. If
 someone edits a suffix, L1's arithmetic moves with it.
 
-L1 carries a dated BASELINE of templates that exceed the TIGHTEST cap on the API,
-which is reve-2.1's. They are grandfathered, not forgiven: the list may only
-shrink, and it is exact in both directions. A template that is not on it must fit
-reve-2.1, and a template on it that starts fitting fails until it is removed,
-which is how a ratchet stays a ratchet instead of becoming a suppression list.
-Nothing here edits a prompt to buy a green check; every body in this library is a
-validated artifact, and trimming one costs a re-validation render to prove the
-render did not change.
+L1 carries a dated BASELINE of templates that exceed the TIGHTEST cap among the
+models the pack's scripts send a template to. They are grandfathered, not forgiven:
+the list may only shrink, and it is exact in both directions. A template that is
+not on it must fit that model, and a template on it that starts fitting fails until
+it is removed, which is how a ratchet stays a ratchet instead of becoming a
+suppression list. Nothing here edits a prompt to buy a green check; every body in
+this library is a validated artifact, and trimming one costs a re-validation render
+to prove the render did not change.
+
+reve-2.1, retired in API 2.48.0, was the tightest (4,000), and the baseline held
+T8, T11 and T14. The tightest is now gpt-image-2, which is also this library's DEFAULT_MODEL
+(the API's own default is gpt-image-2.6-sunburst since 2.58.0): every
+template fits it, so the baseline is empty, and the ratchet stays for the next
+route that adds a model with less room.
 
   python3 check_library.py [--verbose]
 
@@ -43,29 +49,31 @@ HERE = Path(__file__).resolve().parent
 LIBRARY = HERE.parent / "prompting" / "prompt-library.md"
 REPO = HERE.parents[3]  # shared/skills/image-ad-prompting/scripts -> repo root
 
-# The prompt cap PER MODEL. It stopped being one number in spec 2.16.0, which
-# raised gpt-image-2 to 32,000 and nano-banana-pro to 50,000 and left reve-2.1 on
-# the old 4,000. The API 400s above a model's own number, before anything is
-# charged, so an overflow costs a round trip and not credits.
+# The prompt cap PER MODEL, for the models the pack's scripts send a library
+# template to. It stopped being one number in spec 2.16.0, which raised
+# gpt-image-2 to 32,000 and nano-banana-pro to 50,000. The one model it left on
+# the old 4,000, reve-2.1, was retired in API 2.48.0 and left this table. The API
+# 400s above a model's own number, before anything is charged, so an overflow
+# costs a round trip and not credits.
 #
-# Verified against deployed spec 2.16.0 on 2026-08-08. The repo's one reconciler
-# for this table, which also proves the three scripts enforce it, is
-# ./scripts/verify-image-caps.sh.
+# Verified against deployed spec 2.16.0 on 2026-08-08, re-read at 2.59.0 on
+# 2026-11-07. The repo's one reconciler for this table, which also proves the
+# three scripts enforce it, is ./scripts/verify-image-caps.sh.
 MAX_PROMPT_CHARS = {
     "gpt-image-2": 32000,
     "nano-banana-pro": 50000,
-    "reve-2.1": 4000,
 }
 # Templates are authored and validated against gpt-image-2 (their Model notes say
 # so), and the two generator skills that consume this file are locked to
 # gpt-image-2 and nano-banana-pro. So a body over gpt-image-2's room is a template
 # nobody can send on the default path, and that is L1's hard failure.
 DEFAULT_MODEL = "gpt-image-2"
-# reve-2.1 keeps the tight 4,000 and is reachable only from the clone-image-ad
-# validator. A body that fits gpt-image-2 but not this one is not broken, it is
-# narrower than the library implies, so L1 tracks it against an exact baseline
-# instead of failing on it.
-TIGHTEST_MODEL = "reve-2.1"
+# The model with the least room. A body that fits the default but not this one is
+# not broken, it is narrower than the library implies, so L1 tracks it against an
+# exact baseline instead of failing on it. Since reve-2.1 was retired (API 2.48.0)
+# the tightest is the default itself, so that tier is empty until a route adds a
+# model with less room.
+TIGHTEST_MODEL = min(MAX_PROMPT_CHARS, key=MAX_PROMPT_CHARS.get)
 
 # The standard pin block's invariant half — the guard clause from the library
 # header. The variable half (the product description) is budgeted separately,
@@ -75,11 +83,13 @@ PIN_DESCRIPTION_BUDGET = 54  # a terse product description; 400 all-in
 PIN_BLOCK_CHARS = PIN_GUARD_CHARS + PIN_DESCRIPTION_BUDGET
 
 # The library header publishes how many templates still have room for that block
-# ON THE TIGHTEST MODEL, which is the only place the answer is not "all of them".
-# It is one number in prose, and this is what stops it going stale.
+# ON THE TIGHTEST MODEL, and names that model. Until reve-2.1 was retired it was
+# the only place the answer was not "all of them"; the number stays published so
+# a model with less room shows up in it. It is one number in prose, and this is
+# what stops it going stale.
 PIN_ROOM_SENTENCE = re.compile(
     r"\*\*(\d+) of the (\d+) templates\*\* have room for the standard pin block "
-    r"on `reve-2\.1`"
+    r"on `" + re.escape(TIGHTEST_MODEL) + r"`"
 )
 
 # Aspect ratios that exist on at least one model. A template asking for anything
@@ -89,22 +99,16 @@ KNOWN_RATIOS = {"1:1", "4:5", "2:3", "3:2", "3:4", "4:3", "5:4", "9:16", "16:9",
 REQUIRED_FIELDS = ("When to use", "Aspect ratio", "Reference image", "Variables", "Model notes")
 
 # ── L1 baseline ───────────────────────────────────────────────────────────────
-# Re-measured 2026-08-08 against the shipped library: three templates that a run
-# targeting reve-2.1 is REFUSED on, before any brand fill and before any pin
-# block. Each value is the template's prompt-body length; the entry is
-# grandfathered only while the body is unchanged. Fixing one means trimming the
-# body AND re-rendering it to prove the trim was cosmetic, then deleting the row.
-# See evals.md L1.
+# Templates over the tightest model's room, each with its prompt-body length; an
+# entry is grandfathered only while the body is unchanged. Fixing one means
+# trimming the body AND re-rendering it to prove the trim was cosmetic, then
+# deleting the row. See evals.md L1.
 #
-# The set did not change when spec 2.16.0 landed, but its meaning did. These were
-# three templates nobody could send anywhere; they are now three templates that
-# route to two of the three models. They fit gpt-image-2 and nano-banana-pro with
-# more than 27,000 characters to spare.
-BASELINE_OVER_TIGHTEST = {
-    "T8": 2595,
-    "T11": 2802,
-    "T14": 2909,
-}
+# Empty since reve-2.1 was retired (API 2.48.0). Re-measured 2026-08-08, it held
+# the three templates a run on that model was refused on before any brand fill:
+# T8 (2,595 characters), T11 (2,802) and T14 (2,909). All three fit gpt-image-2
+# and nano-banana-pro with more than 27,000 characters to spare.
+BASELINE_OVER_TIGHTEST: dict[str, int] = {}
 
 # ── L3 registry ───────────────────────────────────────────────────────────────
 # Templates whose art encodes a number the viewer can read off the picture — a
@@ -255,16 +259,15 @@ def selftest() -> int:
             ok = False
     cases.append(("L2 is silent on the library as shipped", ok))
 
-    # L1 — the arithmetic matches each generator's own gate, per model. The three
-    # numbers are the point: a single figure here is the bug 2.16.0 introduced.
+    # L1 — the arithmetic matches each generator's own gate, per model. One number
+    # per model is the point: a single figure here is the bug 2.16.0 introduced.
     suffix_chars = sum(len(s) for s in load_suffixes().values())
     room = {m: cap - suffix_chars for m, cap in MAX_PROMPT_CHARS.items()}
     cases.append(("L1 arithmetic matches each generator's own gate",
                   room == {"gpt-image-2": 30425,
-                           "nano-banana-pro": 48425,
-                           "reve-2.1": 2425}))
-    cases.append(("L1 caps are three distinct numbers, not one",
-                  len(set(MAX_PROMPT_CHARS.values())) == 3))
+                           "nano-banana-pro": 48425}))
+    cases.append(("L1 caps are one number per model, not one for the set",
+                  len(set(MAX_PROMPT_CHARS.values())) == len(MAX_PROMPT_CHARS)))
     bodies = {t["tag"]: len(t["prompt"]) for t in parse_templates(text) if t["prompt"]}
     cases.append(("L1 baseline lengths are the measured lengths",
                   all(bodies.get(k) == v for k, v in BASELINE_OVER_TIGHTEST.items())))
@@ -354,7 +357,7 @@ def main() -> int:
 
     # ── L1 — the template is usable on the model it is sent under ────────────
     # The generator appends the suffixes and refuses above the named model's cap.
-    # Since 2.16.0 that cap is three numbers, so "does it fit" is three answers:
+    # The cap is per model (since 2.16.0), so "does it fit" has one answer per model:
     # a body over the DEFAULT model's room is unsendable on the path the library
     # actually routes to and fails; a body over the TIGHTEST model's room is only
     # unsendable there, and is held to an exact baseline instead.
@@ -364,8 +367,9 @@ def main() -> int:
     room_pinned = room_tightest - PIN_BLOCK_CHARS
     if args.verbose:
         for m in sorted(MAX_PROMPT_CHARS, key=lambda k: -MAX_PROMPT_CHARS[k]):
-            tag = (" (default)" if m == DEFAULT_MODEL
-                   else " (tightest)" if m == TIGHTEST_MODEL else "")
+            roles = [r for r, who in (("default", DEFAULT_MODEL), ("tightest", TIGHTEST_MODEL))
+                     if m == who]
+            tag = f" ({', '.join(roles)})" if roles else ""
             print(f"{m:<16} cap {MAX_PROMPT_CHARS[m]:>6} − suffixes {suffix_chars} "
                   f"= {room[m]:>6} for a body{tag}")
         print(f"  …{TIGHTEST_MODEL} minus the standard pin block ({PIN_BLOCK_CHARS}) "
@@ -408,8 +412,8 @@ def main() -> int:
                 f"L1 {t['tag']} — body is {n} chars, which fits {DEFAULT_MODEL} but is "
                 f"{n + suffix_chars - MAX_PROMPT_CHARS[TIGHTEST_MODEL]} over "
                 f"{TIGHTEST_MODEL}'s {MAX_PROMPT_CHARS[TIGHTEST_MODEL]} cap with the "
-                f"suffixes. That is a template the clone validator cannot cross-check on "
-                f"the third model. Trim it, or baseline it with the reason."
+                f"suffixes. That is a template a run on {TIGHTEST_MODEL} cannot send. "
+                f"Trim it, or baseline it with the reason."
             )
         elif BASELINE_OVER_TIGHTEST[t["tag"]] != n:
             failures.append(
@@ -429,11 +433,11 @@ def main() -> int:
         )
 
     # ── L1b — the published pin-block headroom is the measured one ───────────
-    # On the tightest model, half the library is too long to carry the pin block
-    # the library itself makes mandatory. That is a fact a run needs BEFORE it
-    # writes a fill, so it is published in the header, and this is what stops the
-    # number going stale. On the other two models the answer is all of them, which
-    # is why the sentence names the model it is about.
+    # On the tightest model a template can be too long to carry the pin block the
+    # library itself makes mandatory (on reve-2.1, retired in API 2.48.0, half the
+    # library was). That is a fact a run needs BEFORE it writes a fill, so it is
+    # published in the header, and this is what stops the number going stale. The
+    # sentence names the model it is about.
     with_room = len(templates) - len(over_pinned)
     stated = PIN_ROOM_SENTENCE.search(LIBRARY.read_text())
     if not stated:

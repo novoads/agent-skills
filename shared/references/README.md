@@ -10,15 +10,15 @@ Local paths are never sent. Every image goes through one upload first:
 2. `PUT` the raw bytes to that URL. `Content-Type` and `Content-Length` are both signed into it — a mismatch is a 403 from storage that reads like an auth failure and is not one.
 3. Pass the `assetId` in the request body.
 
-**Upload each file once.** The `assetId` is durable and reusable without limit — the same id works on call one and call one hundred, across sessions and across models. Re-uploading the same bytes mints a *second* asset and silently loses the identity anchor, so it is a bug rather than a wasted step. Uploads are free; only generations are charged. The 900-second expiry on the response belongs to the upload URL, not to the asset.
+**Upload each file once.** The `assetId` can be reused across calls and across models: no call consumes it. Re-uploading the same bytes only mints a *second* id for the same picture: a wasted step, worth taking only when a call or a job built on the old id fails. Uploads are free; only generations are charged. The 900-second expiry on the response belongs to the upload URL, not to the asset.
 
 Which field the `assetId` goes into depends on what you are generating:
 
 | | Field | How many | Notes |
 |---|---|---|---|
 | **Video** — animate this exact image | `startImageAssetId` | 1 | The image becomes the clip's literal first frame. Not addressed in the prompt. |
-| **Video** — composite these references | `referenceAssetIds` | up to **9** | Addressed positionally: `@Image1`, `@Image2`… The Seedance variants and, since API 2.30.0, `omni-flash` (up to its own limit); `veo-3.1` and `sora-2` reject it. |
-| **Image** | `referenceAssetIds` | per model: **4** `gpt-image-2` / **14** `nano-banana-pro` / **8** `reve-2.1` | Addressed positionally. No `startImageAssetId` — a still has no first frame. |
+| **Video** — composite these references | `referenceAssetIds` | up to **9** | Addressed positionally: `@Image1`, `@Image2`… The Seedance variants, since API 2.30.0 `omni-flash` (up to its own limit), and since API 2.53.0 `wan-3.0`; `veo-3.1` and `kling-v3-pro` reject it. |
+| **Image** | `referenceAssetIds` | per model: **4** on each of the five GPT models / **14** `nano-banana-pro` / **10** on each Seedream 5 model | Addressed positionally. No `startImageAssetId` — a still has no first frame. |
 
 The two video modes are **mutually exclusive**: sending `startImageAssetId` and `referenceAssetIds` in the same request is a 400, not a merge. `referenceAssetIds` takes **images only**: a video `assetId` there is an error. Video references go in Omni Flash's `referenceVideoAssetId` or, on the three Seedance models, `referenceVideoAssetIds` (mp4); audio references go in the Seedance models' `referenceAudioAssetIds` (mp3), from API 2.35.0.
 
@@ -65,7 +65,7 @@ Descriptors should cover these categories in order:
 10-above-angle.jpg
 ```
 
-Upload all 10 once and keep the `assetId`s — but **only 4 can be cited per image call** (9 per Seedance video call), so the skill is choosing which. The default allocation for a likeness generation is `01-hero-front.jpg` as the anchor plus one 3/4 angle, one close-up, and the single most important brand asset. Beyond that the text prompt carries the identity: restate the person's features verbatim rather than reaching for a fifth photo. For a series, keep a rolling window anchored on the hero — `[hero, N-1, N-2, N-3]` — and never feed a drifted output forward.
+Upload all 10 once and keep the `assetId`s — but **a call cites only what its model takes** (the table above), and more references dilute the hero, so the skill is choosing which. The default allocation for a likeness generation is `01-hero-front.jpg` as the anchor plus one 3/4 angle, one close-up, and the single most important brand asset. Beyond that the text prompt carries the identity: restate the person's features verbatim rather than reaching for a fifth photo. For a series, keep a rolling window anchored on the hero — `[hero, N-1, N-2, N-3]` — and never feed a drifted output forward.
 
 ### `products/`
 Product photos for showcase videos and product hero images.
@@ -74,7 +74,7 @@ Product photos for showcase videos and product hero images.
 - Tip: clean backgrounds (white/neutral) produce the best results
 
 ### `aesthetics/`
-Style references organized into subfolders by vibe. The agent uploads 3 images from the chosen style folder and passes their `assetId`s in `referenceAssetIds` to influence generation style — 3 of the 4 image slots, so leave room for the subject or product reference that has to share the call.
+Style references organized into subfolders by vibe. The agent uploads 3 images from the chosen style folder and passes their `assetId`s in `referenceAssetIds` to influence generation style — 3 of a GPT model's 4 slots, so leave room for the subject or product reference that has to share the call.
 
 #### `aesthetics/ugc-selfie/`
 iPhone selfie-style UGC — raw, unpolished, authentic-looking frame grabs. Drop 3-5 reference images showing the target aesthetic: front-camera selfies, slightly grainy, imperfect lighting, casual environments.

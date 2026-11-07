@@ -19,7 +19,7 @@ Check `references/` at the repo root before asking for anything visual. Product 
 - Prefer **one paragraph** of clear direction over a bag of keywords. Bullets and `Label: value` pairs come back rendered as literal on-screen text.
 - Name the **subject**, **setting and light source**, **camera and motion**, **style**, and — for video — the **spoken line in double quotes**. Seedance renders the dialogue and lip-sync in the same call, so the line is part of the prompt, not a later step.
 - If the user gave a vague adjective ("premium", "fun"), **translate it into visual specifics**: materials, wardrobe, location, pace, the actual light source.
-- Real brands only. Never substitute a blank or unbranded stand-in for a product the user has not shown you — the API will render and bill it, and **nothing anywhere will mention it**. Ask for the photo instead.
+- Real brands only. Never substitute a blank or unbranded stand-in for a product the user has not shown you: the API will render and bill it, and the most you get is a `blank_label` warning on an image estimate. Ask for the photo instead.
 
 ## 3. Map the brief to a route
 
@@ -27,9 +27,9 @@ Check `references/` at the repo root before asking for anything visual. Product 
 2. Open the matching formula and follow it:
    - Video, Seedance: [seedance-2.md](prompt-library/seedance-2.md) for the platform rules, then [ugc](prompt-library/seedance-2-ugc.md), [premium reveal](prompt-library/seedance-2-premium-reveal.md), [product hero](prompt-library/seedance-2-product-hero.md), [studio lookbook](prompt-library/seedance-2-studio-lookbook.md), or [feature walkthrough](prompt-library/seedance-2-feature-walkthrough.md).
    - Video, fast vertical clip with a long prompt: `omni-flash`, guided by `shared/skills/gemini-omni-flash/prompting/guide.md`.
-   - Image: `shared/skills/image-ad-prompting/OVERVIEW.md` routes between `gpt-image-2`, `nano-banana-pro` and `reve-2.1`.
+   - Image: `shared/skills/image-ad-prompting/OVERVIEW.md` routes between `gpt-image-2` and `nano-banana-pro`.
 3. Resolve `productId` once per session from `GET /v1/products` — the list comes back under **`.items`**, not `.products` (verified live 2026-08-04). Default to the product named in `MASTER_CONTEXT.md`. It is optional, and it is what makes `GET /v1/generations?productId=…` a useful history later. There are no projects or scripts on this API, and folders are read-only.
-4. Upload each reference image once with `POST /v1/uploads`. The `assetId` is durable and reusable across calls, models and sessions — re-uploading the same bytes mints a second asset and loses the identity anchor.
+4. Upload each reference image once with `POST /v1/uploads`. The `assetId` can be reused across calls and models: re-uploading the same bytes only mints a second id for the same picture.
 
 ## 4. Merge with project memory
 
@@ -38,7 +38,7 @@ If `MASTER_CONTEXT.md` at the repo root carries brand voice, banned phrases, or 
 ## 5. Quality check before sending
 
 - [ ] Required fields present for the chosen model, per [reference.md](../reference.md) — and nothing extra: the request bodies are strict and an unknown key is a `400`.
-- [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults (5 seconds, `16:9`) are almost never what an ad wants.
+- [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults differ by model (on `seedance-2.0`, 5 seconds and `16:9`) and are almost never what an ad wants.
 - [ ] One reference mode only: `startImageAssetId` **or** `referenceAssetIds`, never both. Every `@ImageN` token points at an id you actually send.
 - [ ] The prompt matches the formula's structure, in the ad's own language.
 - [ ] No secrets in the request body — ids and creative text only.

@@ -10,8 +10,8 @@ and they disagree in exactly one place, silent beats — v2 wins **inside the ba
 and v1 wins everywhere else.
 
 Written from a live A/B (2026-08-03): the same script rendered both ways. One
-generation with beats cost **7.0 credits, 15s, no post-production**. Three clips
-stitched cost **13.8 credits, 24s**, and left the voice absent for half the runtime.
+generation with beats ran **15s with no post-production**. Three clips stitched ran
+**24s at about double the cost that day**, and left the voice absent for half the runtime.
 
 ---
 
@@ -27,7 +27,7 @@ Seedance takes a start frame **or** reference images — never both. Sending bot
 | Cuts | jump cuts **inside** the render | cuts happen at the joins |
 | Post | none | trim + concat |
 | Identity | earned by the actor tag + a fixed location | guaranteed by each start frame |
-| Cost (measured) | 7.0cr / 15s | 13.8cr / 24s |
+| Cost (measured 2026-08-03) | the baseline, for 15s | about double, for 24s |
 
 **Default to one-shot.** Choose stitched only when a beat genuinely needs a different
 room, or the script cannot be spoken inside one clip's runtime.
@@ -44,7 +44,7 @@ which one-shot gives them through references.
 The deliverable of this workflow is **one finished ad**. Not a set of parts.
 
 **Four beats.** Hook → discovery → demo → verdict. Four is the default because 15s is
-the Seedance ceiling and four beats is what fits at an unhurried pace.
+the `seedance-2.0` ceiling and four beats is what fits at an unhurried pace.
 
 **Every beat has the person on camera and a spoken line.** No silent beats in the base.
 
@@ -63,7 +63,7 @@ vary between beats.
 > nightstand macro → under a duvet) was the highest-risk render of the day; the
 > reference implementation this workflow is modelled on fixes the location explicitly.
 > Evidence: one contrasting render plus the reference prompt. Strong default, not a law
-> — worth a same-prompt A/B when someone has 14 credits to spend on the question.
+> — worth a same-prompt A/B when someone has two renders to spend on the question.
 
 **The actor tag repeats verbatim in every beat.** `grey tee woman` in beat 1 is
 `grey tee woman` in beat 4. Never `the same woman`, never `as before` — a back-reference
@@ -183,7 +183,7 @@ stream-copies the picture and would otherwise have nothing final to sit under.
 - *"Every video should have at least one silent action beat"* — v1's rule, correct for
   standalone clips, wrong inside a base video. Silent material moves to the b-roll pass.
 - *"One clip per scene, then stitch"* — still valid as the escape hatch, no longer the
-  default. It costs roughly double and requires post-production.
+  default. It cost roughly double in the A/B above and requires post-production.
 - *"Reserve +4s for leading silence"* — measured at 0.44s and 0.0s on start-frame and
   reference renders respectively (n=2), then at 0.515s, 0.529s and 0.482s across three
   more reference renders on 2026-08-11 (n=5). The +4s reserve does not draw in this

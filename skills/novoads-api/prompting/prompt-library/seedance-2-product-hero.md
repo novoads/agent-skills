@@ -20,11 +20,11 @@ There is no person in this video. The product is the only subject, and the entir
 
 **1. There is no person in this style, by design.** Do not invent an actor to satisfy the general Seedance guidance — the actor descriptor and the spoken line are written for routes with a human on camera, and this is not one. Same call as the premium reveal and the Pixar routes.
 
-**2. Paste the label-hold clause in every time.** This style lives on macro shots of packaging, and Seedance preserves logos while destroying printed text. Nothing on the API will remind you:
+**2. Paste the label-hold clause in every time.** This style lives on macro shots of packaging, and Seedance preserves logos while destroying printed text. The estimate's `label_without_hold` warning may remind you, and nothing refuses the call:
 
 > the product label remains perfectly sharp and identical to the reference image with its text unchanged and fully legible
 
-The worked example below was priced live 2026-08-02 with the clause and the ratio line in place. Price your own before submitting.
+The worked example below leaves both the clause and the ratio line out, as it says there. Add both, and price your own before submitting.
 
 ## The structure
 
@@ -250,17 +250,21 @@ The call:
 ```json
 {
   "model": "seedance-2.0",
+  "idempotencyKey": "<a new one per render>",
   "prompt": "<the prompt above>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",
   "language": "en",
+  "audioEnabled": false,
   "referenceAssetIds": ["<assetId from POST /v1/uploads>"]
 }
 ```
 
+With that flag the clip comes back silent, so the sound line in the prompt above is not heard. To keep its bass and foley, drop the flag, as the caveat in Layer 1 says.
+
 The second colorway in the closing shot is a good second reference: pass its photo as `@Image2` rather than describing a variant the model has to invent. Two references, one call, same price — references do not move the cost, duration does.
 
-Price it first. The estimate takes the pricing fields only:
+Price it first. The estimate takes only what its arm lists:
 
 ```json
 {

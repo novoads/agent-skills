@@ -11,11 +11,11 @@
 | **Style references** (2) | `references/aesthetics/{style}/` | Visual vibe — lighting, framing, quality |
 
 Each input is uploaded once via `POST /v1/uploads` → `PUT` the bytes to the returned
-`uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. The ids are
-**durable**: a character hero and a product photo are uploaded once and reused across every
-shoot, and reusing the same id is what holds identity steady across sessions.
+`uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. The ids
+**can be reused across calls**: a character hero and a product photo are uploaded once and can serve
+later shoots too, and the same picture on every call is what holds identity steady.
 
-## Reference order — and the hard cap of 4
+## Reference order, and this workflow's budget of 4
 
 ```
 referenceAssetIds = [
@@ -31,9 +31,9 @@ preserved and the first is the strongest signal, so the character hero always go
 the discipline survives the bigger cap: hero, product, and at most **two** style references.
 More style refs dilute the hero.
 
-This is a tighter budget than this workflow used to assume — and it points the same direction
+This is a tighter budget than the API's, and it points the same direction
 the failure table at the bottom already does: *"character face doesn't match → too many style
-references diluting identity → reduce style refs to 2."* The cap enforces the fix. If a style
+references diluting identity → reduce style refs to 2."* Keep to it by choice: nothing enforces it. If a style
 needs more than two images to communicate, put the rest into words in the prompt.
 
 ## Prompt formula
@@ -116,7 +116,7 @@ should feel raw, unpolished, and authentically amateur.
 
 1. **Character:** Ask which influencer (by name). Load their `01-hero-front.jpg`.
 2. **Product:** Ask which product or check `references/products/`. If multiple, ask user to pick.
-3. **Style:** Default to `references/aesthetics/ugc-selfie/` for UGC. If other style folders exist, ask user which vibe. Load 3 images from the chosen style folder (pick the most varied ones if more than 3 exist).
+3. **Style:** Default to `references/aesthetics/ugc-selfie/` for UGC. If other style folders exist, ask user which vibe. Load 2 images from the chosen style folder (pick the most varied ones if more than 2 exist).
 4. **Scene:** Ask for the scene/setting (bedroom, car, kitchen, outdoors, etc.) and outfit. If the user doesn't specify, pick a natural casual setting.
 
 ### Step 2: Upload the references (once)
@@ -126,10 +126,10 @@ Upload via `POST /v1/uploads` and keep each `assetId`:
 - 1 product photo
 - 2 style references
 
-Total: exactly **4** `referenceAssetIds` per call — the hard cap.
+Total: **4** `referenceAssetIds` per call: this workflow's budget, not the API's cap (14 on `nano-banana-pro`).
 
-Reuse ids you already have. The character hero and product photo almost certainly have
-`assetId`s from an earlier run; re-uploading them produces new ids and loses the anchor.
+Reuse ids you already have. The character hero and product photo probably have
+`assetId`s from an earlier run. If a call cannot find or read the file behind one, or a job built on one fails and its `reasonCode` names no other cause, upload that file again and use the new id: it is the same picture.
 
 ### Step 3: Compose the prompt
 
@@ -230,7 +230,7 @@ are preserved from frame one. This is the correct path for animating UGC stills.
 
 1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
 2. `POST /v1/videos` with a Seedance model, `startImageAssetId: <assetId>`, and the dialogue in `prompt`. Note `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
-3. **Take the `720p` default and move on.** `seedance-2.0` *does* have a `resolution` field (`480p`, `720p`, `1080p`, `4k`, default `720p` — verified live 2026-08-04; this step used to say the field did not exist, which was true of an older deployment), but there is still nothing to ask the user about on a UGC selfie: it ships to Reels and TikTok, which re-encode anyway, and `1080p`/`4k` cost ≈2.5x/≈5x the base for a difference the feed discards. `seedance-2.0-mini` takes `resolution` only where `GET /v1/models` lists more than one tier for it (API 2.34.0 on); leave it at the default here.
+3. **Take the `720p` default and move on.** `seedance-2.0` *does* have a `resolution` field (`480p`, `720p`, `1080p`, `4k`, default `720p` — verified live 2026-08-04; this step used to say the field did not exist, which was true of an older deployment), but there is still nothing to ask the user about on a UGC selfie: it ships to Reels and TikTok, which re-encode anyway, and `1080p`/`4k` cost ≈2x/≈5x the base for a difference the feed discards. `seedance-2.0-mini` takes `resolution` only where `GET /v1/models` lists more than one tier for it (API 2.34.0 on); leave it at the default here.
 4. Video is **asynchronous**, unlike an image call (which usually answers in its response): `202` + `jobId` → poll `GET /v1/generations/{jobId}` for a **terminal** status → `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, the spoken-line approval gate, and its own cost gate.
 5. **Human motion cues (CRITICAL):** Always include at least 3-4 natural movement cues in the prompt. Without these, the video will look like a frozen mannequin staring at camera. Pick from:
    - Eye behavior: "briefly breaks eye contact, glances down at the product, then looks back at camera"
@@ -240,7 +240,8 @@ are preserved from frame one. This is the correct path for animating UGC stills.
 6. **ALWAYS end prompt with:** `"No subtitles, no captions, no text overlays."`
 7. See [seedance-2-ugc.md](seedance-2-ugc.md) for the full UGC video prompting formula and cue library.
 
-### Veo 3.1 and Sora 2
+### Veo 3.1
 
-Both are on this API (`veo-3.1` and `sora-2`); read [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md)
-for their grids. Neither takes `referenceAssetIds`, so a product reference goes to Seedance or `omni-flash`.
+`veo-3.1` is on this API; read [veo-3-1.md](veo-3-1.md) for its grid. It takes no
+`referenceAssetIds`, so a product reference goes to Seedance or `omni-flash`.
+Sora 2, which this section also covered, was removed from the API in 2026-09 ([sora-2.md](sora-2.md) says what happened).

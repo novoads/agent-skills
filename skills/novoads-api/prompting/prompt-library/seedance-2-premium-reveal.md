@@ -14,11 +14,11 @@ The power comes from **restraint and revelation**. Each beat reveals slightly mo
 
 ## Two things to know before you write a word
 
-**1. Seedance preserves logos and destroys printed text.** A reveal whose final frame is a wordmark is asking for exactly the thing the model is worst at. Keep the reference photo sharp, paste the label-hold clause in, and check the render — nothing on the API will remind you.
+**1. Seedance preserves logos and destroys printed text.** A reveal whose final frame is a wordmark is asking for exactly the thing the model is worst at. Keep the reference photo sharp, paste the label-hold clause in, and check the render: the estimate's `label_without_hold` warning is a reminder at best, and nothing refuses the call.
 
 **2. There is no person in this style, by design.** Do not invent an actor. The formula below is complete without one, and the parts of the general Seedance guidance that assume a human on camera — the actor descriptor, the spoken line — do not apply on this route. Judgement about which advice fits which route is yours; this is the standard case.
 
-The worked example below is priced live 2026-08-03. Price your own before submitting: the estimate is the only source of a number, and it has no opinion about anything else.
+The worked example below is priced live 2026-08-03. Price your own before submitting: the estimate is the only source of a number, and what it says about the prompt in `warnings` is advice.
 
 ## The structure
 
@@ -48,7 +48,7 @@ The background is pure black — not dark grey, not moody shadows, but true blac
 
 | Variable | Options | Notes |
 |---|---|---|
-| `DURATION` | 15 seconds | The Seedance maximum, and the right choice for this style. Remember `durationSeconds` defaults to **5** — set it. |
+| `DURATION` | 15 seconds | The `seedance-2.0` maximum, and the right choice for this style. Remember `durationSeconds` defaults to **5** — set it. |
 | `LIGHTING_STYLE` | dramatic studio rim lighting, soft gradient spotlight, hard directional key light, warm amber accent lighting, cool silver edge lighting | Rim lighting is the default — it outlines the product against the void |
 | `LIGHTING_DIRECTION` | light coming from above and behind the product, side-lit from the left with a subtle fill on the right, backlit with a soft halo around the edges, overhead spot with sharp falloff | Specifies WHERE light hits the product |
 
@@ -222,7 +222,7 @@ This style maps naturally to a **3-clip product launch series**:
 | **B: The features** | "Here's what makes it special" | Feature 1 → Feature 2 → Feature 3 | Close-ups on each feature detail, texture shots |
 | **C: The lineup** | "Available in X sizes/colors" | "In all-new sizes" or "X colors" | Side-by-side comparison, variant reveal |
 
-Each clip stands alone as a 15-second ad; together they tell a launch story. Three clips is three separate generations at three separate charges — price the set at `POST /v1/estimates` and show the total before submitting any of them. **Upload the product photo once**: the same `assetId` carries all three, and re-uploading it would hand the model a different reference for what is meant to be one product.
+Each clip stands alone as a 15-second ad; together they tell a launch story. Three clips is three separate generations at three separate charges — price the set at `POST /v1/estimates` and show the total before submitting any of them. **Upload the product photo once**: the same `assetId` carries all three, and re-uploading it would add a step and change nothing the model sees.
 
 ---
 
@@ -250,7 +250,7 @@ Each clip stands alone as a 15-second ad; together they tell a launch story. Thr
 - **`aspectRatio: "9:16"`** for social — product centered with generous black space above and below. The API default is `16:9`, so set it, and restate it at the end of the prompt text as `Vertical 9:16.`
 - Text must be readable on mobile — large, bold, high-contrast
 - **`resolution` does exist on `seedance-2.0`** — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live 2026-08-04; the older line here denying it described a previous deployment). Default output measured 720x1280 at `9:16`.
-- **A premium reveal is the one style with a real reason to go above `720p`** — it is a glossy hero film, often the client-facing deliverable, and the tier is visible on a large screen in a way a talking-head UGC clip is not. It is still a **spend** decision: `1080p` is ≈2.5x the `720p` base and `4k` ≈5x. Raise it only with the user's say-so, on a fresh `POST /v1/estimates` for that exact cell, and never quote a credit number from those ratios. Downward, `480p` is **≈half** the `720p` base since the 2026-08-07 reprice (measured live 2026-08-12; the older line here said it cost the same and bought nothing) — not a tier to ship a premium reveal on, but the honest one for a rehearsal pass that only has to prove the prompt works.
+- **A premium reveal is the one style with a real reason to go above `720p`** — it is a glossy hero film, often the client-facing deliverable, and the tier is visible on a large screen in a way a talking-head UGC clip is not. It is still a **spend** decision: `1080p` is ≈2x the `720p` base and `4k` ≈5x. Raise it only with the user's say-so, on a fresh `POST /v1/estimates` for that exact cell, and never quote a credit number from those ratios. Downward, `480p` is **≈two-thirds** of the `720p` base (the older line here said it cost the same and bought nothing, which stopped being true with the 2026-08-07 reprice) — not a tier to ship a premium reveal on, but the honest one for a rehearsal pass that only has to prove the prompt works.
 
 ---
 
@@ -346,15 +346,17 @@ The call:
 ```json
 {
   "model": "seedance-2.0",
+  "idempotencyKey": "<a new one per render>",
   "prompt": "<the prompt above>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",
   "language": "en",
+  "audioEnabled": false,
   "referenceAssetIds": ["<assetId from POST /v1/uploads>"]
 }
 ```
 
-Price it first — the estimate takes the pricing fields only, and `aspectRatio` or `referenceAssetIds` there is a `400`:
+Price it first. The estimate takes only what its arm lists, and `aspectRatio` or `referenceAssetIds` there is a `400`:
 
 ```json
 {

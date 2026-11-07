@@ -44,7 +44,7 @@ curl -sS -X POST https://api.novoads.ai/v1/uploads -A novoads-skill/change-voice
 curl -sS -X POST https://api.novoads.ai/v1/estimates -A novoads-skill/change-voice \
   -H "Authorization: Bearer $NOVOADS_API_KEY" -H 'Content-Type: application/json' \
   -d '{"kind":"voice-change","assetId":"<assetId>"}'
-#    {"credits":1,"balance":146.8,"sufficient":true}
+#    a quote: "credits", "balance" and "sufficient":true
 
 # 4. cast by measurement, then STOP for the human
 curl -sS "https://api.novoads.ai/v1/voices?gender=male&age=young&accent=american&language=en" \
@@ -69,14 +69,14 @@ curl -sS -X POST https://api.novoads.ai/v1/transcripts ... -d '{"assetId":"<outp
 
 | Call | Result |
 |---|---|
-| `POST /estimates` `{kind:"voice-change", assetId}` | `credits: 1`, `sufficient: true`. Charges nothing. |
-| `POST /estimates` `{kind:"voice-change"}`, no source | also `credits: 1` — a 15s source and a sourceless quote agree, because both land on the one-minute minimum (the per-minute price before API 2.32.0) |
-| `POST /voice-changes` | `creditsCharged: 1`, `billedMinutes: 1`, `200` in **7.1s** (measured before API 2.32.0, when voice change billed whole started minutes; it now bills seconds of source above a minimum and also returns `billedSeconds`) |
+| `POST /estimates` `{kind:"voice-change", assetId}` | a quote, `sufficient: true`. Charges nothing. |
+| `POST /estimates` `{kind:"voice-change"}`, no source | the same quote on this run, because before API 2.32.0 both landed on the one-minute minimum. Today a sourceless quote is the minimum charge and a source past that minimum quotes higher, so name the source |
+| `POST /voice-changes` | one charge, `billedMinutes: 1`, `200` in **7.1s** (measured before API 2.32.0, when voice change billed whole started minutes; it now bills seconds of source above a minimum and also returns `billedSeconds`) |
 | **the same call again, same source and voice** | **`creditsCharged: 0`**, byte-identical `jobId` and `assetId`, a freshly minted `url`, `200` in 1.9s |
 | `POST /voice-changes` with a made-up `voiceId` | `404 not_found`, naming the id. **No substitute voice, nothing charged** |
-| `POST /transcripts` × 2 (source, then output) | `creditsCharged: 0.1` each |
+| `POST /transcripts` × 2 (source, then output) | one charge each, at the one-minute minimum |
 
-Balance moved 146.8 → 145.8 across the two conversion calls: **one charge for two calls**,
+The balance moved once across the two conversion calls: **one charge for two calls**,
 which is the cache contract holding in the ledger and not just in the response body.
 
 ### What came out
@@ -356,6 +356,6 @@ treats a workspace without video out as unable to change a voice at all.
 
 The endpoint caps a source at five minutes and this run converted fifteen seconds in 7.1
 seconds. Nothing here measures where that curve goes, and the endpoint is synchronous behind
-an edge timeout, so a five-minute source is the case worth timing before a skill recommends
+an edge timeout of around 125 seconds, so a five-minute source is the case worth timing before a skill recommends
 it. Until someone runs it, this skill's advice is what it measured: short ads convert in
 seconds, and a long source is split rather than assumed.

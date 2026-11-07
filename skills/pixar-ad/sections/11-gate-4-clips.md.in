@@ -8,8 +8,8 @@
 curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"seedance-2.0","prompt":"<beat N>","durationSeconds":5,
-       "aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
+  -d '{"model":"seedance-2.0","idempotencyKey":"<a new one per render>","prompt":"<beat N>",
+       "durationSeconds":5,"aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
 ```
 
 Returns `202` with `jobId`, `status`, `creditsCharged` and `model`.
@@ -22,9 +22,9 @@ part of that budget — images have their own ceiling of 12 — but they are cha
 sequentially anyway, so it never comes up.
 
 **Write every jobId down the moment it comes back**, before you start waiting —
-id, which beat, and `creditsCharged` from this `202`. **The charge is on the
-submit response and nowhere else**; the poll payload does not carry it, so a line
-written without it can never be completed. A job whose id you recorded is a
+id, which beat, and `creditsCharged` from this `202`. **The charge goes on the
+line now**, while you hold it: a crashed session then still leaves it written
+down. A job whose id you recorded is a
 lookup when something goes wrong. A job whose id you did not is an investigation.
 
 **Poll `GET /v1/generations/{jobId}` every 15 seconds, until TERMINAL.**
@@ -51,8 +51,8 @@ a render that already succeeded and was already billed.
 **If a call times out, do NOT generate again.** The work usually completed and
 was charged; what timed out was the response carrying its id. Call
 `GET /v1/generations?limit=10&kind=video`, find the job by `createdAt` and its
-prompt, and take it from there. There are no idempotency keys, so a blind retry
-renders and charges a second time.
+prompt, and take it from there. A clip sent without an `idempotencyKey` (API 2.52.0)
+renders and charges a second time on a blind retry. Reuse a key only to retry the identical call: a new or corrected render takes a new key, because the same key returns the first clip whatever the new prompt says.
 
 ### Per-clip QA, before you spend a voice-over on it
 

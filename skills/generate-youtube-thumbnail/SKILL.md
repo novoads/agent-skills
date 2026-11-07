@@ -73,10 +73,10 @@ against the transport we serve this model from. It has been corrected.
 
 Two facts still shape how you spend them:
 
-1. **An `assetId` is durable and reusable.** Upload once, reference forever, across runs and across
-   sessions. Uploading is free and unlimited — only *generations* are charged. So keep a library of
-   uploaded face angles and brand assets and pick from it.
-2. **The other image models are lower.** `reve-2.1` takes 8; `gpt-image-2` takes 4, and that 4 is
+1. **An `assetId` can be reused across calls.** Upload once and cite it on every call that needs it.
+   Uploading is free and unlimited — only *generations* are charged. So keep a library of
+   face angles and brand assets, the files and their ids, and pick from it.
+2. **The other image models are lower.** Each Seedream 5 model takes 10; `gpt-image-2` takes 4, and that 4 is
    measured, not assumed — a 5-reference body was refused on the same 2026-08-04 probe run. If you
    route a likeness run to `gpt-image-2`, the 5+ advice does not survive the trip; say so rather
    than silently citing four.
@@ -138,7 +138,7 @@ purpose. **Name the model in the estimate body**: the image models' schedules di
 than 3×, and an estimate that omits `model` prices `gpt-image-2.6-sunburst`, understating a
 `nano-banana-pro` batch.
 
-The call says nothing about the prompt — no endpoint on this API reads one for quality. Re-read
+Its `warnings` are advice on the prompt, never a verdict. Re-read
 the prompt against the formula yourself before pricing: a batch runs the same shape N times, so
 a flaw in it is paid for N times.
 
@@ -192,7 +192,7 @@ The script handles:
 - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 - **Upload once, reuse the assetIds for every prompt in the batch**
 - Each call blocks ~60–90s and returns the image; one still going after about 105 s answers `running` and the script polls it (API 2.39.0)
-- Bounded parallelism (4 in flight, under the API's concurrency ceiling of 5)
+- Bounded parallelism (4 in flight: the script's own cap, under the API's image queue of 12)
 - Per-run credit total from each response's `creditsCharged`
 
 ### 7. Review and present
@@ -207,13 +207,13 @@ After all generations complete, read each thumbnail with the Read tool and prese
 
 ## Quirks and pitfalls
 
-### Reference assetIds are durable — reuse them
+### Reuse reference assetIds
 
 This is the **opposite** of how the previous backend worked, where a reused reference caused
 `HTTP 500 UNKNOWN_ERROR` and every generation needed a fresh upload. On Novoads,
-`POST /v1/uploads` returns an `assetId` that keeps working across calls and across sessions.
-Upload once per batch — or once per campaign — and reuse. Re-uploading the same face photo
-produces a *different* id and quietly loses the anchor that was holding likeness steady.
+`POST /v1/uploads` returns an `assetId` you can reuse across calls.
+Upload once per batch and reuse. Re-uploading the same face photo only produces a *different* id
+for the same picture, so do it only if a call or a job built on the old id fails.
 
 The presigned `uploadUrl` does expire (`expiresInSeconds` in the response), but that only
 affects the PUT window, not the `assetId`.
@@ -229,13 +229,13 @@ either differs, including an added `; charset=…`. Don't let an HTTP client inf
 The old "images smaller than 1080px longest side return `422 — image too small`" rule was
 specific to the previous backend and **has not been verified against Novoads**. The batch script
 still upscales, because small references genuinely produce worse likeness — but do not report
-the 422 claim to a user as an API rule. (Flagged for confirmation in the Phase 4 live smoke.)
+the 422 claim to a user as an API rule.
 
 ### `referenceAssetIds` is an array of plain strings
 
 Not objects, and not file paths — the `assetId` values returned by `POST /v1/uploads`.
 Maximum 14 on `nano-banana-pro`, which is the model this skill runs on. The other image
-models are lower and the number does not travel: `reve-2.1` takes 8, `gpt-image-2` takes 4.
+models are lower and the number does not travel: each Seedream 5 model takes 10, `gpt-image-2` takes 4.
 
 ### Chat-pasted images are NOT files
 
@@ -248,16 +248,17 @@ With 1-2 face references the AI generalizes to "generic bearded man with glasses
 references from different angles it locks in the specific person. **Always use 5+ face references
 for character work.** For a series, use the rolling window described above.
 
-### Concurrency is 5, not "as many as you like"
+### Images queue at 12, not "as many as you like"
 
-The API allows 5 concurrent generations per organization. A 6th in flight returns `429` with
-`details.reason: concurrency_limit` — and unlike the other 429 causes, **slowing your request
-rate does not help**; only a finishing job frees a slot. The batch script caps itself at 4 in
-flight for headroom.
+The API allows 12 concurrent image generations per organization, counted apart from video in
+both directions. A 13th in flight returns `429` with `details.reason: image_concurrency_limit`,
+and unlike a per-minute limit, **slowing your request rate does not help**; only a finishing job
+frees a slot. The batch script's cap of 4 in flight is its own choice, not the API's limit: it
+leaves room for other image calls the organization runs through the API.
 
 ### Do not blindly retry a failed generation
 
-There are no idempotency keys on this API, so resubmitting after a timeout or a `500` can
+`POST /v1/images` takes no idempotency key, so resubmitting after a timeout or a `500` can
 render and charge twice. Check `GET /v1/generations` for a job that already landed before
 resubmitting. The batch script deliberately does not auto-retry.
 

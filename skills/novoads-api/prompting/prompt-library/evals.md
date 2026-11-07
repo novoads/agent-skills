@@ -2,8 +2,8 @@
 
 Written **before** the skill edit, from failures observed in a real run (2026-08-03): a
 replica attempt against a reference UGC ad, in which one script was rendered both ways —
-one generation with beats (7.0 credits, 15s, no post-production) against three clips
-stitched (13.8 credits, 24s, voice absent for half the runtime). Every scenario below is
+one generation with beats (15s, no post-production) against three clips stitched (about
+double the cost that day, 24s, voice absent for half the runtime). Every scenario below is
 a thing that actually went wrong, or a thing the reference implementation does that ours
 did not.
 
@@ -21,9 +21,9 @@ the starting frames for each scene using ChatGPT Image 2 … then the video mode
 Seedance 2.0."*
 
 **Observed failure.** The agent read "a start frame per scene" as one Seedance call per
-scene, produced 3 separate clips, and concatenated them. Result: 24s, 13.8 credits, a
-15s talking head followed by 12s with no voice. The alternative — one call, **four**
-beats, jump cuts — cost 7.0 credits, needed no editing, and is the shape the reference
+scene, produced 3 separate clips, and concatenated them. Result: 24s, about double the
+cost, a 15s talking head followed by 12s with no voice. The alternative — one call, **four**
+beats, jump cuts — cost about half that day, needed no editing, and is the shape the reference
 implementation uses.
 
 **Assertions.**

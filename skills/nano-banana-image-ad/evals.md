@@ -69,15 +69,16 @@ the product, the logo, a character shot, a style board, several face angles.
 **Observed drift.** `nano-banana-pro` takes up to **14** `referenceAssetIds` — raised
 from 4 in spec `2.7.0`, verified live 2026-08-04 with pinned out-of-range probes (15
 refused, 14 accepted), and re-landed in this pack by PR #88. `gpt-image-2` takes 4 and
-`reve-2.1` takes 8. The number is per model and there is no single one.
+each Seedream 5 model 10. The number is per model and there is no single one.
 
-**The stale copy is still on disk.** The `novoads-api` skill's *Guardrails* list reads
+**The stale copy was still on disk when this eval was written.** The `novoads-api` skill's
+*Guardrails* list then read
 *"Image `referenceAssetIds` caps are per model: 8 on `reve-2.1`, 4 on `gpt-image-2` and
 `nano-banana-pro`"* — the pre-`2.7.0` value — while the same file's own `POST /v1/images`
-section and `reference.md` both say 14. An agent that reads the guardrail list last
-caps itself at four on a model that takes fourteen, and it does so **silently**: nothing
-refuses a short array. That contradiction is present in the repo as this file is
-written, and closing it is not this file's job — naming it is.
+section and `reference.md` both said 14. An agent that read the guardrail list last
+capped itself at four on a model that takes fourteen, and it did so **silently**: nothing
+refuses a short array. That line has since been corrected to 14, and closing it was not
+this file's job — naming it was.
 
 **Assertions.**
 
@@ -103,25 +104,22 @@ one product photo or one character shot.
 **Observed failure (dogfooding run, RUN-FINDINGS item 4).** This skill's caller
 **lacked `--ref-asset-id`** while its `gpt-image-2` sibling had it, so upload-once /
 reuse was unreachable through the pack's own script: `--image-ref` uploads the file on
-every invocation. Uploading is free, so the cost was not credits — it was that every
-invocation minted a **new** `assetId`, which is the anchor holding a face or a label
-steady across runs. Re-uploading the same bytes loses it. PR #88 added the flag.
+every invocation. Uploads carry no charge, so the cost was not credits: it was a repeat upload
+and a **new** `assetId` on every invocation, for the same picture. PR #88 added the flag.
 
 **Assertions.**
 
 - A batch uploads each shared reference **once** and passes `--ref-asset-id <assetId>`
   on every subsequent call.
 - The same `assetId` is used for the character reference across every variant in a
-  series — that is what keeps a face consistent, and a fresh upload per call defeats it
-  while looking identical in the command line.
+  series: one upload, one id, one picture.
 - `--image-ref` and `--ref-asset-id` are understood as interchangeable and sharing the
   same 14-reference cap.
-- The `assetId` is treated as durable across calls, models and sessions; the presigned
+- The `assetId` is treated as reusable across calls and models; the presigned
   `uploadUrl` is not, and its expiry is not read as the asset expiring.
 
-**Fails if:** a batch re-uploads the same file per prompt; or identity drift across
-variants is diagnosed as a prompt problem when the run was minting a new anchor each
-time.
+**Fails if:** a batch re-uploads the same file per prompt; or a run cites a different
+picture for one character across its variants.
 
 ---
 
@@ -169,9 +167,9 @@ guarantee.
 
 **Why.** `numImages: 1`–`4` returns N images from **one** request, charged per image.
 Four parallel requests produce the same images at the same price while burning four of
-the organization's five render slots — and the organization's slots are shared with
-whatever else the account is running, so the cost lands on somebody's next job rather
-than on this one, which is what makes it easy to keep doing.
+the organization's twelve image slots — and those slots are shared with every other image
+call the organization runs through the API, so the cost lands on somebody's next image
+rather than on this one, which is what makes it easy to keep doing.
 
 **Untested as an agent run** — no recorded case of this skill fanning out. It is here
 because the failure is invisible from inside the run that causes it.
@@ -196,7 +194,7 @@ default; or a total is shown without the per-image number behind it.
 "remove the sticker", "make the background a kitchen counter".
 
 **Why.** There is **no edit mode on this model**. `nano-banana-pro` does not publish
-`sourceAssetId`; there is no mask, no inpainting, no img2img. Editing is a `gpt-image-2`
+`sourceAssetId`; there is no mask, no inpainting, no img2img. Editing is a GPT-model
 capability, which makes it a reason to switch skills rather than a reason to
 approximate. The approximation is the failure: a reference-led regeneration reads like
 an edit, costs like a render, and silently reinvents everything the user did not

@@ -271,7 +271,7 @@ curl -sS -X POST https://api.novoads.ai/v1/voice-changes -A novoads-skill/change
 
 Fifteen seconds of source came back in about seven on the acceptance run. **Download
 `url` immediately** — it is minted per response and time-limited, and the `assetId` is
-the durable handle.
+the handle to keep.
 
 **Write down `jobId` and `creditsCharged` the moment they land.** If the response never
 reaches you, do **not** call again: the audio was probably rendered and charged.
@@ -380,7 +380,7 @@ POST /v1/uploads        { contentType: "video/mp4" | "audio/mpeg" | "audio/wav" 
                           sizeBytes: <exact> }
                         → 201 { assetId, uploadUrl, method, headers } — PUT the bytes
                           with `headers` VERBATIM. Free. The URL expires in 900s; the
-                          assetId does not expire.
+                          assetId can be reused across calls.
 
 POST /v1/estimates      { kind: "voice-change" | "transcript", assetId | jobId }
                         Both arms are used here, and both are free. Price the

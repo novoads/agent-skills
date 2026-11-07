@@ -11,9 +11,9 @@
 | **Style references** (2) | `references/aesthetics/{style}/` | Visual vibe — lighting, framing, quality |
 
 Each input is uploaded once via `POST /v1/uploads` → `PUT` the bytes to the returned
-`uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. The ids are
-**durable**: a character hero and a product photo are uploaded once and reused across every
-shoot, and reusing the same id is what holds identity steady across sessions.
+`uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. The ids
+**can be reused across calls**: a character hero and a product photo are uploaded once and reused across every
+shoot, and reusing the same id is what holds identity steady.
 
 ## Reference order, and this workflow's budget of 4
 

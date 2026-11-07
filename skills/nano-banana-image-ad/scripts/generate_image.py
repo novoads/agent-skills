@@ -305,9 +305,9 @@ def probe_dimensions(path: Path) -> tuple[int, int]:
 
 
 def upload_reference(local_path: Path, base_url: str, auth_hdr: str) -> str:
-    """Upload a local image via POST /v1/uploads. Returns a durable assetId.
+    """Upload a local image via POST /v1/uploads. Returns a reusable assetId.
 
-    The assetId keeps working across later calls, so callers should cache it rather
+    The assetId can be reused across calls, so callers should cache it rather
     than re-uploading the same file per variant.
     """
     if not local_path.exists():
@@ -484,7 +484,7 @@ def main() -> int:
     # the sibling's EDIT mode, and nano-banana-pro has no edit or inpainting path
     # on this API — a source would be a flag with nowhere to go. Reference-only is
     # the whole surface, so an existing image is reused as a REFERENCE, never a
-    # source: `--ref-asset-id` is the durable way to do that.
+    # source: `--ref-asset-id` is the way to do that.
     p.add_argument(
         "--ref-asset-id",
         action="append",
@@ -493,7 +493,7 @@ def main() -> int:
         help=(
             "An assetId already returned by POST /v1/uploads, used as a reference "
             "without re-uploading the bytes. Repeatable, and counts against the same "
-            "cap as --image-ref. An assetId is durable, so a batch that reuses one "
+            "cap as --image-ref. An assetId can be reused across calls, so a batch that reuses one "
             "product photo across many prompts should upload it once and pass the id "
             "here. These are sent before any --image-ref ids."
         ),

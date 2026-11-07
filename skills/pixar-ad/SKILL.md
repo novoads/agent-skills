@@ -475,7 +475,7 @@ POST /v1/images → images[0].assetId  ← pass this to the next call, as-is
 ```
 
 **Chain from `assetId`, not from `url`.** The URL is a one-hour presign for
-fetching the bytes; the assetId does not expire that way. Still download each
+fetching the bytes; the assetId is what the next call takes. Still download each
 still as it lands if you want the files locally — a slow board review will
 outlive the URLs.
 
@@ -949,7 +949,7 @@ envelopes are in [`skills/novoads-api/reference.md`](../novoads-api/reference.md
 POST /v1/uploads      { contentType: "image/jpeg" | "video/mp4", sizeBytes: <n> }
                       → 201 { assetId, uploadUrl, method, headers } — PUT the
                         bytes with `headers` VERBATIM. Free. The upload URL
-                        expires in 900s; the assetId does not expire at all.
+                        expires in 900s; the assetId can be reused across calls.
 
 POST /v1/estimates    { kind: "image" | "video" | "voiceover" | "music" | "caption", … }
                       → { credits, balance, sufficient, shortBy?, topUpUrl?,

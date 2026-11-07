@@ -105,11 +105,11 @@ listed tier, rather than submitting and reporting a failure. Ask for 1080p: conf
 reads `GET /v1/models` first and prices that tier with `POST /v1/estimates` before
 offering it.
 
-### P4 — the asset is durable, and the old warning was backwards
+### P4 — the asset can be reused across calls, and the old warning was backwards
 
 **Why:** the source warned that uploaded objects die within minutes and told the agent to
 upload and generate in one uninterrupted burst. On this API the opposite is true: the
-`assetId` is the storage key, it is reusable without limit, and the 900-second expiry
+`assetId` is the storage key, it can be reused across calls, and the 900-second expiry
 belongs to the **upload URL**, not to the asset. A skill carrying the old warning wastes a
 re-upload on every iteration and teaches a false model of the API.
 

@@ -89,7 +89,7 @@ Anchor image. All 9 other angles will reference it. **Use a full-body shot as th
 
 Once the hero is approved:
 
-1. Upload the hero image **once** via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable and reusable across every later call and session, so this upload never repeats.
+1. Upload the hero image **once** via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It can be reused across calls, so this run needs no second upload of it.
 2. **Reference strategy (the rolling window):**
    - `gpt-image-2` accepts **max 4 `referenceAssetIds` per request** — tighter than `nano-banana-pro` (14) or either Seedream 5 model (10), which is what makes the rolling window below necessary here and optional on the Nano Banana sibling.
    - Always include the **hero** as the first ref (the anchor). Order is preserved.

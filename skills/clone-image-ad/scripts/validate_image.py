@@ -334,9 +334,9 @@ def probe_dimensions(path: Path) -> tuple[int, int]:
 
 
 def upload_reference(local_path: Path, base_url: str, auth_hdr: str) -> str:
-    """Upload a local image via POST /v1/uploads. Returns a durable assetId.
+    """Upload a local image via POST /v1/uploads. Returns a reusable assetId.
 
-    The assetId keeps working across later calls, so callers should cache it rather
+    The assetId can be reused across calls, so callers should cache it rather
     than re-uploading the same file per variant.
     """
     if not local_path.exists():

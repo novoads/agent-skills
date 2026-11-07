@@ -22,10 +22,11 @@ Together: ~1,575 chars of always-on guard, leaving headroom under each model's p
 
 **The reference cap is per model, not one number**: `gpt-image-2` takes 4,
 `nano-banana-pro` 14 (spec 2.7.0; `./scripts/verify-image-caps.sh` is the standing check).
-Every template here fits inside the smallest of those, so a template's reference guidance
-never needs to name a model for capacity reasons; the gap only matters when you carry a
+Every template's own **Reference image:** line fits inside the smallest of those. One case
+does not: T4 with its four publication wordmarks pinned beside the product is five references,
+so that run goes to `nano-banana-pro`. Otherwise the gap only matters when you carry a
 reference set to a model with less room than the one it was written for. Uploads are free
-and each returns a durable `assetId`, so build a library and cite from it.
+and each returns an `assetId` you can reuse across calls, so build a library and cite from it.
 
 When a template renders cleanly on more than one, the entry says `both: clean`. When one
 struggles, the note tells the consuming skill which model to prefer.
@@ -2085,7 +2086,7 @@ badge "northwind." on ink navy `#16233A` · `{canvas.color}` = warm off-white `#
 
 ## Adding new templates
 
-When a new ad reference is worth turning into a template, use the `clone-image-ad-*` skill (one per model — chatgpt or nano-banana) to:
+When a new ad reference is worth turning into a template, use the `clone-image-ad` skill (one skill for both models: its validator takes `--model`) to:
 
 1. Generate a faithful reproduction with `--image-ref` set to the original reference (round 1).
 2. Strip the chrome from the prompt and re-run (round 2) — verify the standalone creative still reads correctly.

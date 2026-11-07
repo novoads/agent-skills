@@ -174,8 +174,8 @@ Notes that bite:
   requests — that burns four of your twelve image slots for no benefit.
 - **Every image is charged**, so `numImages` multiplies the price. It is the single biggest
   lever on what a run costs.
-- **Reference images are uploaded once and reused.** `POST /v1/uploads` returns a durable
-  `assetId`; pass those in `referenceAssetIds`. The id keeps working across later calls — you
+- **Reference images are uploaded once and reused.** `POST /v1/uploads` returns an
+  `assetId`; pass those in `referenceAssetIds`. The id can be reused across calls — you
   do not re-upload per variant.
 
 **Editing is on the five GPT models**: `sourceAssetId` on `POST /v1/images` arrived on

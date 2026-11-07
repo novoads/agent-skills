@@ -69,8 +69,8 @@ raising the step.
 
 **Scenario.** A series: one approved hero thumbnail, then five variations of it.
 
-**Why.** `POST /v1/uploads` returns an `assetId` that is durable across calls and
-across sessions. Re-uploading the same face photo produces a **different** id and
+**Why.** `POST /v1/uploads` returns an `assetId` you can reuse across
+calls. Re-uploading the same face photo produces a **different** id and
 quietly loses the anchor that was holding the likeness steady — the run still succeeds,
 the face still appears, and it is subtly a different person. This is the **opposite** of
 the backend this workflow was ported from, where a reused reference caused
@@ -79,7 +79,7 @@ is the one a reader arrives with.
 
 **Assertions.**
 
-- Every shared reference is uploaded **once** per batch, or once per campaign, and the
+- Every shared reference is uploaded **once** per batch, and the
   ids are reused.
 - For variation N the rolling window is `[hero, N-1, N-2, N-3, N-4]` — the approved hero
   as anchor plus the four most recent good outputs.

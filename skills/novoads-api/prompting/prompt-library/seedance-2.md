@@ -53,15 +53,15 @@ What it does **not** give you is control over the audio. Seedance still renders 
 
 The four style formulas write `@Image1`, `@Image2`, `@Image3` inline in the prompt text. Those tokens resolve **positionally** against `referenceAssetIds`: `@Image1` is the first `assetId` in the array, `@Image2` the second, in the order you send them. Order is the contract — the array is what binds, the token is how the prompt points at it.
 
-A token pointing past the end of the array is refused **before the charge**, so `@Image2` in a prompt that ships one reference fails free rather than billing a render the provider cannot resolve.
+A token pointing past the end of the array is refused **before the charge**, so `@Image2` in a prompt that ships one reference costs nothing. That check runs only when references are sent: in a call with `startImageAssetId`, or with no image at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
 
-Upload once and reuse: the `assetId` is durable across calls, across models, and across sessions. Re-uploading the same bytes mints a **second** asset and throws away the identity anchor a multi-clip series exists to hold.
+Upload once and reuse: the `assetId` can be reused across calls and across models. Re-uploading the same bytes mints a **second** asset and throws away the identity anchor a multi-clip series exists to hold.
 
 Which mode a formula wants:
 
 | Formula | Mode | Why |
 |---|---|---|
-| UGC selfie review | `startImageAssetId` | The product photo is literally the opening frame. |
+| UGC selfie review | `referenceAssetIds` | The formula writes `@Image1`, so the product photo goes first in the array and the model composites it into the scene. To open on the photo itself, send `startImageAssetId` and name the product in words: a start frame takes no token. |
 | Premium reveal, product hero | `referenceAssetIds` | The product emerges from a void it was never photographed in — the model has to composite it, not animate the flat photo. |
 | Studio lookbook, feature walkthrough | `referenceAssetIds` | Two references earn their keep: `@Image1` the product, `@Image2` the actor. |
 
@@ -188,7 +188,7 @@ Embed the line in the prompt with natural attribution: `she says: "…"` or `he 
 `seedance-2.0-mini` is the same grid, the same fields, and the same formulas at **about a fifth of the price**, and it returns in 2–3 minutes instead of 3–8. Use it as a draft tier:
 
 1. Ask once per workflow which tier to use (`SKILL.md` makes this an explicit question; no preference means `seedance-2.0`).
-2. Upload the reference **once**. The `assetId` is durable, so the final render reuses it with no second upload.
+2. Upload the reference **once**. The `assetId` can be reused across calls, so the final render reuses it with no second upload.
 3. Draft on `seedance-2.0-mini` until the prompt is right — wrong framing, a garbled label, or a rushed line costs about a fifth as much to discover.
 4. Re-price at `POST /v1/estimates` with `model` set to the final tier and re-confirm before the finishing render. **Show both numbers side by side** when the user is choosing; never quote either from memory.
 

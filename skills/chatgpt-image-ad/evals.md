@@ -136,7 +136,7 @@ start frame, a reference on a later call.
 download-and-re-upload dance was performed again, because the field that makes it
 unnecessary had never been named where anyone would read it. `POST /v1/images` returns
 **`assetId` beside `url`** in each `images[]` entry. The `url` is a one-hour presign and
-nothing downstream accepts it. The `assetId` is durable and is accepted directly.
+nothing downstream accepts it. The `assetId` is accepted directly.
 
 `assetId` is **optional** in the schema, so it is read rather than assumed.
 

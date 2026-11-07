@@ -53,8 +53,8 @@ mkdir -p "$TMP_DIR"
 #
 # Aim for 5+ face references for good likeness alignment. nano-banana-pro takes
 # up to 14; gpt-image-2 is capped at 4.
-# You may UPLOAD more than a call cites (assetIds are durable and cost nothing to
-# keep) and pick the best per prompt: a single call may reference at most REF_CAP.
+# You may UPLOAD more than a call cites (an assetId can be reused across calls) and
+# pick the best per prompt: a single call may reference at most REF_CAP.
 # For likeness work, start with one straight-on headshot, one 3/4 angle, one
 # close-up, and the single most important brand asset.
 REF_BASE="$(pwd)/references/youtube thumbnail"
@@ -109,7 +109,7 @@ img.save(out, "JPEG", quality=92)
 PY
 }
 
-# Upload one file via POST /v1/uploads, PUT the bytes, echo the durable assetId.
+# Upload one file via POST /v1/uploads, PUT the bytes, echo the assetId.
 #
 # The PUT must send the signed headers byte for byte — Content-Type and
 # Content-Length are both part of the URL signature, so storage 403s if either
@@ -275,7 +275,7 @@ for f in "${COMMON_REFS[@]}"; do
 done
 REF_JSON="[$REF_IDS]"
 echo "Reference assetIds: $REF_JSON"
-echo "(assetIds are durable — reuse them in later runs instead of re-uploading.)"
+echo "(An assetId can be reused across calls: pass these in later runs instead of re-uploading.)"
 
 echo "═══════════════════════════════════════"
 echo "Generating ${#PROMPTS[@]} thumbnail(s), max $MAX_PARALLEL in flight..."

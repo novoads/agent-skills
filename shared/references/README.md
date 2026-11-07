@@ -10,7 +10,7 @@ Local paths are never sent. Every image goes through one upload first:
 2. `PUT` the raw bytes to that URL. `Content-Type` and `Content-Length` are both signed into it — a mismatch is a 403 from storage that reads like an auth failure and is not one.
 3. Pass the `assetId` in the request body.
 
-**Upload each file once.** The `assetId` is durable and reusable without limit — the same id works on call one and call one hundred, across sessions and across models. Re-uploading the same bytes mints a *second* asset and silently loses the identity anchor, so it is a bug rather than a wasted step. Uploads are free; only generations are charged. The 900-second expiry on the response belongs to the upload URL, not to the asset.
+**Upload each file once.** The `assetId` can be reused across calls — the same id works on call one and call one hundred, and across models. Re-uploading the same bytes mints a *second* asset and silently loses the identity anchor, so it is a bug rather than a wasted step. Uploads are free; only generations are charged. The 900-second expiry on the response belongs to the upload URL, not to the asset.
 
 Which field the `assetId` goes into depends on what you are generating:
 

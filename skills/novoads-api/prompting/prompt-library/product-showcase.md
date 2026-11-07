@@ -12,7 +12,7 @@ Agent writes Nano Banana prompt
 (AI person + product interaction)
         |
         v
-POST /v1/uploads  ->  durable assetId
+POST /v1/uploads  ->  reusable assetId
 (product photo, uploaded once)
         |
         v
@@ -62,7 +62,7 @@ Follow the template below. The prompt should describe:
 ### 3. Generate the still image
 
 1. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show `credits` against the user's `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
-2. Upload the product photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable, so the same product photo is uploaded once and reused across every shoot.
+2. Upload the product photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It can be reused across calls, so the same product photo is uploaded once and reused across every shoot.
 3. Optionally upscale a small product image first (good practice for fidelity; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 4. Call `POST /v1/images` with:
    - `model` — **`nano-banana-pro`**

@@ -212,7 +212,7 @@ nothing checks is a promise that erodes.
 - Step 7, when it runs, goes through **both** gates: the spoken line, and a fresh
   estimate — approving the template is not approving the sentence, and neither is
   approving a spend.
-- A draft is offered on `seedance-2.0-mini` first, reusing the same durable `assetId`
+- A draft is offered on `seedance-2.0-mini` first, reusing the same `assetId`
   for the final render.
 - The poll loop waits for a **terminal** status, not for `succeeded`.
 

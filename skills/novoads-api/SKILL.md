@@ -54,7 +54,7 @@ There is no free tier and no trial: every plan is a paid monthly subscription, p
 
 When `./scripts/check-novoads-env.sh` returns 200 and the user has not yet said what they want, offer starting points in chat and stop. Nothing is printed by a script for you: a banner cannot see their product, their `references/` folder, or their language, so it suggests nothing.
 
-1. **A UGC video built from their own product photo.** Ask them to drop it into `references/`. Route: `seedance-2.0` plus `startImageAssetId`.
+1. **A UGC video built from their own product photo.** Ask them to drop it into `references/`. Route: `seedance-2.0`, the photo first in `referenceAssetIds`.
 2. **The same idea on `seedance-2.0-mini` first**, to get the prompt right before the final render. Price both at `POST /v1/estimates` and show the difference rather than quoting one from memory.
 3. **A static image ad**, when what they need is a still and not a clip. Route: `gpt-image-2` for heavy text or a mimicked UI, `nano-banana-pro` for a photoreal scene.
 
@@ -420,7 +420,7 @@ curl -sS -X PUT "$UPLOAD_URL" \
 
 Both headers are signed into the URL. `image/jpeg; charset=utf-8` is a 403, and so is a `Content-Length` that does not match the bytes you send. `sizeBytes` must be the real file size, so measure it, do not estimate it.
 
-**Upload once, reuse it forever.** The `assetId` is durable and reusable across calls and across models, which is what makes prototyping on `seedance-2.0-mini` and finalizing on `seedance-2.0` cheap. The presigned *upload URL* expires in 900 seconds; the `assetId` does not.
+**Upload once, reuse the id.** The `assetId` can be reused across calls and across models, which is what makes prototyping on `seedance-2.0-mini` and finalizing on `seedance-2.0` cheap. The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`.
 
 **Start frame or references, not both.** `startImageAssetId` animates one image as the first frame (on `omni-flash` it is a reference instead, below). `referenceAssetIds` (up to **9** on Seedance and `wan-3.0`, up to its own limit on `omni-flash`, images only; Seedance video and audio references have their own fields, below) composites the images as visual references, addressed positionally in the prompt text as `@Image1`…`@ImageN` in the order you send them. They select different modes on the model, so a body carrying both is a `400`.
 
@@ -743,7 +743,7 @@ Append one line per new failure. Forward only. Every bullet is a real thing that
 ## References
 
 - [reference.md](reference.md) — every endpoint, field, limit, and error, plus the dated discrepancy list.
-- [prompting/prompt-library/seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md) — the UGC prompt formula, with a worked example that passes validation.
+- [prompting/prompt-library/seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md): the UGC prompt formula, with two worked examples no rule refuses. Each draws two estimate warnings until you add the label-hold clause and the ratio line.
 - [prompting/guide.md](prompting/guide.md) — marketing brief → API.
 - [prompting/brand-voice-starter.md](prompting/brand-voice-starter.md) — template to copy into `MASTER_CONTEXT.md`.
 - The other Seedance formulas: [seedance-2.md](prompting/prompt-library/seedance-2.md) (platform guide), [premium reveal](prompting/prompt-library/seedance-2-premium-reveal.md), [product hero](prompting/prompt-library/seedance-2-product-hero.md), [studio lookbook](prompting/prompt-library/seedance-2-studio-lookbook.md), [feature walkthrough](prompting/prompt-library/seedance-2-feature-walkthrough.md).

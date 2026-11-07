@@ -99,7 +99,7 @@ Once the user approves the prompt:
 
 1. Read **[nano-banana.md](nano-banana.md)** and follow the vendor guide's formula.
 2. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show the user `credits` against their `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
-3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable: reuse it for every later generation of this person instead of re-uploading.
+3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It can be reused across calls: pass it on every later generation of this person instead of re-uploading.
 4. Optionally upscale a small reference first (good practice for likeness; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 5. Call `POST /v1/images` with:
    - `model` — **`nano-banana-pro`** (the only Nano Banana on this API; there is no variant to choose)

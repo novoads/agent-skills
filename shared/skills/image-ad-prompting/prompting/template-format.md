@@ -1,6 +1,6 @@
 # Library entry format
 
-Markdown skeleton for an entry in `prompt-library.md`. Lazy-loaded by `clone-image-ad-*` Phase 8 before composing the entry. The library already contains T1–T42 in this format — match its style when appending new entries so the file stays consistent across both `chatgpt-image-ad` and `nano-banana-image-ad` consumers.
+Markdown skeleton for an entry in `prompt-library.md`. Lazy-loaded by `clone-image-ad` Phase 9 before composing the entry. The library already contains T1–T42 in this format — match its style when appending new entries so the file stays consistent across both `chatgpt-image-ad` and `nano-banana-image-ad` consumers.
 
 ## Skeleton
 
@@ -29,7 +29,7 @@ Markdown skeleton for an entry in `prompt-library.md`. Lazy-loaded by `clone-ima
 
 **Model notes:**
 - **gpt-image-2:** {known strengths/limits with this template — e.g. "renders dense table text cleanly", "tends to add a 3rd Slack message — keep prompt explicit about exactly N"}
-- **nano-banana:** {known strengths/limits — e.g. "weaker on dense small text — keep body to 3 lines max", "excellent multi-reference blending — pass logo + product + style as three refs"}
+- **nano-banana-pro:** {known strengths/limits — e.g. "weaker on dense small text — keep body to 3 lines max", "excellent multi-reference blending — pass logo + product + style as three refs"}
 
 Validated example: `{path/to/iteration/dir/}`
 
@@ -50,7 +50,7 @@ A short noun phrase distilling the format. 4-8 words. Examples: "Apple Notes lis
 Two ideas: who/what brand fit (product category, target audience temperament), and which positioning angle (credibility, social proof, comparison, sentimental, etc.). Don't list rules; describe the gut fit.
 
 ### **Aspect ratio**
-Prefer a ratio every model accepts: `1:1`, `2:3`, `4:5`, `9:16`, `16:9`, `21:9`. The four extra ratios `3:2`, `3:4`, `4:3` and `5:4` exist on `nano-banana-pro` but **not** on `gpt-image-2` — if the template needs one of those, say so in **Model notes** so the consuming skill routes correctly instead of hitting a `400`.
+Prefer a ratio both target models accept: `1:1`, `2:3`, `4:5`, `9:16`, `16:9`, `21:9` (`gpt-image-2` and `nano-banana-pro`; the two Seedream 5 ids refuse `4:5` and `21:9`). The four extra ratios `3:2`, `3:4`, `4:3` and `5:4` exist on `nano-banana-pro` but **not** on `gpt-image-2` — if the template needs one of those, say so in **Model notes** so the consuming skill routes correctly instead of hitting a `400`.
 
 ### **Reference image** (what `--image-ref` to pass)
 Tell the future user/agent what kind of image to ground the generation on. The more specific the better:
@@ -100,7 +100,7 @@ The actual prompt body, in a fenced code block. Plug-and-play after substitution
 Pick a real brand (AG1 is the seeded test case across the existing library) and show every variable substituted. Should be the version that was actually validated in Phase 7 of the cloning skill.
 
 ### **Model notes**
-This block is the diff between a uni-1-era library and a portable one. For each model your template was validated against (gpt-image-2 and/or nano-banana), give a one-line known-issue or known-strength note. If a template only works with one model, say so explicitly. If both render cleanly, write `both: clean`.
+This block is the diff between a uni-1-era library and a portable one. For each model your template was validated against (gpt-image-2 and/or nano-banana-pro), give a one-line known-issue or known-strength note. If a template only works with one model, say so explicitly. If both render cleanly, write `both: clean`.
 
 ### **Validated example path**
 Pointer to `iterations/clone-<date>/<tag>/` — the directory containing the locked-in `prompt.txt`, the round-1 generation against the original reference, and the round-N generation against the test-fill brand. So a future agent (or human) can audit the template's provenance.

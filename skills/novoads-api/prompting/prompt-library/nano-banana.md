@@ -64,8 +64,8 @@ See [reference.md](../../reference.md) for the full schema. Key fields:
 The request schema is **strict**: an unrecognized field, or an aspect ratio from another model's
 grid, is a `400` before anything is charged.
 
-**References are uploaded once.** `POST /v1/uploads` returns a durable `assetId` that keeps
-working across calls and sessions. Re-uploading the same file produces a different id and loses
+**References are uploaded once.** `POST /v1/uploads` returns an `assetId` you can reuse
+across calls. Re-uploading the same file produces a different id and loses
 whatever identity anchor it was holding.
 
 ## Checklist

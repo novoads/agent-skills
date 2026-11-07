@@ -385,8 +385,8 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    ```
 
    then PUT the raw bytes to the `uploadUrl` it returns, sending back **exactly** the
-   headers it returned. The `assetId` is durable and reusable across calls, models and
-   sessions — upload once and keep the id.
+   headers it returned. The `assetId` can be reused across calls and
+   models — upload once and keep the id.
 
 2. **Price it — gate 2.** `POST /v1/estimates` with `kind: "video"`, the `prompt`, the
    `model` and `durationSeconds`. It charges nothing and it is the only source of a price. It also
@@ -427,8 +427,8 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    `outputs/<descriptive-subfolder>/`, and open the folder so the user can watch it.
 
 **Draft on `seedance-2.0-mini` first.** It is the same grid, the same fields and the same
-prompt at about a fifth of the price, back in 2 to 3 minutes — and since the `assetId` is
-durable, the final render on `seedance-2.0` reuses the same upload. A template validated on
+prompt at about a fifth of the price, back in 2 to 3 minutes — and since the `assetId` can be
+reused, the final render on `seedance-2.0` reuses the same upload. A template validated on
 mini is a template validated.
 
 Paste this block into every template you generate, so the formula carries its own call
@@ -437,7 +437,7 @@ sequence:
 ```markdown
 ## Generating from this template
 
-1. Upload the product photo: `POST /v1/uploads` → `assetId` (durable, reuse it).
+1. Upload the product photo: `POST /v1/uploads` → `assetId` (reuse it across calls).
 2. Price it: `POST /v1/estimates` with `kind: "video"`, `model`, `durationSeconds`,
    `prompt`. It charges nothing, it is mandatory, and it is the only source of a price — show the number out loud
    before spending.

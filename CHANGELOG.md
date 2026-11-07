@@ -160,6 +160,18 @@ an agent:
   estimate only for a direct `POST /v1/images` at that tier.
 - **`language` is described as a record.** The spoken language comes from the quoted line, where two
   lines called the field the language the ad is rendered in.
+- **A UGC prompt's `@Image1` goes with `referenceAssetIds`.** `seedance-2.md` routed the UGC formula
+  to `startImageAssetId`, where the token names nothing, nothing refuses it and the call is charged.
+  The table and `novoads-api`'s first-run route now send the product photo first in the array,
+  `seedance-2-ugc.md` says which mode its `@Image1` means and how to open on the photo instead, and
+  `seedance-2.md` and `reference.md` say the check on a token past the end of the array runs only
+  when references are sent.
+- **No line promises how long an upload lasts.** An `assetId` can be reused across calls. The lines
+  that called it durable, reusable forever or without limit, or said it does not expire, now say that
+  instead, and `reference.md` says the spec makes no promise of how long an id lasts, so keep the
+  source file and upload it again if a call stops accepting the id.
+- **The image library's reference line names its one exception.** T4 with its four publication
+  wordmarks pinned beside the product is five references, so that run goes to `nano-banana-pro`.
 - **`check-no-rates.sh` reads three more shapes:** a figure after `creditsCharged`, a decimal after
   `quoted`, and `a fraction of a credit`. It also reads `centi-credit` with or without a number.
 - **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
@@ -174,7 +186,12 @@ an agent:
   in front of the API, which cuts a long request at around 125 seconds, names no provider.
   `clone-image-ad`'s guide lists every automatic refund, where it called `502 provider_failed` the
   only one. `nano-banana.md`'s model table says it is the models that page routes between. The
-  sample line in `logs/README.md` shows a plainly made-up charge.
+  sample line in `logs/README.md` shows a plainly made-up charge. `safety-suffixes.md` says
+  `--no-safe-zone` waives the safe-zone suffix for one run. `template-format.md` and the library's
+  closing section name the one `clone-image-ad` skill and its Phase 9, the entry skeleton uses the
+  id `nano-banana-pro`, and its ratio line says the two Seedream 5 ids refuse `4:5` and `21:9`.
+  `seedance-2-ugc.md` says what its two worked examples leave out, and the two lines that said they
+  pass validation say what they draw.
 
 ## v1.4.0 — 2026-11-07
 

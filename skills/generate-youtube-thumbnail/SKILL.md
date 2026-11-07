@@ -73,8 +73,8 @@ against the transport we serve this model from. It has been corrected.
 
 Two facts still shape how you spend them:
 
-1. **An `assetId` is durable and reusable.** Upload once, reference forever, across runs and across
-   sessions. Uploading is free and unlimited — only *generations* are charged. So keep a library of
+1. **An `assetId` can be reused across calls.** Upload once and cite it on every call that needs it.
+   Uploading is free and unlimited — only *generations* are charged. So keep a library of
    uploaded face angles and brand assets and pick from it.
 2. **The other image models are lower.** Each Seedream 5 model takes 10; `gpt-image-2` takes 4, and that 4 is
    measured, not assumed — a 5-reference body was refused on the same 2026-08-04 probe run. If you
@@ -207,12 +207,12 @@ After all generations complete, read each thumbnail with the Read tool and prese
 
 ## Quirks and pitfalls
 
-### Reference assetIds are durable — reuse them
+### Reuse reference assetIds
 
 This is the **opposite** of how the previous backend worked, where a reused reference caused
 `HTTP 500 UNKNOWN_ERROR` and every generation needed a fresh upload. On Novoads,
-`POST /v1/uploads` returns an `assetId` that keeps working across calls and across sessions.
-Upload once per batch — or once per campaign — and reuse. Re-uploading the same face photo
+`POST /v1/uploads` returns an `assetId` you can reuse across calls.
+Upload once per batch and reuse. Re-uploading the same face photo
 produces a *different* id and quietly loses the anchor that was holding likeness steady.
 
 The presigned `uploadUrl` does expire (`expiresInSeconds` in the response), but that only

@@ -10,8 +10,7 @@
 > **The aesthetic advice in *Core principles* is model-agnostic and transfers to Seedance.**
 > The per-model *formulas* do not: do not port a Veo or Kling formula to Seedance by
 > find-and-replace. For Seedance UGC, the decision tree in [SKILL.md](../../SKILL.md) routes to
-> [seedance-2-ugc.md](seedance-2-ugc.md), which is the formula with a worked example that
-> passes validation.
+> [seedance-2-ugc.md](seedance-2-ugc.md), which is the formula with two worked examples.
 
 **Aesthetic:** iPhone-shot, Instagram Reels, unpolished realism
 

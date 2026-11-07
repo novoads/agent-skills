@@ -565,9 +565,9 @@ Drop images into `references/` and the agent finds them before asking you for an
 - **`references/aesthetics/`** — mood boards, lighting and style references
 
 The folder is gitignored, so the files stay on your machine. Uploads are minted through
-`POST /v1/uploads` and the resulting `assetId` is **durable and reusable forever** — upload the
+`POST /v1/uploads` and the resulting `assetId` **can be reused across calls** — upload the
 product shot once and reuse it across every iteration and every model, which is what makes drafting
-on Mini cheap. (The presigned *upload URL* expires in 900 seconds; the `assetId` does not.)
+on Mini cheap. (The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`.)
 
 ## Project memory
 

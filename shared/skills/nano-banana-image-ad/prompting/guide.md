@@ -74,7 +74,7 @@ Always send it explicitly.
 
 ## Reference images — the one mechanic worth mastering
 
-`POST /v1/uploads` returns a **durable, reusable `assetId`**. That single fact drives most of
+`POST /v1/uploads` returns a **reusable `assetId`**. That single fact drives most of
 what this model is good for:
 
 - Upload the hero portrait once; pass the same `assetId` on every run in the campaign. That is what holds a face steady across generations — not a model flag.

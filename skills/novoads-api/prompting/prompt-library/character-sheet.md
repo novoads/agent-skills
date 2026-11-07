@@ -12,8 +12,8 @@ A generation may cite up to **14 `referenceAssetIds`** on `nano-banana-pro` (spe
 `gpt-image-2` caps at 4). The budget is generous; the discipline below still
 shapes this whole workflow, because more references dilute the hero.
 
-What makes it workable: `POST /v1/uploads` returns a **durable `assetId`** that keeps working
-across calls and across sessions. Uploads are free and unlimited; only generations are charged.
+What makes it workable: `POST /v1/uploads` returns an **`assetId` you can reuse across calls**.
+Uploads are free and unlimited; only generations are charged.
 So the approved hero is uploaded **once**, and its `assetId` anchors all nine remaining angles —
 and every future workflow that uses this character. Re-uploading the same file yields a
 different id and silently loses the anchor.
@@ -196,8 +196,8 @@ enough:
 { "hero_asset_id": "<assetId from POST /v1/uploads>", "model": "nano-banana-pro" }
 ```
 
-Because the id is durable, every later workflow can cite it directly instead of re-uploading —
-which is also what keeps the character's identity stable across sessions.
+Because the id can be reused across calls, a later workflow can cite it directly instead of re-uploading —
+which is also what keeps the character's identity stable.
 
 ### After saving
 

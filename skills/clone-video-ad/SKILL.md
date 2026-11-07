@@ -400,7 +400,7 @@ That is not a downgrade. This repo's own animation rule says the same thing on i
 merits: *"Don't chain by using an animated end-frame as the next beat's anchor — drift
 compounds"* (`skills/claymation-ad/references/formulas.md`). Every clip
 anchoring to the same approved stills is the more stable pattern, and because the `assetId`
-is **durable across calls, models and sessions**, it costs one upload for the whole series.
+**can be reused across calls and models**, it costs one upload for the whole series.
 Re-uploading the same bytes mints a second asset and throws away the anchor.
 
 **Fire the clips of a series concurrently, not sequentially** — nothing downstream depends
@@ -641,12 +641,12 @@ set. Then generate.
    returns `assetId` beside `url` on every image (deployed spec `2.11.0`). Pass that id
    straight into `referenceAssetIds` or `startImageAssetId`. Downloading the bytes and
    pushing them back through `POST /v1/uploads` mints a **second** asset and throws away the
-   anchor the rest of the workflow is pinned to. The `url` expires in 3600 seconds; the
-   `assetId` does not — chain from the id, never from the URL.
+   anchor the rest of the workflow is pinned to. The `url` expires in 3600 seconds, so
+   chain from the `assetId`, never from the URL.
 
-4. **Keep the `assetId`.** It is durable across calls, models and sessions — the whole
-   series, the mini draft and the final render all reuse it. The presigned *upload URL*
-   expires in 900 seconds; the id does not.
+4. **Keep the `assetId`.** It can be reused across calls and models — the whole
+   series, the mini draft and the final render all reuse it. The 900-second expiry belongs
+   to the presigned *upload URL*, not to the id.
 
 5. If a reference's longest side is under 1024 px, upscale with Lanczos to 1080 px on the
    long side and re-encode as RGB JPEG at quality 90–95. (No minimum is documented for this

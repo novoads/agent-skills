@@ -205,7 +205,7 @@ problem and needs more dramatic editing rather than tweaking. Every iteration is
 the running total and report it at the end.
 
 **Upload the original once — and every render is addressable after that.** The `assetId` from
-`POST /v1/uploads` is durable and reusable without limit, so the source ad is uploaded one time
+`POST /v1/uploads` can be reused across calls, so the source ad is uploaded one time
 and passed to Phase 4, all four Phase 5 iterations, Phase 7 and Phase 8 off that one id. Since
 deployed spec `2.11.0` the *generated* images are addressable the same way: every entry in an
 `images[]` response carries its own `assetId`, and `referenceAssetIds` and `sourceAssetId` both

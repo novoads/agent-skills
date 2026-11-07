@@ -117,7 +117,7 @@ steady across runs. Re-uploading the same bytes loses it. PR #88 added the flag.
   while looking identical in the command line.
 - `--image-ref` and `--ref-asset-id` are understood as interchangeable and sharing the
   same 14-reference cap.
-- The `assetId` is treated as durable across calls, models and sessions; the presigned
+- The `assetId` is treated as reusable across calls and models; the presigned
   `uploadUrl` is not, and its expiry is not read as the asset expiring.
 
 **Fails if:** a batch re-uploads the same file per prompt; or identity drift across

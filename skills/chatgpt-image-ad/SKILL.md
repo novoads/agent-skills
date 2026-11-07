@@ -73,7 +73,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 - **Base URL:** `https://api.novoads.ai` (or `NOVOADS_BASE_URL`). That is the **host only** — callers append `/v1/...`.
 - **Auth:** `Authorization: Bearer $NOVOADS_API_KEY`.
 - **Endpoint:** `POST /v1/images`: the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
-- **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` is **durable and reusable**: upload a product shot once and pass the same id on every later call.
+- **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` **can be reused across calls**: upload a product shot once and pass the same id on every later call.
 
 ## What this model takes
 
@@ -272,7 +272,7 @@ applies per image; what follows is the choreography around them.
 
 **1. Inputs.** One product photo — a real product, with its real brand on it. Upload it
 **once** with `POST /v1/uploads` and reuse that `assetId` on every template
-(`--ref-asset-id <id>`); an `assetId` is durable, and re-uploading the same bytes per
+(`--ref-asset-id <id>`); an `assetId` can be reused across calls, and re-uploading the same bytes per
 template just mints redundant assets. Also collect the offer and brand facts the templates
 interpolate (product name, claim, price, CTA). Output goes to **one flat folder** — one
 folder for the whole run, not a folder per template.

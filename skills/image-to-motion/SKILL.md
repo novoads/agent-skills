@@ -287,7 +287,7 @@ Two things worth knowing before they cost a call:
 - **`Content-Type` and `Content-Length` are both signed into the URL.** If either differs
   from what was returned, storage rejects the PUT with a `403` that looks like an auth
   failure and is not one. Measure the file, do not estimate it.
-- **The `assetId` is durable and reusable without limit** — it is the storage key itself.
+- **The `assetId` can be reused across calls** — it is the storage key itself.
   Upload the image once and reuse it across every iteration and every model. The 900-second
   expiry belongs to the **upload URL**, not to the asset. That distinction is the one most
   likely to be conflated, and re-uploading between takes is wasted work.
@@ -325,7 +325,7 @@ When something is off, add specificity rather than emphasis. Naming the object, 
 3. **`4k` does not exist on this model**, and `1080p` only where `GET /v1/models` lists it.
    Read the list before you offer it.
 4. **Never send `startImageAssetId` and `referenceAssetIds` together.** Separate modes.
-5. **Upload once.** The asset is durable; the URL is what expires.
+5. **Upload once.** The asset can be reused across calls; the URL is what expires.
 6. **The 0.0s beat names what is absent**, or the reveal cannot happen.
 7. **Quote every string individually** in the TEXT clause, and read every one back at full
    size in QA.

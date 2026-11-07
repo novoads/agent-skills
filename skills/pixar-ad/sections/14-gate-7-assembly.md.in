@@ -34,8 +34,8 @@ length for a long camera move, the mascot mechanism or a CTA hold: extend the VO
 instead, a word or two or a second short line, re-rendered and re-measured.
 
 **If the VO is LONGER than the clip, never speed it up.** No `atempo`. Split the
-line across two beats, or re-render the beat at a longer duration. A voice at
-1.1x is audible as a voice at 1.1x, and it costs the ad its calm.
+line across two beats, or re-render the beat at a longer duration, under a new
+`idempotencyKey`. A voice at 1.1x is audible as a voice at 1.1x, and it costs the ad its calm.
 
 **Re-check the caption's vertical position after trimming.** The frame at the new
 cut is not the frame that was there before, so a caption band that sat over clean
@@ -88,7 +88,7 @@ the bed, laid by `music_mix.py`.
 
 **If you hear a line twice, the mix is not the problem.** That beat's prompt
 carried the narrator's words and Seedance rendered them, and no level will fix
-it — re-render the beat with the narration removed from the prompt. The
+it — re-render the beat with the narration removed from the prompt, under a new `idempotencyKey`. The
 transcribe-verify step below is what catches this, and it is why that step is not
 optional.
 
@@ -163,5 +163,5 @@ is free**, so a retry after a timeout is not a second charge. It sits behind the
 deployment does render, and you transcribe locally instead.
 
 Read the transcript against the board. A dropped word in the offer line is worth
-a re-render of that beat.
+a re-render of that beat, under a new `idempotencyKey`.
 

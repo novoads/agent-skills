@@ -33,4 +33,4 @@ Coffee pours in slow motion into a ceramic mug on a wooden counter, steam rising
 
 See the note at the top: call `kling-v3-pro` with the body in reference.md, never with the fork's fields. The upstream fork reached Kling-style output through
 b-roll and scene DTOs; neither those DTOs nor those endpoints exist on this API, so there is
-nothing to document here until the model lands.
+nothing more to document here: the body in reference.md is the whole of it.

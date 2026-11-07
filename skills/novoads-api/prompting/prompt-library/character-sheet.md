@@ -57,7 +57,7 @@ A {age}-year-old {gender} influencer with {hair color} {hair texture} {hair leng
 - Do NOT use celebrity names or real people's names
 - Keep clothing simple and neutral — the character sheet is about the person, not the outfit
 - Always include texture cues: "visible skin texture," "individual hair strands catching light"
-- Avoid polish words like "cinematic", "ultra-detailed", "hyperrealistic". They produce the plastic look this workflow exists to avoid. Nothing on the API will catch one — describe the light source, the surface, the flaw instead.
+- Avoid polish words like "cinematic", "ultra-detailed", "hyperrealistic". They produce the plastic look this workflow exists to avoid. The estimate's `warnings` name `cinematic` and not the other two, and nothing refuses a call, so describe the light source, the surface, the flaw instead.
 
 ## Step 2: Present the expanded prompt for approval
 
@@ -81,7 +81,7 @@ Multiply by 10 and present the total against the user's `balance`. Get one expli
 the run. The estimate charges nothing and is the **only** legitimate source of a price — never quote
 credits from memory, from `logs/novoads-api.jsonl`, or from `MASTER_CONTEXT.md`.
 
-The call says nothing about the prompt itself — no endpoint here does. Re-read the base prompt
+Its `warnings` are advice on the prompt, never a verdict. Re-read the base prompt
 against the rules above before approving: it gets reused ten times, so a flaw in it is paid for
 ten times over.
 
@@ -215,7 +215,7 @@ Once a character sheet exists in `references/influencers/`, it can be used as in
 
 When referencing an existing character, cite `01-hero-front.jpg`'s `assetId` first — order is
 preserved and the first reference is the strongest identity signal. Add up to **three** more
-angles if a pose needs extra grounding; four is the hard ceiling.
+angles if a pose needs extra grounding: four is this workflow's limit, not the API's (14 on `nano-banana-pro`).
 
 ## Example
 

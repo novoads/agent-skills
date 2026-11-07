@@ -475,8 +475,8 @@ skill's own:
 
 - **The clay turned into plastic by the end of the clip.** The most common
   failure here. The material detail block was thin or the negative block was
-  missing its anti-smoothing lines. Re-render with both, and add "clay texture
-  held to the last frame" to the constraints.
+  missing its anti-smoothing lines. Re-render with both, under a new
+  `idempotencyKey`, and add "clay texture held to the last frame" to the constraints.
 - **The eyes went wet.** A Pixar-style multi-catchlight eye leaked in. `no
   wet-eye highlights` in the negative block and `a single soft highlight, no wet
   shine` in the material block. Both, not either.

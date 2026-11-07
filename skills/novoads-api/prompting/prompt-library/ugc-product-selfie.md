@@ -15,7 +15,7 @@ Each input is uploaded once via `POST /v1/uploads` → `PUT` the bytes to the re
 **durable**: a character hero and a product photo are uploaded once and reused across every
 shoot, and reusing the same id is what holds identity steady across sessions.
 
-## Reference order — and the hard cap of 4
+## Reference order, and this workflow's budget of 4
 
 ```
 referenceAssetIds = [
@@ -31,9 +31,9 @@ preserved and the first is the strongest signal, so the character hero always go
 the discipline survives the bigger cap: hero, product, and at most **two** style references.
 More style refs dilute the hero.
 
-This is a tighter budget than this workflow used to assume — and it points the same direction
+This is a tighter budget than the API's, and it points the same direction
 the failure table at the bottom already does: *"character face doesn't match → too many style
-references diluting identity → reduce style refs to 2."* The cap enforces the fix. If a style
+references diluting identity → reduce style refs to 2."* Keep to it by choice: nothing enforces it. If a style
 needs more than two images to communicate, put the rest into words in the prompt.
 
 ## Prompt formula
@@ -116,7 +116,7 @@ should feel raw, unpolished, and authentically amateur.
 
 1. **Character:** Ask which influencer (by name). Load their `01-hero-front.jpg`.
 2. **Product:** Ask which product or check `references/products/`. If multiple, ask user to pick.
-3. **Style:** Default to `references/aesthetics/ugc-selfie/` for UGC. If other style folders exist, ask user which vibe. Load 3 images from the chosen style folder (pick the most varied ones if more than 3 exist).
+3. **Style:** Default to `references/aesthetics/ugc-selfie/` for UGC. If other style folders exist, ask user which vibe. Load 2 images from the chosen style folder (pick the most varied ones if more than 2 exist).
 4. **Scene:** Ask for the scene/setting (bedroom, car, kitchen, outdoors, etc.) and outfit. If the user doesn't specify, pick a natural casual setting.
 
 ### Step 2: Upload the references (once)
@@ -126,7 +126,7 @@ Upload via `POST /v1/uploads` and keep each `assetId`:
 - 1 product photo
 - 2 style references
 
-Total: exactly **4** `referenceAssetIds` per call — the hard cap.
+Total: **4** `referenceAssetIds` per call: this workflow's budget, not the API's cap (14 on `nano-banana-pro`).
 
 Reuse ids you already have. The character hero and product photo almost certainly have
 `assetId`s from an earlier run; re-uploading them produces new ids and loses the anchor.

@@ -44,7 +44,7 @@ which one-shot gives them through references.
 The deliverable of this workflow is **one finished ad**. Not a set of parts.
 
 **Four beats.** Hook → discovery → demo → verdict. Four is the default because 15s is
-the Seedance ceiling and four beats is what fits at an unhurried pace.
+the `seedance-2.0` ceiling and four beats is what fits at an unhurried pace.
 
 **Every beat has the person on camera and a spoken line.** No silent beats in the base.
 

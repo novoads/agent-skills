@@ -19,7 +19,7 @@ Check `references/` at the repo root before asking for anything visual. Product 
 - Prefer **one paragraph** of clear direction over a bag of keywords. Bullets and `Label: value` pairs come back rendered as literal on-screen text.
 - Name the **subject**, **setting and light source**, **camera and motion**, **style**, and — for video — the **spoken line in double quotes**. Seedance renders the dialogue and lip-sync in the same call, so the line is part of the prompt, not a later step.
 - If the user gave a vague adjective ("premium", "fun"), **translate it into visual specifics**: materials, wardrobe, location, pace, the actual light source.
-- Real brands only. Never substitute a blank or unbranded stand-in for a product the user has not shown you — the API will render and bill it, and **nothing anywhere will mention it**. Ask for the photo instead.
+- Real brands only. Never substitute a blank or unbranded stand-in for a product the user has not shown you: the API will render and bill it, and the most you get is a `blank_label` warning on an image estimate. Ask for the photo instead.
 
 ## 3. Map the brief to a route
 
@@ -38,7 +38,7 @@ If `MASTER_CONTEXT.md` at the repo root carries brand voice, banned phrases, or 
 ## 5. Quality check before sending
 
 - [ ] Required fields present for the chosen model, per [reference.md](../reference.md) — and nothing extra: the request bodies are strict and an unknown key is a `400`.
-- [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults (5 seconds, `16:9`) are almost never what an ad wants.
+- [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults differ by model (on `seedance-2.0`, 5 seconds and `16:9`) and are almost never what an ad wants.
 - [ ] One reference mode only: `startImageAssetId` **or** `referenceAssetIds`, never both. Every `@ImageN` token points at an id you actually send.
 - [ ] The prompt matches the formula's structure, in the ad's own language.
 - [ ] No secrets in the request body — ids and creative text only.

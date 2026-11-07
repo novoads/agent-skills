@@ -8,7 +8,7 @@
 curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"seedance-2.0","idempotencyKey":"<one per clip>","prompt":"<beat N>",
+  -d '{"model":"seedance-2.0","idempotencyKey":"<a new one per render>","prompt":"<beat N>",
        "durationSeconds":5,"aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
 ```
 
@@ -52,7 +52,7 @@ a render that already succeeded and was already billed.
 was charged; what timed out was the response carrying its id. Call
 `GET /v1/generations?limit=10&kind=video`, find the job by `createdAt` and its
 prompt, and take it from there. A clip sent without an `idempotencyKey` (API 2.52.0)
-renders and charges a second time on a blind retry.
+renders and charges a second time on a blind retry. Reuse a key only to retry the identical call: a new or corrected render takes a new key, because the same key returns the first clip whatever the new prompt says.
 
 ### Per-clip QA, before you spend a voice-over on it
 

@@ -53,10 +53,10 @@ mkdir -p "$TMP_DIR"
 #
 # Aim for 5+ face references for good likeness alignment. nano-banana-pro takes
 # up to 14; gpt-image-2 is capped at 4.
-# You may UPLOAD more than 4 (assetIds are durable and cost nothing to keep) and
-# pick the best 4 per prompt — but a single call may reference at most 4.
-# For likeness work, spend those 4 on: one straight-on headshot, one 3/4 angle,
-# one close-up, and the single most important brand asset.
+# You may UPLOAD more than a call cites (assetIds are durable and cost nothing to
+# keep) and pick the best per prompt: a single call may reference at most REF_CAP.
+# For likeness work, start with one straight-on headshot, one 3/4 angle, one
+# close-up, and the single most important brand asset.
 REF_BASE="$(pwd)/references/youtube thumbnail"
 
 declare -a COMMON_REFS=(

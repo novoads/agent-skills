@@ -6,19 +6,20 @@ The platform rules for `seedance-2.0` and `seedance-2.0-mini`. Read this before 
 
 ## Request fields
 
-Only `model` and `prompt` are required. The body is **strict** — any key not in this table is a `400` and nothing is charged.
+Only `model` and `prompt` are required. The body is **strict**: a key its schema does not name is a `400` and nothing is charged. This table holds the fields these formulas use; `audioEnabled`, `referenceVideoAssetIds` and `referenceAudioAssetIds` are below, and `productSwap` is in [reference.md](../../reference.md).
 
 | Field | Value / range | Notes |
 |---|---|---|
 | `model` | `seedance-2.0`, `seedance-2.0-mini` | Mini is about a fifth of the price on the same grid. Ask once per workflow; see *Mini-draft tier* below. |
 | `prompt` | required | The video prompt. See *Length* below. |
-| `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
+| `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5, and to 10 on mini**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
 | `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9`.** Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
 | `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. On `seedance-2.0-mini` only from API 2.34.0, and only the tiers `GET /v1/models` lists for it. |
-| `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | The language the ad is rendered in. Write the prompt in it too. |
+| `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | Recorded against the job; it does not change what the model is sent. Defaults to `en`. The spoken language comes from the quoted line, so write the prompt in it too. |
 | `startImageAssetId` | one `assetId` | Animates that image as the **first frame**. |
 | `referenceAssetIds` | up to **9** `assetId`s | **Composites** them as visual references. Addressed in the prompt as `@Image1`…`@ImageN`. |
 | `productId` | UUID | Optional. What makes `GET /v1/generations?productId=…` a useful history later. |
+| `idempotencyKey` | 1 to 255 characters | Makes a retry safe: the same key within 24 hours returns the first job, whatever the new body says. Reuse it only to retry the identical call; every new or corrected render takes a new key. |
 
 **`startImageAssetId` and `referenceAssetIds` are two modes, not two fields.** Sending both is a `400` that says so in as many words:
 
@@ -32,7 +33,7 @@ Those are ratios for warning the user, **not a rate card — never quote a credi
 
 Stay at `720p` unless someone asks for more: it is what Reels, TikTok and Stories re-encode to anyway. Reach for `1080p` or `4k` only for a client deliverable, a placement with a quality floor, or a render you plan to crop into.
 
-**Before API 2.34.0, never send `resolution` on `seedance-2.0-mini`** (from 2.34.0 read its `resolutions` in `GET /v1/models`; it lists `480p` and `720p`). `POST /v1/estimates` will accept `720p` for mini and price it, which reads like permission and is not: mini's `POST /v1/videos` variant has no such property and answers `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — confirming it costs a paid render). Mini renders 720p, fixed.
+**Before API 2.34.0, never send `resolution` on `seedance-2.0-mini`** (from 2.34.0 read its `resolutions` in `GET /v1/models`; it lists `480p` and `720p`). `POST /v1/estimates` will accept `720p` for mini and price it, which reads like permission and is not: mini's `POST /v1/videos` variant has no such property and answers `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — confirming it costs a paid render). Before 2.34.0 mini rendered 720p, fixed.
 
 Default output measured at `9:16`: 720x1280 (2026-08-02, at the `720p` default); do not carry that number to other models.
 
@@ -143,7 +144,7 @@ Include at least one: `documentary` (natural, observational), `photorealistic` (
 
 Never use in Seedance 2.0 prompts: `cinematic`, `professional`, `stunning`, `8k`, `studio`, `perfect`.
 
-These are craft advice, not a gate. **Nothing on the API rejects them, and nothing reports them** — the estimate prices the render and says nothing about how the prompt is written. Delete the word anyway and describe the real thing in its place: the light source, the surface, the flaw. "Cinematic kitchen" is a wish; "sunlit kitchen, soft window light from camera-left, natural skin texture with visible pores" is a shot.
+These are craft advice, not a gate. **Nothing on the API rejects them.** The estimate's `warnings` name `cinematic`, `8k` and `perfect` (rule `banned_polish`) and not the other three, so a clean estimate does not clear this list. Delete the word anyway and describe the real thing in its place: the light source, the surface, the flaw. "Cinematic kitchen" is a wish; "sunlit kitchen, soft window light from camera-left, natural skin texture with visible pores" is a shot.
 
 One route overrides this list: `studio` is correct on the [studio lookbook](seedance-2-studio-lookbook.md), whose whole premise is a lit studio with the rig in frame. The list is written for UGC, which is where most of this library lives — see note 3 in that file.
 
@@ -156,11 +157,11 @@ Change **one** element at a time:
 3. Product drifts between shots → add a consistency anchor.
 4. Motion stiff → add degree adverbs and a second comma-joined cue.
 
-## What the estimate is for
+## What the estimate flags
 
-`POST /v1/estimates` is the price, and that is the whole of it. It is mandatory before every render because it is the **only** source of a number — never quote a cost from memory, from this file, or from a previous session. It spends nothing, so there is no reason to skip it.
+`POST /v1/estimates` is the price first. It is mandatory before every render because it is the **only** source of a number — never quote a cost from memory, from this file, or from a previous session. It spends nothing, so there is no reason to skip it.
 
-It has no opinion about your prompt. Nothing in the API reads a prompt for craft, on this endpoint or any other: a prompt that breaks every rule in this file is priced, charged and rendered exactly as written. Everything above is the quality gate. There is no second one.
+It also lints your prompt: `warnings` carries what the craft rules noticed, such as `banned_polish`, `label_without_hold` and `no_spoken_line`, and all of it is advice. A prompt that breaks every rule in this file is still priced, charged and rendered exactly as written. Everything above is the quality gate; the warnings are a second opinion on a call you were making anyway.
 
 ## Duration and dialogue
 
@@ -214,7 +215,7 @@ Neighbours worth knowing about: [ugc-selfie-style.md](ugc-selfie-style.md) in th
 ## Adaptation checklist (all styles)
 
 - [ ] **Word count** — prompt is between 100–260 words
-- [ ] **`durationSeconds` set explicitly** — from the dialogue word count, or 15 for no-dialogue. The default is 5.
+- [ ] **`durationSeconds` set explicitly** — from the dialogue word count, or 15 for no-dialogue. The default is 5, and 10 on mini.
 - [ ] **`aspectRatio` set explicitly** — `9:16` for social. The default is `16:9`.
 - [ ] **Motion specificity** — degree and direction, two or three cues on one action, no `then`
 - [ ] **Consistency anchors** — product and wardrobe stated as unchanged across cuts

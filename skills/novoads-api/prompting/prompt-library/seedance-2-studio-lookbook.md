@@ -148,7 +148,7 @@ Voiceover: "{{OPENING_LINE}}. {{FEATURE_LINE}}. {{CLOSER_LINE}}."
 - Relaxed and measured, not rushed
 - **Count the words.** A calm lifestyle narration is **deliberately slower** than the library's 2.0 words/sec baseline — about **1.5 words/sec** — so 15 seconds is roughly **22–29 words**, not 50. The two ends of that range mean different things: 22 is the *style* (1.5 words/sec, the unhurried read this format is for), and 29 is *physics* (2.0 words/sec, measured 2026-08-11 — a 29-word script filled a 15s render end to end with no tail room). Write toward 22. Past 29 the narration is not merely rushed, it is cut off. Over-writing is the most common way this style comes back rushed.
 
-Set `language` to the language you wrote it in, and write the prompt in that language too. Nothing on the API pushes back on a Spanish or Portuguese narration, and the estimate's advice arrives in the prompt's own language.
+Set `language` to the language you wrote it in, and write the prompt in that language too. Nothing on the API pushes back on a Spanish or Portuguese narration, and the estimate's `warnings` read both, though their own text is in English.
 
 ---
 
@@ -270,7 +270,7 @@ The call — `@Image1` first, `@Image2` second, because the tokens resolve by ar
 ```json
 {
   "model": "seedance-2.0",
-  "idempotencyKey": "<one per clip>",
+  "idempotencyKey": "<a new one per render>",
   "prompt": "<the prompt above>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",
@@ -281,7 +281,7 @@ The call — `@Image1` first, `@Image2` second, because the tokens resolve by ar
 
 If you only have the product photo, drop `@Image2`, describe the person in the sentence, and send one reference. A token pointing past the end of the array is refused before anything is charged — which is the cheap failure, but it is still a failure, so keep the prompt and the array in step.
 
-Price it first. The estimate takes the pricing fields only; `referenceAssetIds` and `aspectRatio` are a `400` there:
+Price it first. The estimate takes only what its arm lists; `referenceAssetIds` and `aspectRatio` are a `400` there:
 
 ```json
 {

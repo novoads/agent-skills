@@ -28,7 +28,7 @@ POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16
 
 POST /v1/videos       { model: "seedance-2.0", prompt, durationSeconds: 4-15,
                         aspectRatio: "9:16", startImageAssetId: <this beat's still>,
-                        audioEnabled: true, idempotencyKey: <one per clip> }
+                        audioEnabled: true, idempotencyKey: <a new one per render> }
                       → 202 { jobId, status, creditsCharged, model } — not ready
                         yet. `creditsCharged` is HERE and nowhere else.
 

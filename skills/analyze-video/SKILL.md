@@ -328,7 +328,7 @@ template that omits them manufactures the same defect in every prompt written fr
   double quotes and call it done — the model reads a quoted string as a line to speak.
 
 - **No forbidden words:** `cinematic`, `professional`, `stunning`, `8k`, `studio`,
-  `perfect`. Nothing on the API rejects or reports them — this is craft advice, and the
+  `perfect`. Nothing on the API rejects them and the estimate names only three: this is craft advice, and the
   reason to drop them is the render. Replace one with the real thing: the light source,
   the surface, the flaw.
 
@@ -405,7 +405,7 @@ The template is the deliverable; this step only proves it. It runs the full sequ
      -H "Authorization: Bearer $NOVOADS_API_KEY" \
      -H "Content-Type: application/json" \
      -d '{
-       "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
+       "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
        "prompt": "<the filled-in prompt>",
        "durationSeconds": 15,
        "aspectRatio": "9:16",
@@ -446,7 +446,7 @@ sequence:
 
 \```json
 {
-  "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
+  "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
   "prompt": "<your filled-in prompt>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",

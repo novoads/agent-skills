@@ -94,7 +94,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 | A photoreal still: a person, a product in a scene | `nano-banana-pro` |
 | A different look on a still, or a second opinion on one | the other family: `nano-banana-pro` for a GPT still, a GPT model for a `nano-banana-pro` one (`reve-2.1` was retired in API 2.48.0 and is refused before any charge) |
 | The dashboard's Image to Ad, Product to Ad or Upscale tool by name, or a still upscaled to 4K | `POST /v1/images` with `preset` (`image-to-ad`, `product-to-ad` or `upscale`, API 2.40.0) on one photo in `imageAssetId`, and no `model` or `prompt`: the server writes the prompt. Quote it with the same `preset` on `POST /v1/estimates`; it can answer `running` like any image. Fields: [reference.md](reference.md#preset-image-to-ad-product-to-ad-upscale-api-2400) |
-| A Pixar-style 3D animated ad, at ANY length | read `skills/pixar-ad/SKILL.md`: storyboard on `gpt-image-2`, animate each beat on `seedance-2.0` + `startImageAssetId`, narration into the gaps from `POST /v1/voiceovers`, stitch with ffmpeg. Every animated ask routes there, including "a quick 15 second one" — there is no single-call tier. Nothing on the API rejects, checks or comments on a stylized prompt, so that skill is the only thing that will tell you whether the beat works |
+| A Pixar-style 3D animated ad, at ANY length | read `skills/pixar-ad/SKILL.md`: storyboard on `gpt-image-2`, animate each beat on `seedance-2.0` + `startImageAssetId`, narration into the gaps from `POST /v1/voiceovers`, stitch with ffmpeg. Every animated ask routes there, including "a quick 15 second one" — there is no single-call tier. Nothing on the API rejects a stylized prompt, and the estimate's `warnings` read it as UGC, so that skill is the only thing that will tell you whether the beat works |
 | A claymation / stop-motion clay ad | read `skills/claymation-ad/SKILL.md`, same shape over 8 beats |
 | Captions burned onto a finished MP4 | **Two real paths — offer both.** `POST /v1/captions`: one call, 30 preset styles, no local dependencies, **costs credits** and returns only a new MP4 (never an SRT or the caption text). Or the `caption-video` skill (`shared/skills/caption-video/SKILL.md`): **free**, any style you can write, and it gives you a Whisper transcript you can hand-correct — but needs Whisper, HyperFrames and an ffmpeg alpha composite locally. See *Burned-in captions* below. A clip rendered with `audioEnabled: false` can only go the local route |
 | Meta image-ad creatives from a brief or a template | read `shared/skills/image-ad-prompting/OVERVIEW.md` first, then `chatgpt-image-ad` or `nano-banana-image-ad` |
@@ -125,7 +125,7 @@ Seedance renders the audio and the lip-sync in the same call, so the line inside
 2. **Spell any invented brand name phonetically inside the quoted line** — see the rule below. Do this before you present the line, and show the phonetic form in the block, because it is what the model will be sent.
 3. **Present it as a numbered list** with beat labels (hook / show / demo / verdict, or similar). Mark silent beats `(silent beat — no dialogue)`.
 4. **Count the spoken words**, state the target duration, and say whether it fits at a natural pace.
-5. **State the `language`** you are going to send, because that is the language the ad is rendered in.
+5. **State the `language`** you are going to send. The field only records it; the spoken language comes from the quoted line, so the two must match.
 6. **Ask for approval explicitly.** Never infer it from an earlier yes about tone, template, or cost.
 
 Use this structure:
@@ -266,7 +266,7 @@ Show `credits`, the count, the total, and `balance`. Get a yes. Then generate.
 
 - **`aspectRatio`: default `9:16`** for anything headed to Reels, TikTok, Stories, or a vertical feed. Seedance and `kling-v3-pro` default to `16:9`, and a landscape ad is a wasted render; `omni-flash`, `veo-3.1` and `wan-3.0` already default to `9:16`, and images default to `1:1`. Go landscape only when the user asks. Seedance also accepts `1:1`, `4:3`, `3:4`, and `21:9`; `omni-flash` and `veo-3.1` accept only the two.
 - **`resolution` (only on a model whose `resolutions` in `GET /v1/models` lists more than one value: `seedance-2.0`, `seedance-2.5`, from API 2.34.0 `seedance-2.0-mini` and `veo-3.1`, from API 2.53.0 `wan-3.0`, and `omni-flash` where the server lists more than `720p`): leave it at the model's `defaultResolution`, and never raise it silently.** On the Seedance models it is the one output-shape field that multiplies the bill (not on `veo-3.1`, one flat price at every tier) — on `seedance-2.0`, `1080p` is ≈2x the base and `4k` ≈5x — so going above `720p` is a *spend* decision, not a quality preference, and it belongs in front of the user with a fresh estimate attached. **`480p` now costs less than the base rather than the same** (since the family reprice of 2026-08-07; today ≈two-thirds on `seedance-2.0`, under half on `seedance-2.5`), so it is a real draft tier and worth offering when a render is a rehearsal. `seedance-2.5` takes `480p`, `720p` and, where `GET /v1/models` lists it (API 2.28.0), `1080p`, never `4k`. `omni-flash`'s set depends on the server (it may list `360p`, `720p`, `1080p` and `4k`, those three without `4k`, or `720p` alone; offer `4k` only where `GET /v1/models` lists it); off `720p`, re-quote with `POST /v1/estimates`. Do not send the key on a model whose list has one value: that body is a `400`, even when the value is the one it renders.
-- **`language`**: the language the script is written in. Set it, and show it in the dialogue gate. Write the prompt in that language too — nothing on the API pushes back on a Spanish or Portuguese prompt, and nothing rewrites or judges one either.
+- **`language`**: the language the script is written in. Set it, and show it in the dialogue gate. Write the prompt in that language too — nothing on the API refuses or rewrites a Spanish or Portuguese prompt, and the estimate's `warnings` read both.
 - **`durationSeconds`**: from the word count, below. Only `veo-3.1` defaults to its maximum — `seedance-2.0` and `seedance-2.5` default to 5, mini to 10, `omni-flash` to 8, `kling-v3-pro` and `wan-3.0` to 5 — so always send it. **`seedance-2.5` defaults to 5 of the 30 it can render**, which is the easiest way to pay for the long model and ship a short clip.
 - **`audioEnabled`**: leave it alone on anything with a spoken line. It exists on the three Seedance variants (`seedance-2.0`, `seedance-2.5`, `seedance-2.0-mini`), `kling-v3-pro` (API 2.38.0) and `wan-3.0` (API 2.53.0), defaults `true`, and the one time to send it is `false`, on a clip that is meant to be silent: see below.
 
@@ -441,7 +441,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
+    "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
     "prompt": "...",
     "durationSeconds": 12,
     "aspectRatio": "9:16",
@@ -573,7 +573,7 @@ Say which check failed and show the evidence — the transcript line, the silenc
 - **No audio stream, or a silent track on a talking ad** → re-render. Nothing in the prompt fixes a dead track.
 - **Burned-in captions** → the clean-plate clause is missing from the prompt. Add it and re-render.
 
-**Every re-render is a new charge**, and unlike image QA there is no automatic-retry allowance here: a video re-render goes back through gate 2. Show the QA finding, show a fresh estimate, and get a yes.
+**Every re-render is a new charge under a new `idempotencyKey`** (the same key returns the first clip, whatever the new prompt says), and unlike image QA there is no automatic-retry allowance here: a video re-render goes back through gate 2. Show the QA finding, show a fresh estimate, and get a yes.
 
 ## Burned-in captions: `POST /v1/captions`
 
@@ -684,7 +684,7 @@ Check it before asking the user for anything. `references/influencers/` for peop
 | A specific person's likeness | **Yes.** `references/influencers/`. Without it Seedance re-casts on every render. |
 | A look, a palette, a lighting mood | Optional. A style board sharpens it; prose can carry it. |
 
-**Never substitute a blank or generic product for one the user has not given you.** If they are advertising something physical and have no photo to hand, say what you cannot do rather than rendering a nameless bottle. Nothing on the API will warn you, and the charge lands either way.
+**Never substitute a blank or generic product for one the user has not given you.** If they are advertising something physical and have no photo to hand, say what you cannot do rather than rendering a nameless bottle. An image estimate's `blank_label` warning is the only notice you get, and the charge lands either way.
 
 Before uploading a reference, if its longest side is under 1024 px, upscale with Lanczos to 1080 px on the long side and re-encode as RGB JPEG at quality 90–95, which strips alpha and keeps the payload sane. (No minimum input size is documented for this API — the practice carries over from a sibling API that answered small images with a 422, and is unverified here.)
 
@@ -705,7 +705,7 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 | 500 | `internal_error` | | **Do not blindly retry.** See below. |
 | 502 | `provider_failed` | A model provider failed. | Credits are refunded automatically. |
 
-**The 400 vs 422 line is simple now, and worth stating because it used to be blurred.** A `400` is a malformed request and nothing else. A `422` is moderation and nothing else. Prompt craft — a missing actor descriptor, no spoken line, a forbidden word — produces no status at all: the API neither refuses it nor mentions it. Do not write a retry loop that expects a rule to stop a bad prompt; the only thing that stops it is you, before you send it.
+**The 400 vs 422 line is simple now, and worth stating because it used to be blurred.** A `400` is a malformed request and nothing else. A `422` is moderation and nothing else. Prompt craft — a missing actor descriptor, no spoken line, a forbidden word — produces no status at all: the API never refuses it, and the only mention is a `warnings` entry on the estimate. Do not write a retry loop that expects a rule to stop a bad prompt; the only thing that stops it is you, before you send it.
 
 **A 429 is not always a rate limit.** `details.reason` names which ceiling refused you, and they are paced differently. The spec names seventeen (API 2.60.0), [reference.md](reference.md#the-causes-of-a-429) breaks out nine, and these are four of them:
 
@@ -714,9 +714,9 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 - `organization_limit` — 180 a minute across every key the organization holds. `X-RateLimit-*` will still show room on your key; that is correct, not a broken limiter. Minting another key does not raise it.
 - `client_limit` — 1,200 a minute pre-authentication. Carries no `X-RateLimit-*` trio.
 
-Every 429 carries `details.reason` and a `Retry-After` header — sleep on the header, branch on the reason. `details.inFlight` (concurrency refusals), `details.limit`, `details.remainingSeconds` and `retryAfterSeconds` are the other keys the spec names, each on the reasons it lists them for; do not expect one it does not.
+Every 429 carries `details.reason` and a `Retry-After` header — sleep on the header, branch on the reason. `details.inFlight` (concurrency refusals), `details.limit`, `details.remainingSeconds` and `details.retryAfterSeconds` are the other keys the spec names, each on the reasons it lists them for; do not expect one it does not.
 
-**On a 500, do not retry until you have checked.** The generation endpoints charge credits, and a failure can land after the debit committed, so a blind retry can pay twice. Call `GET /v1/generations` first. If the job is there, poll it instead of resubmitting. On `POST /v1/videos`, send an `idempotencyKey` (1 to 255 characters, API 2.52.0): the same key within 24 hours returns the first job and its charge instead of a second render. Images take no key.
+**On a 500, do not retry until you have checked.** The generation endpoints charge credits, and a failure can land after the debit committed, so a blind retry can pay twice. Call `GET /v1/generations` first. If the job is there, poll it instead of resubmitting. On `POST /v1/videos`, send an `idempotencyKey` (1 to 255 characters, API 2.52.0): the same key within 24 hours returns the first job and its charge instead of a second render, whatever the new body says, so reuse a key only to retry the identical call and send a new key for every new or corrected render. Images take no key.
 
 ## Guardrails
 
@@ -738,7 +738,7 @@ Append one line per new failure. Forward only. Every bullet is a real thing that
 - Spell invented brand names phonetically inside the quoted line, and re-run gate 1 when you do — the words changed.
 - `audioEnabled` exists on the three Seedance variants, `kling-v3-pro` and `wan-3.0`. Sending it to `omni-flash` or `veo-3.1` is a 400, and sending it to `/v1/estimates` is a 400 on any model.
 - Image `referenceAssetIds` caps are per model: 14 on `nano-banana-pro`, 4 on each of the five GPT models, 10 on each Seedream 5 model. There is no single number.
-- Real brands only in prompts. Do not substitute a blank bottle for a product the user has not given you — the API will happily render it and charge for it, and nothing will tell you. Ask for the photo.
+- Real brands only in prompts. Do not substitute a blank bottle for a product the user has not given you — the API will happily render it and charge for it, and the most you get is a `blank_label` warning on an image estimate. Ask for the photo.
 
 ## References
 

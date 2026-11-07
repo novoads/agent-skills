@@ -27,7 +27,7 @@ There is **one** Nano Banana here: `nano-banana-pro`. The `nano-banana-2` / `nan
 legacy `nano-banana` split is gone, so **there is no variant question to ask the user** — the
 old "Nano Banana 2 or Pro?" prompt is void.
 
-The image models, all on the same endpoint:
+The image models this page routes between, all on the same endpoint (the two Seedream 5 ids are in [reference.md](../../reference.md)):
 
 | API `model` value | When to use |
 |---|---|
@@ -73,7 +73,7 @@ whatever identity anchor it was holding.
 - [ ] Follow the vendor guide for framing **subject**, **style**, and **constraints**.
 - [ ] State whether the output should be **photoreal**, **illustration**, **product hero**, etc.
 - [ ] Set `aspectRatio` explicitly — never rely on the `1:1` default.
-- [ ] Avoid polish words (`cinematic`, `ultra-detailed`, `hyperrealistic`). They produce the plastic "looks AI" render; describe the light source, the surface, the flaw instead. Nothing on the API checks this — the checklist is the check.
+- [ ] Avoid polish words (`cinematic`, `ultra-detailed`, `hyperrealistic`). They produce the plastic "looks AI" render; describe the light source, the surface, the flaw instead. The estimate's `warnings` name `cinematic` and not the other two, so the checklist is the check.
 - [ ] Price the run with `POST /v1/estimates` and get an explicit yes before generating.
 - [ ] Run **post-generation QA** (below) before treating the image as final.
 

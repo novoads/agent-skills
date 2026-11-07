@@ -496,7 +496,7 @@ which they cannot do one image at a time.
 curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"seedance-2.0","idempotencyKey":"<one per clip>","prompt":"<beat N>",
+  -d '{"model":"seedance-2.0","idempotencyKey":"<a new one per render>","prompt":"<beat N>",
        "durationSeconds":5,"aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
 ```
 
@@ -540,7 +540,7 @@ a render that already succeeded and was already billed.
 was charged; what timed out was the response carrying its id. Call
 `GET /v1/generations?limit=10&kind=video`, find the job by `createdAt` and its
 prompt, and take it from there. A clip sent without an `idempotencyKey` (API 2.52.0)
-renders and charges a second time on a blind retry.
+renders and charges a second time on a blind retry. Reuse a key only to retry the identical call: a new or corrected render takes a new key, because the same key returns the first clip whatever the new prompt says.
 
 ### Per-clip QA, before you spend a voice-over on it
 
@@ -691,8 +691,8 @@ length for a long camera move, the mascot mechanism or a CTA hold: extend the VO
 instead, a word or two or a second short line, re-rendered and re-measured.
 
 **If the VO is LONGER than the clip, never speed it up.** No `atempo`. Split the
-line across two beats, or re-render the beat at a longer duration. A voice at
-1.1x is audible as a voice at 1.1x, and it costs the ad its calm.
+line across two beats, or re-render the beat at a longer duration, under a new
+`idempotencyKey`. A voice at 1.1x is audible as a voice at 1.1x, and it costs the ad its calm.
 
 **Re-check the caption's vertical position after trimming.** The frame at the new
 cut is not the frame that was there before, so a caption band that sat over clean
@@ -745,7 +745,7 @@ the bed, laid by `music_mix.py`.
 
 **If you hear a line twice, the mix is not the problem.** That beat's prompt
 carried the narrator's words and Seedance rendered them, and no level will fix
-it — re-render the beat with the narration removed from the prompt. The
+it — re-render the beat with the narration removed from the prompt, under a new `idempotencyKey`. The
 transcribe-verify step below is what catches this, and it is why that step is not
 optional.
 
@@ -820,7 +820,7 @@ is free**, so a retry after a timeout is not a second charge. It sits behind the
 deployment does render, and you transcribe locally instead.
 
 Read the transcript against the board. A dropped word in the offer line is worth
-a re-render of that beat.
+a re-render of that beat, under a new `idempotencyKey`.
 
 ## Gate 8 — captions
 
@@ -966,7 +966,7 @@ POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16
 
 POST /v1/videos       { model: "seedance-2.0", prompt, durationSeconds: 4-15,
                         aspectRatio: "9:16", startImageAssetId: <this beat's still>,
-                        audioEnabled: true, idempotencyKey: <one per clip> }
+                        audioEnabled: true, idempotencyKey: <a new one per render> }
                       → 202 { jobId, status, creditsCharged, model } — not ready
                         yet. `creditsCharged` is HERE and nowhere else.
 

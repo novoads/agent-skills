@@ -138,7 +138,7 @@ purpose. **Name the model in the estimate body**: the image models' schedules di
 than 3×, and an estimate that omits `model` prices `gpt-image-2.6-sunburst`, understating a
 `nano-banana-pro` batch.
 
-The call says nothing about the prompt — no endpoint on this API reads one for quality. Re-read
+Its `warnings` are advice on the prompt, never a verdict. Re-read
 the prompt against the formula yourself before pricing: a batch runs the same shape N times, so
 a flaw in it is paid for N times.
 

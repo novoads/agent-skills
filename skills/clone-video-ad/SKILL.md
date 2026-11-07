@@ -494,7 +494,7 @@ Then:
 - **One primary action per shot**, two or three comma-joined cues on it. `then` /
   `and then` / `followed by` renders as a smear — split it into two shots.
 - **No forbidden words:** `cinematic`, `professional`, `stunning`, `8k`, `studio`,
-  `perfect`. Nothing on the API rejects or reports them — this is craft advice, and the
+  `perfect`. Nothing on the API rejects them and the estimate names only three: this is craft advice, and the
   reason to drop them is the render. Describe the real thing instead: the light source,
   the surface, the flaw.
 - **Write it in the source's language** if that is what the user wants rendered. Nothing on
@@ -679,7 +679,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
+    "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
     "prompt": "<the adapted prompt>",
     "durationSeconds": 14,
     "aspectRatio": "9:16",
@@ -695,7 +695,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   but the **estimate does** return them (verified live 2026-08-05). Collect the craft advice at
   gate 2; there is no second chance at submit time.
 - **Set `aspectRatio` and `durationSeconds` explicitly.** Seedance defaults to `16:9` and to
-  5 seconds, and neither is what a cloned ad wants.
+  5 seconds (10 on mini), and neither is what a cloned ad wants.
 - **Carry `resolution` into this body whenever the estimate carried it.** The estimate
   priced the tier; this call is what renders it. Quote `1080p` at gate 2 and then omit the
   key here and the user approved one video and receives another — billed at the `720p`
@@ -793,14 +793,14 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | No `referenceVideos`, no `referenceAudios`, no `endFrame`, no `projectId` | All `400 Unrecognized key`. Nothing is charged, and no clone workflow can depend on them |
 | `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈two-thirds** of the base (before the 2026-08-07 reprice it cost the same), so it is a real draft tier. `400 Unrecognized key` on `kling-v3-pro`, whose body has no such field (as it was on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0, which gives mini `480p`/`720p` and Veo `720p`/`1080p`: read `resolutions` from `GET /v1/models`), and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
 | `audioEnabled` — **the Seedance variants, `kling-v3-pro` and `wan-3.0`**, optional, default `true` | Send `false` for a silent clone. `400 Unrecognized key` on `omni-flash` and `veo-3.1`, and on `POST /estimates` for every model |
-| `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5** |
+| `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5**, and **10** on mini |
 | `aspectRatio` `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | Default is **`16:9`**. Set it, or a vertical clone ships landscape |
 | Prompt within the model's cap | Enforced on the estimate too, against whichever `model` you name |
 | Audio is rendered from the prompt | The spoken line is lip-synced in this same call at no extra cost, which is why gate 1 exists. `audioEnabled: false` mutes the render; it does not give you a separate audio track to direct |
 | Prompt rules are advisory and live on `/estimates` only | The estimate returns a `warnings` array of `{rule, message}` craft advice; `POST /videos` does not. None of it can refuse or reprice a call, so a weak prompt still renders and bills exactly like a strong one. The warnings are substring matches and **do false-positive** — read them, judge each against the prompt, and say so when you override one |
 | Moderation is `422 content_policy` | The only refusal of a prompt for what it says, and the estimate skips it, so a clean quote can still be blocked. **Nothing is charged** |
 | Ten generations in flight per organization | An eleventh is `429` with `details.reason: concurrency_limit`. Wait for a slot; backing off harder does nothing |
-| `idempotencyKey` on every video call (API 2.52.0) | The same key within 24 hours returns the first job and its charge, so a retry after a timeout is safe; without one, a 500 is never blindly retried: see below |
+| `idempotencyKey` on every video call (API 2.52.0) | The same key within 24 hours returns the first job and its charge, whatever the new body says, so reuse a key only to retry the identical call, and send a new key for every new or corrected render; without a key, a 500 is never blindly retried: see below |
 
 ## Error recovery
 
@@ -823,7 +823,7 @@ quote when reporting a problem.
 | Job `status: failed` or `blocked` | Read the `error` on the job | If it is content-related, rewrite. If it is a provider failure, credits are already refunded |
 | The clone looks nothing like the source | The reading was wrong, not the render | Go back to the beat map with the user before spending again. Change **one** element per iteration — framing, or pacing, or the anchor — never three |
 | The label came back garbled | Seedance preserves logos and destroys printed text | Say in the prompt that the label stays sharp and unchanged, and check the reference photo actually shows it sharp |
-| The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only. The label being perfect tells you nothing about the audio |
+| The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only, under a new `idempotencyKey`. The label being perfect tells you nothing about the audio |
 | Source longer than 15s | Not a failure | Present the two routes from step 5 and let the user pick. Do not split on your own initiative |
 
 ## Related files

@@ -118,10 +118,10 @@ at true relative size. Three designs settled for the price of one image.
 | any studio or franchise name | `hand-sculpted stop-motion clay look` | IP rule, and the model reaches for their characters |
 | `3D rendered`, `CGI`, `digital`, `smooth render` | `hand-sculpted plasticine` | Pulls straight out of the material |
 | `subsurface scattering`, `ray-traced`, `glossy` | `matte clay`, `single soft highlight` | These are the Pixar look's vocabulary and they leak it in |
-| `cinematic` | `stop-motion clay look` | Our lint errors on it |
+| `cinematic` | `stop-motion clay look` | Our lint flags it |
 | `professional`, `stunning` | `polished`, `high fidelity` | Pulls to stock-render gloss, which is this genre's opposite |
-| `perfect`, `flawless` | `slightly asymmetric`, `hand-finished` | Our lint errors on it, and the genre is built on imperfection |
-| `8k`, `4k`, `hyper-detailed` | `visible tool marks` | Our lint errors on it |
+| `perfect`, `flawless` | `slightly asymmetric`, `hand-finished` | Our lint flags it, and the genre is built on imperfection |
+| `8k`, `4k`, `hyper-detailed` | `visible tool marks` | Our lint flags it |
 | `anime`, `cel-shaded`, `2D`, `painted illustration` | delete | Wrong medium entirely |
 | `photorealistic`, `realistic photo`, `live action` | delete | Wrong medium entirely |
 | `stop-motion judder` in a prompt | the ffmpeg post step in `SKILL.md` | The render cannot control frame rate and the phrase breaks the look |
@@ -341,7 +341,7 @@ Six things every beat prompt says, in this order:
 **Write them as flowing prose, not as labelled fields.** The six labels are
 headings for the author. Our renders read prose, and a prompt shaped as
 `Subject: ... Action: ...` risks the labels arriving as literal on-screen text;
-our own prompt lint refuses the shape for that reason.
+our own prompt lint flags the shape for that reason.
 
 **The material block belongs in the CLIP prompt, not only the still.** This is
 the difference from the Pixar sibling, and it is the single most important clay

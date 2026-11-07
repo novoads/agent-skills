@@ -191,7 +191,7 @@ model, and read [evals.md](../evals.md) L1 for the history of the long ones.
 
 Every generation is charged, re-rolls included, so price the run with a live
 `POST /v1/estimates` and get the user's OK first. That call charges nothing and it is the only
-legitimate source of a price. It will not check your prompt — nothing on the API does.
+legitimate source of a price. Its `warnings` are advice on your prompt, never a verdict.
 
 **Variable conventions:**
 - `{brand.name}` — wordmark text on the product label (e.g. `AG1`)

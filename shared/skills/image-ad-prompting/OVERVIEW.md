@@ -321,9 +321,9 @@ This is the workflow inside any chat session where the user wants to make an ad:
    `MASTER_CONTEXT.md`. Wait for explicit confirmation before generating. If `sufficient` is
    false, say so and stop; the response carries `shortBy` and `topUpUrl`.
 
-   The call says nothing about the prompt itself. **No endpoint on this API reads a prompt
-   for quality**, so a weak prompt prices, charges and renders exactly like a strong one —
-   the template library is the whole quality gate, and it is why a prompt here says "sunlit
+   Its `warnings` array is advice on the prompt and never a verdict: **a weak prompt prices,
+   charges and renders exactly like a strong one**, so
+   the template library is the real quality gate, and it is why a prompt here says "sunlit
    kitchen, soft window light from camera-left" rather than "cinematic kitchen".
 
    Two things the estimate will not catch: it prices `numImages` but never sees

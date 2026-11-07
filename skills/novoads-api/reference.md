@@ -190,7 +190,6 @@ Response:
 | `sufficient` | `balance >= credits` at that moment. |
 | `shortBy` | Present when short. |
 | `topUpUrl` | Present when short. |
-
 | `warnings` | Advisory craft advice: `[{ rule, message }]`. Omitted when nothing fires. **This endpoint is the only one that returns it** (verified live 2026-08-04). |
 
 **`warnings` never refuses the call and never changes `credits`** — and it false-positives. See *Prompt rules* below before you act on one.
@@ -350,7 +349,7 @@ Those are ratios, not a rate card — they exist so you can warn a user that `4k
 
 Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
 
-**`idempotencyKey`** (API 2.52.0, optional, 1 to 255 characters): the same key within 24 hours returns the first submission (`202`, the same `jobId` and `creditsCharged`) instead of rendering and charging again, and answers `409` `conflict` while that first one is still being accepted. Scoped to your organization. A job that fails after its `202` keeps its key, so send a new key to render it again. See the 500 note below.
+**`idempotencyKey`** (API 2.52.0, optional, 1 to 255 characters): the same key within 24 hours returns the first submission (`202`, the same `jobId` and `creditsCharged`), whatever the new body says, instead of rendering and charging again, and answers `409` `conflict` while that first one is still being accepted. Scoped to your organization. So a key belongs to one render, not to a clip: reuse it only to retry the identical call, and send a new key for every new or corrected render, a job that failed after its `202` included. See the 500 note below.
 
 ---
 
@@ -470,7 +469,7 @@ afterwards. `GET /generations/{jobId}` returns a single `outputUrl` — image 1 
 the credits stay spent.
 
 That is not a hypothetical: the render blocks inside the POST for 60–90 seconds, so a
-proxy or CDN idle-timeout on a long call drops a response for work the API already did and
+proxy or CDN idle-timeout on a long call (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and
 charged for. Two consequences worth building around:
 
 - **Write each image to disk as you read it**, before doing anything else with the response.
@@ -959,7 +958,7 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 | `resolution` | `1080p` (default) or `720p`. Moves the per-second price. |
 | `keepOriginalSound` | Default: the driving clip's audio is kept. `false` renders the result without it (API 2.44.0; it was refused before). Does not move the price. |
 | `prompt` | Optional scene direction; its ceiling is in the OpenAPI document. Does not move the price. |
-| `idempotencyKey` | Optional. Replaying the same key returns the same job with no second charge. |
+| `idempotencyKey` | Optional. Replaying the same key returns the same job with no second charge, so a new or corrected render takes a new key. |
 | `productId` | Optional. Files the result under a product. |
 
 - **The server measures the clip; a duration you send is never read.** Quote with `POST /estimates` and `kind: "motion-control"` with the same inputs, and the charge equals the quote.
@@ -1112,11 +1111,11 @@ Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateL
 - The headers always describe **your per-key budget**. A `429` from the organization ceiling or from the pre-auth ceiling can arrive while they still show room.
 - The pre-auth ceiling reports `Retry-After` and **no** `X-RateLimit-*` headers at all.
 
-Concurrency detail worth knowing: the count covers the organization's **API surface only**, so dashboard renders do not consume an integration's slots, and a row stops counting after 30 minutes unfinished, so a stuck job cannot jam an organization permanently. Reads, estimates and uploads are not affected by it.
+Concurrency detail worth knowing: the count covers the organization's **API surface only** (the API and the connector), so dashboard renders do not consume an integration's slots. A row that never finishes stops counting on its own, so a stuck job cannot jam an organization permanently, but the wait depends on the queue: 5 minutes for an analysis, 30 for a caption, transcript, sweep, voice-over or voice change, and up to about two hours from its send for a video, an image or a talking actor the provider still reports as running. Reads, estimates and uploads are not affected by it.
 
 The video and image budgets are counted by two queries that cannot see each other's rows, and that separation runs **both ways**: a batch of images in flight never refuses a `POST /videos`, and ten videos rendering never refuse a `POST /images`. Before `2.12.0` images spent video slots and both halves of that were false. So do not treat a `429` on one as a reason to stop calling the other — branch on `details.reason`, which is exactly what it is for.
 
-Cloudflare's edge timeout of roughly 125 seconds is the real ceiling on any single request, which is why video generation is asynchronous, and why since API 2.39.0 an image render still going after about 105 seconds answers `running`, before the edge would cut it, and is collected by polling instead of holding the request open.
+The CDN in front of this API can cut a long request at around 125 seconds, which is why video generation is asynchronous, and why since API 2.39.0 an image render that outlasts its bounded wait answers `running` and is collected by polling instead of holding the request open.
 
 ---
 
@@ -1163,7 +1162,7 @@ response names the field and the limit.
 Every one carries `details.reason` and a `Retry-After` header. Those two are the documented
 contract: sleep on the header, branch on the reason. `error.details` is a free-form object, so a
 response may carry more than the spec names. `details.inFlight` on a concurrency refusal, and
-`details.limit`, `details.remainingSeconds` and `retryAfterSeconds` on the reasons the spec lists
+`details.limit`, `details.remainingSeconds` and `details.retryAfterSeconds` on the reasons the spec lists
 them for, are the extras it does name. Do not branch on an undocumented `details` key.
 
 **The deployed spec names seventeen reasons** (counted off `2.60.0`, 2026-11-07). Nine are broken
@@ -1191,7 +1190,7 @@ An agent that reads only "429 means slow down" backs off on the wrong axis when 
 
 ### The 500 rule
 
-The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice. Video calls take an `idempotencyKey` (API 2.52.0), and a retry with the same key returns the first job instead of a second charge; `POST /images` takes none.
+The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice. Video calls take an `idempotencyKey` (API 2.52.0), and a retry with the same key returns the first job instead of a second charge, so a key is only for a retry of the identical call; `POST /images` takes none.
 
 On a 500: call `GET /v1/generations` first. If the job is there, poll it. Only resubmit if it is genuinely absent.
 
@@ -1225,6 +1224,6 @@ Neither rule can distinguish a physical package from a UI, or narration from sta
 
 **How to use them:** read every one, judge it against what your prompt actually says and where the matched substring sits, and state your reasoning if you override it. Never paste a suggested fix into a prompt it does not fit, and never drop a warning silently — an unexplained override is indistinguishable from not having read it.
 
-**The skill layer is still the real quality gate.** The prompt libraries carry a practitioner's craft notes and cover everything these four rules do not — which is nearly all of it. Read the formula file for the route before composing; a clean estimate is not a reviewed prompt. Moderation remains the only thing that can *refuse* a prompt for what it says, and it refuses content, not craft — see the `422` row in the error table.
+**The skill layer is still the real quality gate.** The prompt libraries carry a practitioner's craft notes and cover everything these rules do not — which is nearly all of it. Read the formula file for the route before composing; a clean estimate is not a reviewed prompt. Moderation remains the only thing that can *refuse* a prompt for what it says, and it refuses content, not craft — see the `422` row in the error table.
 
 What that leaves the estimate doing is the one thing it was always for: **the price.** It is still mandatory before every render, and it is still the only legitimate source of a number.

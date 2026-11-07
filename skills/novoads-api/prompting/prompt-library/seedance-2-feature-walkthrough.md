@@ -325,7 +325,7 @@ The call, for each clip:
 ```json
 {
   "model": "seedance-2.0",
-  "idempotencyKey": "<one per clip>",
+  "idempotencyKey": "<a new one per render>",
   "prompt": "<the clip's prompt>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",

@@ -356,6 +356,6 @@ treats a workspace without video out as unable to change a voice at all.
 
 The endpoint caps a source at five minutes and this run converted fifteen seconds in 7.1
 seconds. Nothing here measures where that curve goes, and the endpoint is synchronous behind
-an edge timeout, so a five-minute source is the case worth timing before a skill recommends
+an edge timeout of around 125 seconds, so a five-minute source is the case worth timing before a skill recommends
 it. Until someone runs it, this skill's advice is what it measured: short ads convert in
 seconds, and a long source is split rather than assumed.

@@ -80,7 +80,7 @@ what this model is good for:
 - Upload the hero portrait once; pass the same `assetId` on every run in the campaign. That is what holds a face steady across generations — not a model flag.
 - Upload the product and the brand wordmark once each; they are the two references that most often stop drift.
 - Order is preserved, so positional language in the prompt works ("the product in the first reference image").
-- Four is the ceiling. When a brief seems to need five, one of them is usually style guidance that belongs in the prose instead.
+- The ceiling is 14, and 2 to 4 well-chosen references usually beat many. When a brief seems to need five, one of them is usually style guidance that belongs in the prose instead.
 
 ## Workflow phases (`nano-banana-image-ad`)
 
@@ -99,7 +99,7 @@ Verify in this exact order; bail on the first failure with a fix-it message.
 | Input | Source | Notes |
 |---|---|---|
 | Seed prompt | User | Creative direction in their words. You will rewrite it (see Phase 3). |
-| Reference image(s) (`--image-ref`) | User | Optional but strongly recommended. Up to **4**. |
+| Reference image(s) (`--image-ref`) | User | Optional but strongly recommended. Up to **14**; 2 to 4 usually beat many. |
 | Variant count `N` | User, default 1 | Cap at 4. Sent as `numImages` in one call; every image is charged. |
 | Aspect ratio | User | One of the ten above. Reject anything else. |
 
@@ -128,7 +128,7 @@ When writing or completing a prompt, anchor on:
 - **Material specifics** — "subsurface scattering on skin," "satin foil reflectivity," "knit fabric weave," "marker bleed at stroke edges." This model renders material distinctions; lean into them.
 - **Standalone-creative scope** — never describe iOS chrome, Sponsored badges, engagement counts, or platform UI.
 - **Avoid keyword-soup prompts** — one well-written paragraph beats a comma-separated keyword list.
-- **Concrete over polished.** "Cinematic", "ultra-detailed" and "hyperrealistic" produce the plastic look this format exists to avoid. Nothing on the API will catch one — describe the light source, the surface, the flaw instead.
+- **Concrete over polished.** "Cinematic", "ultra-detailed" and "hyperrealistic" produce the plastic look this format exists to avoid. The estimate's `warnings` name `cinematic` and not the other two, and nothing refuses a call, so describe the light source, the surface, the flaw instead.
 
 Show the rewritten prompt to the user as one block. Tell them which template (if any) it's
 based on. Ask: "Use this, edit it, or start over?" Loop until approved.
@@ -142,12 +142,12 @@ Free. Show the user `credits` and whether it fits their `balance`, and wait for 
 `model` prices `gpt-image-2.6-sunburst`, the API default, and understates this run. This is the **only** legitimate source of
 a price: not memory, not the logs, not `MASTER_CONTEXT.md`.
 
-The call says nothing about the prompt. No endpoint on this API reads one for quality, so the
-rewrite rules in Phase 3 are the only check there is — apply them before you price, not after.
+The call's `warnings` are advice on the prompt, worth reading and never a verdict, so the
+rewrite rules in Phase 3 stay the real check: apply them before you price, not after.
 
 Price the **assembled** prompt including the safety suffixes. The estimate body is strict: this
-run sends `kind`, `prompt`, `model`, `numImages`, `language`, and `resolution` moves the price
-where you set it. It never sees `aspectRatio` or references, and neither changes the price. It
+run sends `kind`, `prompt`, `model`, `numImages`. `resolution` moves the price, but the script has
+no size flag and renders the default `2K`, so leave it off. It never sees `aspectRatio` or references, and neither changes the price. It
 also does not run moderation, so a priced prompt can still come back `422`.
 
 ### Phase 5: Generate

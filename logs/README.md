@@ -35,7 +35,7 @@ means your prompts, job ids and spend history never travel with a `git push`.
   },
   "response": {
     "status": "succeeded",
-    "creditsCharged": 3.2,
+    "creditsCharged": 123,
     "generationTimeSec": 287,
     "error": null
   }

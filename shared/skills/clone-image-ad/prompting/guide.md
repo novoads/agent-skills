@@ -44,8 +44,8 @@ For the shared library, see:
 ## Cost — the one thing this workflow gets wrong if you let it
 
 Every generation in this workflow is charged. There are no free re-rolls and no refunds for a
-render you didn't like (the only automatic refund is `502 provider_failed`, when the provider
-itself broke).
+render you didn't like (automatic refunds cover a job that fails: a `502 provider_failed`, a job that ends
+`failed` or `blocked`, and any images a short batch did not deliver).
 
 Before Phase 4, price the run with `POST /v1/estimates`:
 
@@ -83,8 +83,8 @@ So: report both numbers, prefer the delta when the brackets are tight and the or
 prefer the per-call `creditsCharged` when other work is in flight, and **say which one you chose
 and why** — a number reported without that context is the failure mode this rule exists to stop.
 
-The estimate charges nothing and it is the **only** legitimate source of a price. It says nothing about
-the prompt — no endpoint here does — so re-read the clone prompt against the template rules
+The estimate charges nothing and it is the **only** legitimate source of a price. Its `warnings` are
+advice on the prompt and never a verdict, so re-read the clone prompt against the template rules
 yourself before pricing. It is going to be run six times, which makes a flaw in it six times as
 expensive as anywhere else in the ecosystem.
 

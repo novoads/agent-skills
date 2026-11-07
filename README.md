@@ -443,8 +443,8 @@ balance — how short you are and where to top up. You approve the number, then 
 
 The estimate charges nothing, and what it does *not* do is worth stating:
 
-- **The estimate lints a video prompt, advisorily.** It returns a `warnings` array of craft notes
-  (`{rule, message}`) — verified live 2026-08-04. `POST /v1/videos` and `POST /v1/images` do not
+- **The estimate lints a video or image prompt, advisorily.** It returns a `warnings` array of craft notes
+  (`{rule, message}`) — verified live 2026-08-04 on video and 2026-08-12 on image. `POST /v1/videos` and `POST /v1/images` do not
   run these rules and return no such field. **Nothing in it can refuse or reprice a call**, so a
   weak prompt is still priced, charged and rendered exactly like a strong one, and the warnings
   are substring matches that **do** false-positive. Read them, judge each against your prompt,

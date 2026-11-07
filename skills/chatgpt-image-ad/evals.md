@@ -77,8 +77,8 @@ nothing charged.
   which is what `generate_image.py` does.
 - A clean estimate is never reported to the user as "the prompt is fine". It is
   reported as the price.
-- The estimate body carries `kind`, `prompt`, `model`, `numImages`, `language`, plus
-  `quality` when the run renders at a named tier, because that field moves the price.
+- The estimate body carries `kind`, `prompt`, `model`, `numImages`. `quality` stays off it:
+  it moves the price, and the script has no tier flag and renders the default.
   `aspectRatio` or `referenceAssetIds` in it is a `400 Unrecognized key`, and neither
   moves the price.
 - `model` is named in the body. Omitting it prices the API default, and the image
@@ -162,7 +162,7 @@ mark this model clean or preferred, one flat output folder.
 the **first** is recoverable afterwards — `GET /v1/generations/{jobId}` returns a single
 `outputUrl`, and images 2..N exist nowhere but the body of the response that returned
 them. The render blocks inside the POST for 60–90 seconds, so a proxy or CDN idle
-timeout drops a response for work the API already did and charged for. That is the
+timeout (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and charged for. That is the
 run's own text: **one image per call**, and **write every image to disk the moment it
 arrives**.
 

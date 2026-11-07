@@ -14,11 +14,11 @@ The power comes from **restraint and revelation**. Each beat reveals slightly mo
 
 ## Two things to know before you write a word
 
-**1. Seedance preserves logos and destroys printed text.** A reveal whose final frame is a wordmark is asking for exactly the thing the model is worst at. Keep the reference photo sharp, paste the label-hold clause in, and check the render — nothing on the API will remind you.
+**1. Seedance preserves logos and destroys printed text.** A reveal whose final frame is a wordmark is asking for exactly the thing the model is worst at. Keep the reference photo sharp, paste the label-hold clause in, and check the render: the estimate's `label_without_hold` warning is a reminder at best, and nothing refuses the call.
 
 **2. There is no person in this style, by design.** Do not invent an actor. The formula below is complete without one, and the parts of the general Seedance guidance that assume a human on camera — the actor descriptor, the spoken line — do not apply on this route. Judgement about which advice fits which route is yours; this is the standard case.
 
-The worked example below is priced live 2026-08-03. Price your own before submitting: the estimate is the only source of a number, and it has no opinion about anything else.
+The worked example below is priced live 2026-08-03. Price your own before submitting: the estimate is the only source of a number, and what it says about the prompt in `warnings` is advice.
 
 ## The structure
 
@@ -48,7 +48,7 @@ The background is pure black — not dark grey, not moody shadows, but true blac
 
 | Variable | Options | Notes |
 |---|---|---|
-| `DURATION` | 15 seconds | The Seedance maximum, and the right choice for this style. Remember `durationSeconds` defaults to **5** — set it. |
+| `DURATION` | 15 seconds | The `seedance-2.0` maximum, and the right choice for this style. Remember `durationSeconds` defaults to **5** — set it. |
 | `LIGHTING_STYLE` | dramatic studio rim lighting, soft gradient spotlight, hard directional key light, warm amber accent lighting, cool silver edge lighting | Rim lighting is the default — it outlines the product against the void |
 | `LIGHTING_DIRECTION` | light coming from above and behind the product, side-lit from the left with a subtle fill on the right, backlit with a soft halo around the edges, overhead spot with sharp falloff | Specifies WHERE light hits the product |
 
@@ -346,16 +346,17 @@ The call:
 ```json
 {
   "model": "seedance-2.0",
-  "idempotencyKey": "<one per clip>",
+  "idempotencyKey": "<a new one per render>",
   "prompt": "<the prompt above>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",
   "language": "en",
+  "audioEnabled": false,
   "referenceAssetIds": ["<assetId from POST /v1/uploads>"]
 }
 ```
 
-Price it first — the estimate takes the pricing fields only, and `aspectRatio` or `referenceAssetIds` there is a `400`:
+Price it first. The estimate takes only what its arm lists, and `aspectRatio` or `referenceAssetIds` there is a `400`:
 
 ```json
 {

@@ -126,12 +126,40 @@ an agent:
   and `preset`, `reference.md`'s adds `sourceAssetId`, and `clone-video-ad` names `productSwap`. The
   lines that said an arm takes only what moves the price now say it takes only what it lists:
   `outputFormat` is accepted and moves nothing.
-- **Worked `POST /v1/videos` calls send an `idempotencyKey`, one per clip,** in `novoads-api`,
-  `clone-video-ad`, `pixar-ad`, `analyze-video` and the Seedance and Veo recipes. The lines about
-  firing N variations or re-sampling a stutter now say each take gets a new key, because a repeated
-  key returns the first job instead of a new take.
+- **Worked `POST /v1/videos` calls send an `idempotencyKey`, a new one per render,** in
+  `novoads-api`, `clone-video-ad`, `pixar-ad`, `analyze-video` and the Seedance and Veo recipes. A
+  key is only for a retry of the identical call: the same key within 24 hours returns the first job
+  whatever the new body says, so a corrected clip sent under an old key comes back as the old clip,
+  with no error and no render. `reference.md`, the Seedance and Veo tables and the re-render lines
+  in `novoads-api`, `clone-video-ad`, `pixar-ad` and `claymation-ad` now say so, and the lines about
+  firing N variations or re-sampling a stutter say each take gets a new key.
 - **A `429`'s other `details` keys are named:** `details.limit`, `details.remainingSeconds` and
-  `retryAfterSeconds`, where the lines called `details.inFlight` the only one.
+  `details.retryAfterSeconds`, where the lines called `details.inFlight` the only one.
+- **`nano-banana-pro` takes 14 references on every line.** Its guide's ceiling line and input table,
+  the character-sheet and product-selfie recipes and a comment in `generate-batch.sh` said 4. The two
+  recipes keep four as their own budget and now call it that, and the product-selfie recipe loads
+  the two style images it uploads, where it said three.
+- **No line says nothing reads a prompt.** `POST /v1/estimates` lints every image and video prompt,
+  and its `warnings` are advice. The Seedance guide and recipes, the image guides, the overview, the
+  prompt library, the thumbnail skill and `novoads-api` now say what the estimate names and that a
+  clean estimate does not clear the forbidden-word lists, which are longer than what `banned_polish`
+  catches. `seedance-2.md`'s section is now called *What the estimate flags*, the name the lines
+  pointing at it already used. The formulas files say the lint flags a word or a shape, where they
+  said it refuses one or errors on it.
+- **A row that never finishes stops counting on a clock of its own queue:** 5 minutes for an
+  analysis, 30 for a caption, transcript, sweep, voice-over or voice change, and up to about two
+  hours from its send for a video, an image or a talking actor the provider still reports as
+  running. `reference.md` said 30 minutes for all of them.
+- **The Seedance and Veo tables list `idempotencyKey`,** and `seedance-2.md` no longer says a field
+  outside its table is a `400`: the table holds the fields the formulas use, and the body takes more.
+- **The two silent recipes' worked calls send `audioEnabled: false`,** as their prose orders.
+  `seedance-2-product-hero.md` also says under its call that the flag mutes the bass and foley its
+  prompt describes, and to drop the flag to keep them.
+- **The image skills say what their run sends:** `kind`, `prompt`, `model`, `numImages`. The scripts
+  have no tier or size flag and render the default, so `quality` and `resolution` belong on the
+  estimate only for a direct `POST /v1/images` at that tier.
+- **`language` is described as a record.** The spoken language comes from the quoted line, where two
+  lines called the field the language the ad is rendered in.
 - **`check-no-rates.sh` reads three more shapes:** a figure after `creditsCharged`, a decimal after
   `quoted`, and `a fraction of a credit`. It also reads `centi-credit` with or without a number.
 - **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
@@ -139,7 +167,14 @@ an agent:
   overview says `clone-image-ad` renders through its own validator, and the template library's
   ratio set includes `4:5`. The README's `resolution` paragraph lists `seedance-2.0-mini` and
   `veo-3.1`, and it no longer says `omni-flash` takes no reference images. `image-to-motion` says
-  which cell is dearest moves with the schedules, where it blamed a provider.
+  which cell is dearest moves with the schedules, where it blamed a provider. Fifteen seconds is
+  named as `seedance-2.0`'s ceiling, where three lines said Seedance's, and `seedance-2.0-mini`'s
+  default of 10 seconds is on the lines that gave 5 for it. `kling-3.md` no longer waits for a model
+  that is live. `reference.md`'s `warnings` row is back inside its table, and its line about the CDN
+  in front of the API, which cuts a long request at around 125 seconds, names no provider.
+  `clone-image-ad`'s guide lists every automatic refund, where it called `502 provider_failed` the
+  only one. `nano-banana.md`'s model table says it is the models that page routes between. The
+  sample line in `logs/README.md` shows a plainly made-up charge.
 
 ## v1.4.0 — 2026-11-07
 

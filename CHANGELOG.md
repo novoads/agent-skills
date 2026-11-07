@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.4.1 — 2026-11-07
+
 ### Changed
 
 **No skill routes to `reve-2.1` or `sora-2` any more (`reve-2.1` retired in API 2.48.0, `sora-2`

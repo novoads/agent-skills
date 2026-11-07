@@ -40,69 +40,12 @@ cd "$(dirname "$0")/.."
 # long on purpose, so that EDITING an exempted line un-exempts it and forces the
 # decision to be made again.
 #
-# Two sections, and the difference is load-bearing.
+# Empty, and it stays that way. Every line that once sat here now names the
+# meter and sends the reader to the estimate arm, because those figures had
+# gone stale in place: a price written down on the day it was measured keeps
+# reading as current long after it stops being true. Do not add an entry to
+# turn a red run green: delete the figure instead.
 ALLOW=(
-  # ── §A. Not a rate at all ──────────────────────────────────────────────────
-  # The unit DEFINITION. It exists to stop an agent reporting a charge in the
-  # wrong unit, and its instruction is literally "echo the number as given" —
-  # the opposite of quoting a figure from a file. Nothing here rots: the
-  # credit/centi-credit ratio is the API's own arithmetic, not a price.
-  'skills/novoads-api/reference\.md::Internally 1 credit is 10 centi-credits; the API has already converted'
-
-  # ── §B. Recorded debt ──────────────────────────────────────────────────────
-  # Real rate literals that this PR did not fix, because they live outside its
-  # file set. Recorded rather than ignored, on the same forward-only principle
-  # as scripts/skill-size-baseline.txt: today's debt is written down, tomorrow's
-  # is refused. This section only ever SHRINKS. Do not add to it to make a red
-  # run green — fix the line, or the guard buys nothing.
-  #
-  # B1 — the Seedance prompt library. Owned by a concurrent wave-2 node that is
-  #      rewriting these files right now; editing them here would collide. These
-  #      are A/B measurements used to argue that one generation with beats beats
-  #      three stitched clips — an ORDERING claim that survives losing its
-  #      numbers, which is what the rewrite should do.
-  'skills/novoads-api/prompting/prompt-library/evals\.md::one generation with beats \(7\.0 credits, 15s, no post-production\)'
-  'skills/novoads-api/prompting/prompt-library/evals\.md::stitched \(13\.8 credits, 24s, voice absent for half the runtime\)'
-  'skills/novoads-api/prompting/prompt-library/evals\.md::Result: 24s, 13\.8 credits'
-  'skills/novoads-api/prompting/prompt-library/evals\.md::cost 7\.0 credits, needed no editing'
-  'skills/novoads-api/prompting/prompt-library/seedance-2-ugc-v2\.md::generation with beats cost \*\*7\.0 credits, 15s, no post-production\*\*'
-  'skills/novoads-api/prompting/prompt-library/seedance-2-ugc-v2\.md::stitched cost \*\*13\.8 credits, 24s\*\*'
-  'skills/novoads-api/prompting/prompt-library/seedance-2-ugc-v2\.md::Cost \(measured\) \| 7\.0cr / 15s \| 13\.8cr / 24s'
-  'skills/novoads-api/prompting/prompt-library/seedance-2-ugc-v2\.md::worth a same-prompt A/B when someone has 14 credits to spend'
-
-  # B2 — the flat `/analyses` fee and the per-clip transcript rate, restated in
-  #      clone-video-ad. Same defect as the copies fixed when this section was
-  #      written and the same remedy (defer to the estimate arm); left for the
-  #      owner of that file.
-  #
-  #      This group used to hold analyze-video's copy of the `/analyses` line too,
-  #      and that entry is GONE rather than commented out: the line now names the
-  #      flat SHAPE of the fee and sends the reader to the estimate arm for the
-  #      number, which is exactly the rewrite this guard asks for. The section only
-  #      ever shrinks, and a fixed line's exemption is deleted along with it — a
-  #      dead exemption is a live hole waiting for the next person who trusts it.
-  'skills/clone-video-ad/SKILL\.md::synchronous call, flat \*\*1 credit\*\*, priced through'
-  'skills/clone-video-ad/SKILL\.md::per clip, 0\.1 credits each, and it is the only thing that catches'
-  'skills/clone-video-ad/evals\.md::5 segments, an .srt., for \*\*0\.1 credits\*\*'
-  'skills/clone-video-ad/evals\.md::synchronously for \*\*0\.3 credits\*\*'
-
-  # B3 — change-voice's eval table, asserting what the estimate arm (it charges nothing) returns.
-  #      Closer to legitimate than the rest of §B: the assertion is that a
-  #      sourceless quote and a 15s quote agree, which is a statement about the
-  #      one-minute minimum rather than about the price. It still pins a number
-  #      that will move, so it is recorded rather than exempted.
-  'skills/change-voice/evals\.md::.credits: 1., .sufficient: true.\. Charges nothing\.'
-  'skills/change-voice/evals\.md::also .credits: 1. . a 15s source and a sourceless quote agree'
-
-  # B4 — the clone-image-ad prompting guide. Dated MEASUREMENTS from named runs
-  #      ("a 2026-08-05 nine-call run reported…"), not a rate card, and the date
-  #      is carried in the sentence — a reader can see how old the figure is,
-  #      which is the property every other entry here lacks. Lowest-priority
-  #      cleanup of the four groups; still debt, because it is a number an agent
-  #      can quote.
-  'shared/skills/clone-image-ad/prompting/guide\.md::a 2026-08-05 nine-call run reported 3\.00 credits'
-  'shared/skills/clone-image-ad/prompting/guide\.md::the balance moved 3\.4 credits between two'
-  'shared/skills/clone-image-ad/prompting/guide\.md::Measured on a 2026-08-06 A/B \(one source, three renders'
 )
 
 # ── Scan ─────────────────────────────────────────────────────────────────────
@@ -169,7 +112,7 @@ while IFS=$'\t' read -r file lineno label content; do
   [ -n "${file:-}" ] || continue
 
   ok=0
-  for entry in "${ALLOW[@]}"; do
+  for entry in ${ALLOW[@]+"${ALLOW[@]}"}; do
     glob="${entry%%::*}"
     pattern="${entry#*::}"
     if [[ "$file" =~ ^${glob}$ ]] && [[ "$content" =~ $pattern ]]; then
@@ -206,7 +149,7 @@ done <<< "$HITS"
 # the reasoning check-no-mcp.sh carries for its own allowlist. Warn rather than
 # fail: an entry goes dead the moment its owner FIXES the line, and that PR must
 # not be reddened by this one's bookkeeping.
-for entry in "${ALLOW[@]}"; do
+for entry in ${ALLOW[@]+"${ALLOW[@]}"}; do
   hit=0
   for m in ${matched_entries[@]+"${matched_entries[@]}"}; do
     [ "$m" = "$entry" ] && { hit=1; break; }

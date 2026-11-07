@@ -255,7 +255,7 @@ Verified live 2026-08-02, each probe pinned with an out-of-grid `durationSeconds
 
 Response `202`: `jobId`, `status`, `creditsCharged`, `model`. **No `warnings`** — this endpoint does not run the prompt rules. They run on `POST /estimates` only (see *Prompt rules*), so the advice was already on the quote you took before submitting.
 
-`creditsCharged` is in the unit the billing page shows. Internally 1 credit is 10 centi-credits; the API has already converted, so echo the number as given.
+`creditsCharged` is in the unit the billing page shows. The API has already converted it, so echo the number as given.
 
 ### `startImageAssetId` and `referenceAssetIds` are two modes, not two fields
 
@@ -1172,7 +1172,7 @@ not here — this table is a working set, not the contract.
 
 | `details.reason` | Cause | What to do |
 |---|---|---|
-| `concurrency_limit` | **10 video** generations already in flight for the organization (API 2.51.0, up from 5); `details.inFlight` says how many | Wait for one to reach a terminal state, then submit. A longer backoff does not help; a finished job does. Video generation only — images have their own queue below. |
+| `concurrency_limit` | **10 video** generations already in flight for the organization (API 2.51.0, up from 5); `details.inFlight` says how many | Wait for one to reach a terminal state, then submit. A longer backoff does not help; a finished job does. Generation endpoints only, and music shares this queue with video; images have their own queue below. |
 | `image_concurrency_limit` | **12 image generations already in flight** for the organization (verified against the deployed spec `2.12.0`, 2026-08-06) | Same shape: wait, do not slow down. Counted **separately** from `concurrency_limit` in both directions — images never block a render, renders never block an image. |
 | `caption_concurrency_limit` | **10 caption jobs already in flight** for the organization (verified in spec 2.6.0, 2026-08-04) | Same shape as above: wait, do not slow down. Counted **separately** from `concurrency_limit`, deliberately — a batch of captions can never block your next render, and vice versa. |
 | `transcript_concurrency_limit` | **10 transcripts already in flight** for the organization, where `POST /transcripts` is offered (verified against the deployed spec `2.12.0`, 2026-08-06) | Wait. A transcript is synchronous, so this bounds how many you can hold open at once and is often the first ceiling a batch meets. |

@@ -67,15 +67,15 @@ one combined range covering every reference, and get ONE yes for the whole batch
 
 A batch also needs a **ledger, not a tally**. Summing each response's `creditsCharged` is
 correct per call and silently under-reports across a batch — one response that scrolled past
-instead of landing in the log is enough, and a 2026-08-05 nine-call run reported 3.00 credits
-across 8 calls when the truth was 3.5 across 9. So read the `balance` that `POST /v1/estimates`
+instead of landing in the log is enough, and a 2026-08-05 nine-call run summed the charges of
+8 calls when the truth was 9. So read the `balance` that `POST /v1/estimates`
 returns **before the first charged call and again after the last** (the estimate charges nothing; this
 adds no cost), and report both: the summed `creditsCharged` and the balance delta.
 
 **When they disagree, the delta wins only if you are the sole spender on the organization.** The
 balance is org-wide, so anything else charging that key lands in your delta. Measured 2026-08-06:
-a three-call probe summed 0.9 (correct — 0.3 × 3) while the full-window delta read 2.4, because
-parallel sessions were generating against the same org; the balance moved 3.4 credits between two
+a three-call probe summed correctly while the full-window delta read more than double that, because
+parallel sessions were generating against the same org; the balance also moved between two
 runs in which this workflow spent nothing at all. The fix is not to distrust the delta, it is to
 **bracket tightly**: read the balance immediately before and immediately after *each* charged
 call, not once around the whole batch. Tight brackets in that same run reproduced 0.3 exactly.
@@ -258,7 +258,7 @@ exactly what Phase 7 is trying to prove, so it is the better instrument here:
   --out iterations/clone-<date>/T40/test-fill --env-file .env
 ```
 
-Measured on a 2026-08-06 A/B (one source, three renders, `gpt-image-2`, 0.3 credits each):
+Measured on a 2026-08-06 A/B (one source, three renders, `gpt-image-2`):
 
 - **Phase 4 is NOT the place for it.** Given the same full faithful-reproduction prompt, the edit
   arm came back *worse* than the reference arm at identical cost — it recoloured a headline block

@@ -263,7 +263,7 @@ prompt text (steps 6 and 8).
 **There is a hosted alternative, and it is not the default.** `POST /v1/analyses` returns the
 same class of read (hook boundary and the observable signal behind it, beat timeline,
 on-screen text, casting, layer zones labelled by where their pixels come from) in one
-synchronous call, flat **1 credit**, priced through `POST /v1/estimates` with
+synchronous call, one flat fee per call, priced through `POST /v1/estimates` with
 `{"kind":"analysis"}` first like every other spend. The pass below costs nothing, covers the
 whole runtime, and you already have the frames on disk from step 1, so it stays the front
 door. Reach for `/analyses` when ffmpeg is not installed, when the clone needs zone labels
@@ -748,7 +748,7 @@ Then:
    three-variant run was reopened four days later with its three ads intact and its source
    gone, which left no way to show the clone had been faithful to anything.
 3. **Transcribe every finished clip and diff it against the approved script.** (Doctrine: [shared/references/craft.md](../../shared/references/craft.md) § 1.) One
-   `POST /v1/transcripts` per clip, 0.1 credits each, and it is the only thing that catches
+   `POST /v1/transcripts` per clip, billed by the minute with a one-minute minimum, and it is the only thing that catches
    a spoken line that drifted. A reference image pins the **label**; nothing pins the
    **audio**, and the two fail independently. Measured 2026-08-06 across three clones of one
    source: the on-screen label was glyph-perfect in all three while the brand name was spoken

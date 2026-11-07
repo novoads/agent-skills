@@ -180,7 +180,7 @@ the API path."* Step 2 never got the memo.
 **Measured replacement (same probe).** `POST /v1/uploads` with `contentType: "video/mp4"`
 → `PUT` → `POST /v1/transcripts` with that `assetId` returned `200` in one call:
 `model: "transcript-v1"`, `status: "succeeded"`, auto-detected `language`, 38 words with
-`start`/`end` in **seconds**, 5 segments, an `srt`, for **0.1 credits**. The five segments
+`start`/`end` in **seconds**, 5 segments, an `srt`, at the one-minute minimum. The five segments
 are the beat boundaries step 3 needs, already cut.
 
 One thing worth knowing beyond the install: the API transcription rendered **"Owala FreeSip"
@@ -221,7 +221,7 @@ charge for it."* That is the most expensive answer available. The cheap one is a
 still, and the skill does not mention `POST /v1/images` anywhere in its 39 KB.
 
 **Measured for this PR (2026-08-06).** `POST /v1/images` on `gpt-image-2` returned `200`
-synchronously for **0.3 credits**, and its `images[]` entry carries **`assetId` beside
+synchronously, and its `images[]` entry carries **`assetId` beside
 `url`** — added in deployed spec `2.11.0`, after this skill was written. The `assetId` was
 then accepted by `POST /v1/videos` in `referenceAssetIds`: a token-pinned probe came back
 with the `@Image2`-unresolvable error, which is raised *after* the ownership gate and the

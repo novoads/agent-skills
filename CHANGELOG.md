@@ -98,6 +98,16 @@ an agent:
 - **The image lines about idempotency name `POST /v1/images`,** in the thumbnail, `chatgpt-image-ad`
   and `nano-banana-image-ad` skills and `novoads-api`'s reference, where they said this API or
   "there are no keys": video calls take one.
+- **The old credit figures are gone from the skills.** Each figure a skill still quoted was written
+  in an older credit unit, so it read about ten times too small: `POST /v1/analyses`,
+  `POST /v1/transcripts`, and the image, video and voice-change calls of dated runs. Those lines now
+  name the meter (one flat fee, or by the minute with a one-minute minimum) or the ordering a dated
+  A/B found, and `POST /v1/estimates` stays the only source of a figure. `reference.md` no longer
+  gives a ratio between credits and an internal unit, and `check-no-rates.sh` now exempts no skill
+  line. The voice-change eval no longer says a 15-second source and a sourceless quote agree: today
+  a source past the minimum quotes higher, so name it.
+- **`concurrency_limit` covers music as well as video,** where `reference.md`'s reason table said
+  video only.
 - **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
   family that already failed: when both draw a template wrong, the template is the problem. The
   overview says `clone-image-ad` renders through its own validator, and the template library's

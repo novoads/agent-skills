@@ -10,8 +10,8 @@ and they disagree in exactly one place, silent beats — v2 wins **inside the ba
 and v1 wins everywhere else.
 
 Written from a live A/B (2026-08-03): the same script rendered both ways. One
-generation with beats cost **7.0 credits, 15s, no post-production**. Three clips
-stitched cost **13.8 credits, 24s**, and left the voice absent for half the runtime.
+generation with beats ran **15s with no post-production**. Three clips stitched ran
+**24s at about double the cost that day**, and left the voice absent for half the runtime.
 
 ---
 
@@ -27,7 +27,7 @@ Seedance takes a start frame **or** reference images — never both. Sending bot
 | Cuts | jump cuts **inside** the render | cuts happen at the joins |
 | Post | none | trim + concat |
 | Identity | earned by the actor tag + a fixed location | guaranteed by each start frame |
-| Cost (measured) | 7.0cr / 15s | 13.8cr / 24s |
+| Cost (measured 2026-08-03) | the baseline, for 15s | about double, for 24s |
 
 **Default to one-shot.** Choose stitched only when a beat genuinely needs a different
 room, or the script cannot be spoken inside one clip's runtime.
@@ -63,7 +63,7 @@ vary between beats.
 > nightstand macro → under a duvet) was the highest-risk render of the day; the
 > reference implementation this workflow is modelled on fixes the location explicitly.
 > Evidence: one contrasting render plus the reference prompt. Strong default, not a law
-> — worth a same-prompt A/B when someone has 14 credits to spend on the question.
+> — worth a same-prompt A/B when someone has two renders to spend on the question.
 
 **The actor tag repeats verbatim in every beat.** `grey tee woman` in beat 1 is
 `grey tee woman` in beat 4. Never `the same woman`, never `as before` — a back-reference

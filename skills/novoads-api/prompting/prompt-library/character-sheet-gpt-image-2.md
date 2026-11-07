@@ -10,14 +10,14 @@
 |---|---|---|
 | **Photoreal human faces** | Good — stylized photoreal | **Stronger** — more "shot on camera" feel |
 | **Character identity continuity across N images** | Moderate — drifts over many gens; needs a stronger text anchor | **Stronger** |
-| **Multi-reference blending** | 4 refs, blended less smoothly | 4 refs, **blended more smoothly** |
+| **Multi-reference blending** | up to 4 refs, blended less smoothly | up to 14 refs, **blended more smoothly** |
 | **Stylized / slightly illustrated look** | **Stronger** — distinct gpt-image aesthetic | Pure photoreal, less stylized |
 | **Aspect ratios** | `1:1` `2:3` `4:5` `9:16` `16:9` `21:9` | those **plus** `3:2` `3:4` `4:3` `5:4` |
-| **Cost** | **Cheaper** per image | More per image |
+| **Cost** | **Cheaper** per image at `low` and `medium`, not at `high` | More per image than `gpt-image-2` at `low` and `medium` |
 | **Best for** | Brand has a slightly stylized / editorial / poster-art aesthetic; A/B comparison runs; cost-sensitive exploration | The default for pure photoreal AI-influencer / UGC use |
 
-Both models cap references at **4** — that is no longer a differentiator, and the old "5 vs 14"
-split is gone. Confirm the cost figures with a live `POST /v1/estimates`; never quote them from
+`gpt-image-2` caps references at **4** and `nano-banana-pro` at **14** (spec 2.7.0): past four sources the route is decided.
+Confirm the cost figures with a live `POST /v1/estimates`; never quote them from
 memory.
 
 **Default recommendation:** start with Nano Banana ([character-sheet.md](character-sheet.md)). Use this gpt-image-2 version when (a) the brand aesthetic specifically wants the gpt-image-2 look, (b) you're running a side-by-side test, or (c) the user explicitly asks for ChatGPT Image 2.
@@ -176,7 +176,8 @@ is observability only.
 
 Report the **actual** total afterwards, summed from each response's `creditsCharged`.
 
-`gpt-image-2` is the cheaper of the two character-sheet models, which cuts the other way from
+At the default `quality` (`medium`: this file names none), `gpt-image-2` is the cheaper of the two
+character-sheet models, which cuts the other way from
 how this file used to read — the extra retries it needs are the real cost, not the per-image
 rate. If the choice is close, price both models: two estimates, and neither charges anything.
 

@@ -126,9 +126,9 @@ is treated as available; or the user is asked for files that are already on disk
 
 **Scenario.** Ten thumbnail concepts, one composed prompt each.
 
-**Why.** `POST /v1/estimates` defaults to `gpt-image-2.5-sunburst` when `model` is omitted
-(it was `gpt-image-2` until deployed spec 2.25.0; both sit on the same cheapest schedule, so
-the arithmetic below is unchanged), and the image schedules differ by more than 3×. An estimate without `model` therefore quotes the
+**Why.** `POST /v1/estimates` defaults to `gpt-image-2.6-sunburst` when `model` is omitted
+(since deployed spec 2.58.0; it was `gpt-image-2.5-sunburst` from 2.25.0 and `gpt-image-2`
+before; 2.6 and 2.5 charge the same, so nothing this eval asserts changes), and the image schedules differ by more than 3×. An estimate without `model` therefore quotes the
 cheap model for a `nano-banana-pro` batch, and the gap is multiplied by ten before
 anyone sees an invoice.
 

@@ -37,7 +37,7 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 
 # The one expected table, `model=refs:promptchars`. Scripts and docs are checked
 # AGAINST this; this is checked against the live spec. Update it only from verified
-# spec output. Last verified: deployed spec 2.25.0 on 2026-09-10.
+# spec output. Last verified: deployed spec 2.59.0 on 2026-11-07.
 #
 # The two GPT Image 2.5 ids joined in 2.25.0 and are audited by section 1 only:
 # section 2 runs the pack's own generators, and those lock the model they render
@@ -45,12 +45,18 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 # here will send. Section 1 is the half that matters for them anyway, because the
 # claim this repo makes about them is a DOCUMENTED cap and that is what drifts.
 #
+# The two GPT Image 2.6 ids joined in 2.57.0, on deployments that offer them,
+# and are section-1 only for the same reason (read off deployed spec 2.59.0 on
+# 2026-11-07: 4 references, 32,000 prompt characters each). On a deployment
+# that does not offer them they are absent from the spec, and section 1 reports
+# them as drift.
+#
 # The two Seedream 5 ids join in API 2.39.0 and are section-1 only for the same
 # reason. Their caps (10 references, 10,000 prompt characters) are read off the
 # API's source (seedream-async: kie-image-reference-caps.ts, image-models.ts),
 # not yet off a deployed spec: until 2.39.0 deploys, section 1 reports them as
 # drift, which is the signal that the pack is ahead of the API.
-EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000 seedream-5-lite=10:10000 seedream-5-pro=10:10000'
+EXPECTED='gpt-image-2=4:32000 gpt-image-2.5-flare=4:32000 gpt-image-2.5-sunburst=4:32000 gpt-image-2.6-flare=4:32000 gpt-image-2.6-sunburst=4:32000 nano-banana-pro=14:50000 reve-2.1=8:4000 seedream-5-lite=10:10000 seedream-5-pro=10:10000'
 
 STATUS=0
 problem() {
@@ -216,7 +222,7 @@ check_prompt_cap "skills/clone-image-ad/scripts/validate_image.py" 4000 --model 
 # it is a family-universal claim, it goes stale the day one GPT model carries a
 # different cap, and the remedy this guard asks for (name the models, or name the
 # cap per model) costs one edit and cannot rot. A scoped sentence that says
-# "each of the three GPT models takes 4" passes, which is the wording README.md
+# "each of the five GPT models takes 4" passes, which is the wording README.md
 # and reference.md use.
 RESIDUE="$(grep -rn -i \
   -e "caps at .* on every" \

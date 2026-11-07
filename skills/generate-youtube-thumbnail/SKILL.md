@@ -135,7 +135,7 @@ yes.
 Never quote a credit figure from memory, from `logs/novoads-api.jsonl`, or from
 `MASTER_CONTEXT.md` — there are no credit numbers written down anywhere in this repo, on
 purpose. **Name the model in the estimate body**: the image models' schedules differ by more
-than 3×, and an estimate that omits `model` prices `gpt-image-2.5-sunburst`, understating a
+than 3×, and an estimate that omits `model` prices `gpt-image-2.6-sunburst`, understating a
 `nano-banana-pro` batch.
 
 The call says nothing about the prompt — no endpoint on this API reads one for quality. Re-read
@@ -278,7 +278,8 @@ There is no cost table in this file, deliberately. Every price comes from a live
 `POST /v1/estimates` in the current session, shown to the user and approved before anything is
 generated (see step 3). Report the real total from `creditsCharged` when the run finishes.
 
-`nano-banana-pro` costs more per image than `gpt-image-2`. If a batch is exploratory and the
+At the default `quality` (`medium`: this skill names none), `nano-banana-pro` costs more per image
+than `gpt-image-2`. If a batch is exploratory and the
 concept doesn't depend on photoreal likeness, pricing both is worth the two estimates, which charge nothing.
 
 ## See also

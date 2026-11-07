@@ -65,8 +65,8 @@ The request schema is **strict**: an unrecognized field, or an aspect ratio from
 grid, is a `400` before anything is charged.
 
 **References are uploaded once.** `POST /v1/uploads` returns an `assetId` you can reuse
-across calls. Re-uploading the same file produces a different id and loses
-whatever identity anchor it was holding.
+across calls. Re-uploading the same file produces a different id for the same picture, so do it
+only when a call or a job built on the old id fails.
 
 ## Checklist
 

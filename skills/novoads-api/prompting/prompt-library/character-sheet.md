@@ -1,6 +1,6 @@
 # Character sheet (Nano Banana Pro) — generate an AI influencer from a text description
 
-**Use when:** The user wants to create a new AI influencer from scratch by describing them in plain English. Generates a 10-image character sheet (multiple angles, white background) that becomes the reference set for all future generations with that character.
+**Use when:** The user wants to create a new AI influencer from scratch by describing them in plain English. Generates a 10-image character sheet (multiple angles, white background) that becomes the reference set for later generations with that character.
 
 **Model:** `nano-banana-pro`. It is the only Nano Banana on this API — there is no `nano-banana-2` and no Pro/standard choice to make. **This is the default character-sheet workflow** — start here for pure photoreal AI-influencer use.
 
@@ -14,12 +14,11 @@ shapes this whole workflow, because more references dilute the hero.
 
 What makes it workable: `POST /v1/uploads` returns an **`assetId` you can reuse across calls**.
 Uploads are free and unlimited; only generations are charged.
-So the approved hero is uploaded **once**, and its `assetId` anchors all nine remaining angles —
-and every future workflow that uses this character. Re-uploading the same file yields a
-different id and silently loses the anchor.
+So the approved hero is uploaded **once**, and its `assetId` anchors all nine remaining angles.
+A later workflow can cite it too. Keep the hero file beside it: if a call or a job built on the id fails,
+upload that file again and use the new id, which is the same picture.
 
-Record the hero's `assetId` in the character folder (see Step 6). It is the single most valuable
-artifact this workflow produces.
+Record the hero's `assetId` in the character folder (see Step 6), beside the hero image it came from.
 
 ## Required flow (do NOT skip steps)
 
@@ -196,8 +195,8 @@ enough:
 { "hero_asset_id": "<assetId from POST /v1/uploads>", "model": "nano-banana-pro" }
 ```
 
-Because the id can be reused across calls, a later workflow can cite it directly instead of re-uploading —
-which is also what keeps the character's identity stable.
+Because the id can be reused across calls, a later workflow can cite it directly. If a call or a job built on it fails,
+upload `01-hero-front.jpg` again and write the new id here: the character's identity rides on the picture, not the id.
 
 ### After saving
 

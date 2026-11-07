@@ -142,7 +142,7 @@ Response `201`:
 
 **`Content-Type` and `Content-Length` are both signed into the URL.** If either differs from what was returned, storage rejects the PUT with a 403 that looks like an auth failure and is not one. `image/jpeg; charset=utf-8` is the classic way to lose an hour here. Measure the file, do not estimate it.
 
-**The `assetId` can be reused across calls.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and no call consumes it: the same id works on call one and call one hundred, from `startImageAssetId` and from `referenceAssetIds`. Upload the product photo once and reuse it across every iteration and every model. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated. The spec makes no promise of how long an id lasts, so keep your source file and upload it again if a call stops accepting the id.
+**The `assetId` can be reused across calls.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and no call consumes it, from `startImageAssetId` or from `referenceAssetIds`. Upload the product photo once and reuse it across iterations and models. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated. The spec makes no promise of how long an id lasts, so keep your source file: if a call or a job built on an old id fails, upload the file again and send the new id. A second upload of the same bytes is the same picture under a new id.
 
 ---
 
@@ -272,7 +272,7 @@ Confirmed against the deployed spec `2.0.0` on 2026-08-02 (the `1.2.0`-era note 
 
 **Images only in this field** — `image/jpeg`, `image/png`, `image/webp`. `POST /uploads` also accepts video, and a video `assetId` here is an error rather than a reference. A video goes in `omni-flash`'s `referenceVideoAssetId`, or, on the three Seedance variants since API 2.35.0, in `referenceVideoAssetIds` (audio in `referenceAudioAssetIds`); see the next section.
 
-An `@ImageN` token pointing past the end of the array is refused **before the charge** — an unresolvable reference is a content failure at the provider, and a 400 is a better answer than a refunded render. That check runs only when references are sent: in a call with `startImageAssetId`, or with no image at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
+An `@ImageN` token pointing past the end of the array is refused **before the charge** — an unresolvable reference is a content failure at the provider, and a 400 is a better answer than a refunded render. That check runs only when references are sent: in a call with `startImageAssetId`, or with no reference at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
 
 ### Seedance video and audio references (API 2.35.0)
 

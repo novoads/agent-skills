@@ -211,7 +211,7 @@ deployed spec `2.11.0` the *generated* images are addressable the same way: ever
 `images[]` response carries its own `assetId`, and `referenceAssetIds` and `sourceAssetId` both
 accept it directly. So an iteration can be anchored to the previous render — `referenceAssetIds:
 [original, v1]` to say "keep what v1 got right, fix the header" — with no download and no
-re-upload. Re-uploading a file you already have an id for is the bug, not the safe move.
+re-upload. Re-uploading a file you already have a working id for is a wasted step, not the safe move.
 
 ### Phase 6: Generalize into placeholders
 

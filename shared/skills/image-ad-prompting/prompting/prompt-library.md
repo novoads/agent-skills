@@ -26,7 +26,8 @@ Every template's own **Reference image:** line fits inside the smallest of those
 does not: T4 with its four publication wordmarks pinned beside the product is five references,
 so that run goes to `nano-banana-pro`. Otherwise the gap only matters when you carry a
 reference set to a model with less room than the one it was written for. Uploads are free
-and each returns an `assetId` you can reuse across calls, so build a library and cite from it.
+and each returns an `assetId` you can reuse across calls, so build a library of the files and
+their ids and cite from it.
 
 When a template renders cleanly on more than one, the entry says `both: clean`. When one
 struggles, the note tells the consuming skill which model to prefer.

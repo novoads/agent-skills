@@ -130,7 +130,8 @@ reference path, the `assetId` that `POST /v1/uploads` returned, and the `product
 first creative request for a brand, offer to create the product record with
 `POST /v1/products`, which writes a record rather than a render (contract in the
 `novoads-api` skill's `reference.md`). Later sessions read the cached `assetId` and
-`productId` back instead of re-uploading the same bytes or asking the same question twice.
+`productId` back instead of asking the same question twice; if a call or a job built on a cached
+id fails, upload the local reference again and replace the id.
 
 ### F. Money
 

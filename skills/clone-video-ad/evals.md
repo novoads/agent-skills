@@ -234,7 +234,7 @@ free. **There is no download-and-reupload hop.**
   like any other spend, and consented to before it fires.
 - The returned `assetId` is passed **directly** into `referenceAssetIds` or
   `startImageAssetId`. The skill never instructs a download followed by
-  `POST /v1/uploads` — that mints a second asset and throws away the anchor.
+  `POST /v1/uploads` — that only mints a second id for the same picture and adds a hop.
 - The `url` is understood as expiring (3600s) and the `assetId` as what the next call takes. Chaining is off
   the id, never the URL.
 - "Seedance will invent a design and charge for it" survives only as the third option, after

@@ -275,7 +275,7 @@ for f in "${COMMON_REFS[@]}"; do
 done
 REF_JSON="[$REF_IDS]"
 echo "Reference assetIds: $REF_JSON"
-echo "(An assetId can be reused across calls: pass these in later runs instead of re-uploading.)"
+echo "(An assetId can be reused across calls: every prompt in this batch uses these.)"
 
 echo "═══════════════════════════════════════"
 echo "Generating ${#PROMPTS[@]} thumbnail(s), max $MAX_PARALLEL in flight..."

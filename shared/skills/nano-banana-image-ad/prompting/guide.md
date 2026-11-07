@@ -77,7 +77,7 @@ Always send it explicitly.
 `POST /v1/uploads` returns a **reusable `assetId`**. That single fact drives most of
 what this model is good for:
 
-- Upload the hero portrait once; pass the same `assetId` on every run in the campaign. That is what holds a face steady across generations — not a model flag.
+- Upload the hero portrait once and pass its `assetId` on every call of the run. The same portrait on every call is what holds a face steady across generations, not a model flag.
 - Upload the product and the brand wordmark once each; they are the two references that most often stop drift.
 - Order is preserved, so positional language in the prompt works ("the product in the first reference image").
 - The ceiling is 14, and 2 to 4 well-chosen references usually beat many. When a brief seems to need five, one of them is usually style guidance that belongs in the prose instead.
@@ -185,7 +185,7 @@ Common Nano Banana defects + their fix prompts:
 
 - **Garbled small text** → If text is essential, switch to `chatgpt-image-ad`; that is the real fix. Otherwise scale the text block up to occupy ≥30% of the canvas and re-render.
 - **Wordmark drift** → Pass the wordmark as `--image-ref` AND name it ("the brand wordmark from the first reference image"). There is no higher-fidelity variant to escalate to — references are the lever.
-- **Wrong character identity across runs** → Reuse the **same `assetId`** for the portrait on every call, and name its role in the prompt. Re-uploading the same file gives a new id and loses the anchor.
+- **Wrong character identity across runs** → Send the **same portrait** on every call, one upload and one `assetId`, and name its role in the prompt. Re-uploading the same file gives a new id for the same picture, so it neither causes this nor cures it.
 - **Extra fingers / wrong limb count** → Add an explicit anatomy clause: "exactly two hands, five fingers each, anatomically correct arms, no extra limbs."
 
 **Retry cap: 2 regeneration attempts** (3 total including the first). Every retry is a fresh

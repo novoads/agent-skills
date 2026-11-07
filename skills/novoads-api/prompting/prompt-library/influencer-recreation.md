@@ -99,7 +99,7 @@ Once the user approves the prompt:
 
 1. Read **[nano-banana.md](nano-banana.md)** and follow the vendor guide's formula.
 2. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show the user `credits` against their `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
-3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It can be reused across calls: pass it on every later generation of this person instead of re-uploading.
+3. Upload the original photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`, and keep the photo. It can be reused across calls: pass it on later generations of this person, and upload the photo again only if a call or a job built on the id fails.
 4. Optionally upscale a small reference first (good practice for likeness; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 5. Call `POST /v1/images` with:
    - `model` — **`nano-banana-pro`** (the only Nano Banana on this API; there is no variant to choose)
@@ -147,5 +147,5 @@ sheen on blouse. Photorealistic.
 
 - Save the approved prompt text in `MASTER_CONTEXT.md` under a heading like **"Influencer: [name/alias]"** so future sessions can reuse it without re-analyzing.
 - When generating video from the recreation, pass the approved still's `assetId` as `startImageAssetId` on a Seedance video (see [reference.md](../../reference.md) for the upload → assetId pipeline).
-- **Reuse the same `assetId`** rather than re-uploading the same photo. A fresh upload gives a different id and quietly loses the identity anchor that was holding the face steady.
+- **Reuse the same `assetId`** rather than re-uploading the same photo: a fresh upload is the same picture under a new id, so it is needed only when a call or a job built on the old id fails.
 - Small wording changes between generations will drift the face. Keep the core description **frozen** and only vary pose, clothing, or setting in subsequent prompts.

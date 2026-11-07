@@ -420,7 +420,7 @@ curl -sS -X PUT "$UPLOAD_URL" \
 
 Both headers are signed into the URL. `image/jpeg; charset=utf-8` is a 403, and so is a `Content-Length` that does not match the bytes you send. `sizeBytes` must be the real file size, so measure it, do not estimate it.
 
-**Upload once, reuse the id.** The `assetId` can be reused across calls and across models, which is what makes prototyping on `seedance-2.0-mini` and finalizing on `seedance-2.0` cheap. The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`.
+**Upload once, reuse the id.** The `assetId` can be reused across calls and across models, which is what makes prototyping on `seedance-2.0-mini` and finalizing on `seedance-2.0` cheap. The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`. Keep your source file: if a call or a job built on an old id fails, upload it again and send the new id.
 
 **Start frame or references, not both.** `startImageAssetId` animates one image as the first frame (on `omni-flash` it is a reference instead, below). `referenceAssetIds` (up to **9** on Seedance and `wan-3.0`, up to its own limit on `omni-flash`, images only; Seedance video and audio references have their own fields, below) composites the images as visual references, addressed positionally in the prompt text as `@Image1`…`@ImageN` in the order you send them. They select different modes on the model, so a body carrying both is a `400`.
 

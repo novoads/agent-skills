@@ -12,8 +12,8 @@
 
 Each input is uploaded once via `POST /v1/uploads` → `PUT` the bytes to the returned
 `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. The ids
-**can be reused across calls**: a character hero and a product photo are uploaded once and reused across every
-shoot, and reusing the same id is what holds identity steady.
+**can be reused across calls**: a character hero and a product photo are uploaded once and can serve
+later shoots too, and the same picture on every call is what holds identity steady.
 
 ## Reference order, and this workflow's budget of 4
 
@@ -128,8 +128,8 @@ Upload via `POST /v1/uploads` and keep each `assetId`:
 
 Total: **4** `referenceAssetIds` per call: this workflow's budget, not the API's cap (14 on `nano-banana-pro`).
 
-Reuse ids you already have. The character hero and product photo almost certainly have
-`assetId`s from an earlier run; re-uploading them produces new ids and loses the anchor.
+Reuse ids you already have. The character hero and product photo probably have
+`assetId`s from an earlier run. If a call or a job built on one fails, upload that file again and use the new id: it is the same picture.
 
 ### Step 3: Compose the prompt
 

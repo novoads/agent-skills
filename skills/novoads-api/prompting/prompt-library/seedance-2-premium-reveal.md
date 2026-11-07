@@ -222,7 +222,7 @@ This style maps naturally to a **3-clip product launch series**:
 | **B: The features** | "Here's what makes it special" | Feature 1 → Feature 2 → Feature 3 | Close-ups on each feature detail, texture shots |
 | **C: The lineup** | "Available in X sizes/colors" | "In all-new sizes" or "X colors" | Side-by-side comparison, variant reveal |
 
-Each clip stands alone as a 15-second ad; together they tell a launch story. Three clips is three separate generations at three separate charges — price the set at `POST /v1/estimates` and show the total before submitting any of them. **Upload the product photo once**: the same `assetId` carries all three, and re-uploading it would hand the model a different reference for what is meant to be one product.
+Each clip stands alone as a 15-second ad; together they tell a launch story. Three clips is three separate generations at three separate charges — price the set at `POST /v1/estimates` and show the total before submitting any of them. **Upload the product photo once**: the same `assetId` carries all three, and re-uploading it would add a step and change nothing the model sees.
 
 ---
 

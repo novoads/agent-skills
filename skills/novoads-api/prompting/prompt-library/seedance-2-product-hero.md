@@ -24,7 +24,7 @@ There is no person in this video. The product is the only subject, and the entir
 
 > the product label remains perfectly sharp and identical to the reference image with its text unchanged and fully legible
 
-The worked example below was priced live 2026-08-02 with the clause and the ratio line in place. Price your own before submitting.
+The worked example below leaves both the clause and the ratio line out, as it says there. Add both, and price your own before submitting.
 
 ## The structure
 

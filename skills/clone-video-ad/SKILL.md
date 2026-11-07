@@ -401,7 +401,7 @@ merits: *"Don't chain by using an animated end-frame as the next beat's anchor �
 compounds"* (`skills/claymation-ad/references/formulas.md`). Every clip
 anchoring to the same approved stills is the more stable pattern, and because the `assetId`
 **can be reused across calls and models**, it costs one upload for the whole series.
-Re-uploading the same bytes mints a second asset and throws away the anchor.
+Re-uploading the same bytes only mints a second id for the same picture.
 
 **Fire the clips of a series concurrently, not sequentially** — nothing downstream depends
 on an earlier clip's output any more. Ten generations per organization may be in flight at
@@ -640,8 +640,8 @@ set. Then generate.
 3. **A still you generated is already an asset — do not upload it again.** `POST /v1/images`
    returns `assetId` beside `url` on every image (deployed spec `2.11.0`). Pass that id
    straight into `referenceAssetIds` or `startImageAssetId`. Downloading the bytes and
-   pushing them back through `POST /v1/uploads` mints a **second** asset and throws away the
-   anchor the rest of the workflow is pinned to. The `url` expires in 3600 seconds, so
+   pushing them back through `POST /v1/uploads` only mints a **second** id for the same
+   picture and adds a hop. The `url` expires in 3600 seconds, so
    chain from the `assetId`, never from the URL.
 
 4. **Keep the `assetId`.** It can be reused across calls and models — the whole

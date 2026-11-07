@@ -53,9 +53,9 @@ What it does **not** give you is control over the audio. Seedance still renders 
 
 The four style formulas write `@Image1`, `@Image2`, `@Image3` inline in the prompt text. Those tokens resolve **positionally** against `referenceAssetIds`: `@Image1` is the first `assetId` in the array, `@Image2` the second, in the order you send them. Order is the contract — the array is what binds, the token is how the prompt points at it.
 
-A token pointing past the end of the array is refused **before the charge**, so `@Image2` in a prompt that ships one reference costs nothing. That check runs only when references are sent: in a call with `startImageAssetId`, or with no image at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
+A token pointing past the end of the array is refused **before the charge**, so `@Image2` in a prompt that ships one reference costs nothing. That check runs only when references are sent: in a call with `startImageAssetId`, or with no reference at all, nothing refuses an `@Image1`, the call is charged, and what the model does with the token is unmeasured, so write no token there.
 
-Upload once and reuse: the `assetId` can be reused across calls and across models. Re-uploading the same bytes mints a **second** asset and throws away the identity anchor a multi-clip series exists to hold.
+Upload once and reuse: the `assetId` can be reused across calls and across models. Re-uploading the same bytes only mints a **second** id for the same picture, so do it only when a call or a job built on the old id fails.
 
 Which mode a formula wants:
 

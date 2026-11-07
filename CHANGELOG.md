@@ -79,8 +79,9 @@ an agent:
   now say so, in `chatgpt-image-ad`, `nano-banana-image-ad`, `generate-youtube-thumbnail`, the
   image-ad overview, the two character-sheet recipes and `novoads-api`. The cap of 4 in those runs
   is the run's own choice, and the lines now call it that: its value and every script's behaviour
-  are unchanged, and `generate-batch.sh` changes only in comments. The thumbnail eval YT5 now fills
-  the image queue, and says its two measurements were taken on the render queue.
+  are unchanged, and `generate-batch.sh` changes only in comments and the words of one printed
+  line. The thumbnail eval YT5 now fills the image queue, and says its two measurements were taken
+  on the render queue.
 - **The relative price words are re-read off the spec's cells, at every length each schedule
   sells.** Against `720p`: on `seedance-2.0`, `480p` is about two-thirds, `1080p` about 2x and `4k`
   about 5x; on `seedance-2.5`, `480p` is under half and `1080p` about 1.7x, so the tier tables give
@@ -136,9 +137,9 @@ an agent:
 - **A `429`'s other `details` keys are named:** `details.limit`, `details.remainingSeconds` and
   `details.retryAfterSeconds`, where the lines called `details.inFlight` the only one.
 - **`nano-banana-pro` takes 14 references on every line.** Its guide's ceiling line and input table,
-  the character-sheet and product-selfie recipes and a comment in `generate-batch.sh` said 4. The two
-  recipes keep four as their own budget and now call it that, and the product-selfie recipe loads
-  the two style images it uploads, where it said three.
+  the character-sheet and product-selfie recipes, a comment in `generate-batch.sh` and two lines of
+  `shared/references/README.md` said 4. The two recipes keep four as their own budget and now call
+  it that, and the product-selfie recipe loads the two style images it uploads, where it said three.
 - **No line says nothing reads a prompt.** `POST /v1/estimates` lints every image and video prompt,
   and its `warnings` are advice. The Seedance guide and recipes, the image guides, the overview, the
   prompt library, the thumbnail skill and `novoads-api` now say what the estimate names and that a
@@ -169,7 +170,8 @@ an agent:
 - **No line promises how long an upload lasts.** An `assetId` can be reused across calls. The lines
   that called it durable, reusable forever or without limit, or said it does not expire, now say that
   instead, and `reference.md` says the spec makes no promise of how long an id lasts, so keep the
-  source file and upload it again if a call stops accepting the id.
+  source file and upload it again if a call or a job built on an old id fails. The lines that called
+  a second upload a bug that loses the anchor now say what it is: the same picture under a new id.
 - **The image library's reference line names its one exception.** T4 with its four publication
   wordmarks pinned beside the product is five references, so that run goes to `nano-banana-pro`.
 - **`check-no-rates.sh` reads three more shapes:** a figure after `creditsCharged`, a decimal after
@@ -190,8 +192,11 @@ an agent:
   `--no-safe-zone` waives the safe-zone suffix for one run. `template-format.md` and the library's
   closing section name the one `clone-image-ad` skill and its Phase 9, the entry skeleton uses the
   id `nano-banana-pro`, and its ratio line says the two Seedream 5 ids refuse `4:5` and `21:9`.
-  `seedance-2-ugc.md` says what its two worked examples leave out, and the two lines that said they
-  pass validation say what they draw.
+  `seedance-2-ugc.md` says what its two worked examples leave out, and of the two lines that said
+  they pass validation, `novoads-api/SKILL.md` now says what they draw and `ugc-selfie-style.md`
+  drops the claim. `seedance-2-product-hero.md` says at its top that its worked example leaves out
+  the clause and the ratio line, where it said they were in place, and the thumbnail skill no longer
+  points at a phase it does not have.
 
 ## v1.4.0 — 2026-11-07
 

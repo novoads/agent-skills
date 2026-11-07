@@ -75,7 +75,7 @@ Two facts still shape how you spend them:
 
 1. **An `assetId` can be reused across calls.** Upload once and cite it on every call that needs it.
    Uploading is free and unlimited — only *generations* are charged. So keep a library of
-   uploaded face angles and brand assets and pick from it.
+   face angles and brand assets, the files and their ids, and pick from it.
 2. **The other image models are lower.** Each Seedream 5 model takes 10; `gpt-image-2` takes 4, and that 4 is
    measured, not assumed — a 5-reference body was refused on the same 2026-08-04 probe run. If you
    route a likeness run to `gpt-image-2`, the 5+ advice does not survive the trip; say so rather
@@ -212,8 +212,8 @@ After all generations complete, read each thumbnail with the Read tool and prese
 This is the **opposite** of how the previous backend worked, where a reused reference caused
 `HTTP 500 UNKNOWN_ERROR` and every generation needed a fresh upload. On Novoads,
 `POST /v1/uploads` returns an `assetId` you can reuse across calls.
-Upload once per batch and reuse. Re-uploading the same face photo
-produces a *different* id and quietly loses the anchor that was holding likeness steady.
+Upload once per batch and reuse. Re-uploading the same face photo only produces a *different* id
+for the same picture, so do it only if a call or a job built on the old id fails.
 
 The presigned `uploadUrl` does expire (`expiresInSeconds` in the response), but that only
 affects the PUT window, not the `assetId`.
@@ -229,7 +229,7 @@ either differs, including an added `; charset=…`. Don't let an HTTP client inf
 The old "images smaller than 1080px longest side return `422 — image too small`" rule was
 specific to the previous backend and **has not been verified against Novoads**. The batch script
 still upscales, because small references genuinely produce worse likeness — but do not report
-the 422 claim to a user as an API rule. (Flagged for confirmation in the Phase 4 live smoke.)
+the 422 claim to a user as an API rule.
 
 ### `referenceAssetIds` is an array of plain strings
 

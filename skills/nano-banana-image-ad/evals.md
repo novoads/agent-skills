@@ -104,25 +104,22 @@ one product photo or one character shot.
 **Observed failure (dogfooding run, RUN-FINDINGS item 4).** This skill's caller
 **lacked `--ref-asset-id`** while its `gpt-image-2` sibling had it, so upload-once /
 reuse was unreachable through the pack's own script: `--image-ref` uploads the file on
-every invocation. Uploading is free, so the cost was not credits — it was that every
-invocation minted a **new** `assetId`, which is the anchor holding a face or a label
-steady across runs. Re-uploading the same bytes loses it. PR #88 added the flag.
+every invocation. Uploads carry no charge, so the cost was not credits: it was a repeat upload
+and a **new** `assetId` on every invocation, for the same picture. PR #88 added the flag.
 
 **Assertions.**
 
 - A batch uploads each shared reference **once** and passes `--ref-asset-id <assetId>`
   on every subsequent call.
 - The same `assetId` is used for the character reference across every variant in a
-  series — that is what keeps a face consistent, and a fresh upload per call defeats it
-  while looking identical in the command line.
+  series: one upload, one id, one picture.
 - `--image-ref` and `--ref-asset-id` are understood as interchangeable and sharing the
   same 14-reference cap.
 - The `assetId` is treated as reusable across calls and models; the presigned
   `uploadUrl` is not, and its expiry is not read as the asset expiring.
 
-**Fails if:** a batch re-uploads the same file per prompt; or identity drift across
-variants is diagnosed as a prompt problem when the run was minting a new anchor each
-time.
+**Fails if:** a batch re-uploads the same file per prompt; or a run cites a different
+picture for one character across its variants.
 
 ---
 

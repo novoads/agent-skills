@@ -65,14 +65,13 @@ raising the step.
 
 ---
 
-## YT2 — The anchor is an `assetId`, and it is the same one every time
+## YT2 — The anchor is the picture: upload it once and reuse its `assetId`
 
 **Scenario.** A series: one approved hero thumbnail, then five variations of it.
 
 **Why.** `POST /v1/uploads` returns an `assetId` you can reuse across
-calls. Re-uploading the same face photo produces a **different** id and
-quietly loses the anchor that was holding the likeness steady — the run still succeeds,
-the face still appears, and it is subtly a different person. This is the **opposite** of
+calls. Re-uploading the same face photo produces a **different** id for the same picture, a
+wasted step on every call. This is the **opposite** of
 the backend this workflow was ported from, where a reused reference caused
 `HTTP 500 UNKNOWN_ERROR` and every generation needed a fresh upload, so the wrong habit
 is the one a reader arrives with.

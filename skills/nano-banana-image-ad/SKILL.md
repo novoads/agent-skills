@@ -90,7 +90,7 @@ This model takes the **full ratio set** — including `3:2`, `3:4`, `4:3` and `5
 of style.
 
 **N variants is one call, not N calls.** Send `numImages: 4` and four images come back in
-`images[]`. Do not fan out four parallel requests — that burns four of your five concurrency
+`images[]`. Do not fan out four parallel requests — that burns four of your ten concurrency
 slots to get the same result at the same price.
 
 **There is no edit mode on THIS model.** The Nano Banana inpainting flows the older skill

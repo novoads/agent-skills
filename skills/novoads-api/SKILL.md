@@ -82,7 +82,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 | A studio lookbook: polished, voiceover, multi-look | `seedance-2.0` + [seedance-2-studio-lookbook.md](prompting/prompt-library/seedance-2-studio-lookbook.md) |
 | A fast-paced feature walkthrough | `seedance-2.0` + [seedance-2-feature-walkthrough.md](prompting/prompt-library/seedance-2-feature-walkthrough.md) |
 | A fast vertical clip with no dialogue requirement | `omni-flash`, and read `shared/skills/gemini-omni-flash/prompting/guide.md` first — its 20,000-character prompt ceiling is the roomiest of any video model here, where the rest sit at 4,000, and its grids are narrower than Seedance's (`durationSeconds` 4/6/8/10 only, `aspectRatio` `9:16` or `16:9` only, `resolution` read from `GET /v1/models`). Since API 2.30.0 it also takes reference images, one reference video and, where the server publishes them, a first frame, a last frame and a seed: see *Start frame or references* below |
-| A talking clip whose first word must land immediately | `sora-2`, and read [sora-2.md](prompting/prompt-library/sora-2.md) first. Measured here at **no leading silence at all**, where Seedance front-loads 3–5s of it. Grid is `durationSeconds` 4/8/12 only, `aspectRatio` `9:16` (default) or `16:9`, `startImageAssetId` yes, **`referenceAssetIds` no** |
+| A talking clip whose first word must land immediately | `seedance-2.0` with a reference or a start frame (measured at about 0.5s of leading silence), the eye-contact-break beat dropped from the prompt, and the first `silence_end` checked in §7 and trimmed. `sora-2`, measured here at **no leading silence at all**, left the API in 2026-09: a call naming it is a `400` `invalid_input` |
 | Veo 3.1 by name, or a shot that has to evolve over its own runtime | `veo-3.1`, and read [veo-3-1.md](prompting/prompt-library/veo-3-1.md) first. Grid is `durationSeconds` 4/6/8 only, `aspectRatio` `9:16` (default) or `16:9`, `startImageAssetId` yes, **`referenceAssetIds` no**. Nothing in this repo has measured a Veo render — quote its wait as unknown rather than borrowing Seedance's |
 | A video that starts from a specific photo | any video model but `omni-flash` plus `startImageAssetId`, which animates that image as the first frame. On `omni-flash` that field is a reference image the model may place anywhere in the clip; for a true first frame use `firstFrameAssetId` where the server publishes it |
 | The picture the user handed over is itself the shot: a UI screenshot, a hero layout, a flat-lay, key art, and they want it to MOVE ("animate this", "make the cards pop in") | **[image-to-motion](../image-to-motion/SKILL.md)**, which is `seedance-2.5` plus `startImageAssetId` and carries the motion vocabulary, the beat template and the text-fidelity clauses. The split is whether the image is preserved and set in motion (there) or seeds a scene that did not exist (here) |
@@ -92,7 +92,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 | One specific ad cloned for their own product: "make this ad but for my product" | read [prompting/clone-video-ad/SKILL.md](../clone-video-ad/SKILL.md). The same local analysis, but the output is a rendered clip and both gates apply. A source longer than the chosen model's ceiling becomes a series, held together by passing the same `referenceAssetIds` to every clip — there is no in-place restyle of footage on this API (a reference video only guides a new render). `seedance-2.5` reaches 30s in one call, so a source that used to need two clips may now need one; price both shapes before you pick |
 | A static ad with heavy text or a mimicked UI | `gpt-image-2` |
 | A photoreal still: a person, a product in a scene | `nano-banana-pro` |
-| A different look on a still, or a second opinion on one | `reve-2.1` |
+| A different look on a still, or a second opinion on one | the other family: `nano-banana-pro` for a GPT still, a GPT model for a `nano-banana-pro` one (`reve-2.1` was retired in API 2.48.0 and is refused before any charge) |
 | The dashboard's Image to Ad, Product to Ad or Upscale tool by name, or a still upscaled to 4K | `POST /v1/images` with `preset` (`image-to-ad`, `product-to-ad` or `upscale`, API 2.40.0) on one photo in `imageAssetId`, and no `model` or `prompt`: the server writes the prompt. Quote it with the same `preset` on `POST /v1/estimates`; it can answer `running` like any image. Fields: [reference.md](reference.md#preset-image-to-ad-product-to-ad-upscale-api-2400) |
 | A Pixar-style 3D animated ad, at ANY length | read `skills/pixar-ad/SKILL.md`: storyboard on `gpt-image-2`, animate each beat on `seedance-2.0` + `startImageAssetId`, narration into the gaps from `POST /v1/voiceovers`, stitch with ffmpeg. Every animated ask routes there, including "a quick 15 second one" — there is no single-call tier. Nothing on the API rejects, checks or comments on a stylized prompt, so that skill is the only thing that will tell you whether the beat works |
 | A claymation / stop-motion clay ad | read `skills/claymation-ad/SKILL.md`, same shape over 8 beats |
@@ -299,7 +299,7 @@ Count the words in the spoken line and round **up**. Delivery was measured at **
 
 **How close the reserved case gets is not theoretical.** The first `es` render fit only because rounding up took 12.4s to 13s, and the line finished at **12.88s of 13.07s** — a fifth of a second of margin, on a budget that drew near its worst. The silence is drawn fresh every time, in either mode, so **the only thing that tells you what you got is the QA step in §7.** Check the first `silence_end` on every render.
 
-If the hook has to land in the first second, drop the eye-contact-break beat from the prompt — that is the beat being paid for. `sora-2` measured **no leading silence at all** on the same prompt, so it is the other way out.
+If the hook has to land in the first second, drop the eye-contact-break beat from the prompt — that is the beat being paid for. `sora-2` measured **no leading silence at all** on the same prompt, but it left the API in 2026-09, so the other way out now is a reference or a start frame (the ~0.5s row above) and a trim.
 
 For no-dialogue styles (product hero, premium reveal), default to **15s**. The silence budget does not apply: there is no speech to delay.
 
@@ -472,7 +472,7 @@ Returns `202` with `jobId`, `status`, `creditsCharged`, and `model`. **No `warni
 
 **Keep the silence sentence in the prompt as well.** The prose clause (`a silent product film with no spoken dialogue`) and the flag are belt and suspenders and do different jobs: the flag mutes the render, the clause stops the model from *staging* a talking shot in the first place — an actor mouthing nothing, billed in full. Dropping the clause because you set the flag trades a composition fix for a mute button.
 
-For N variations, fire the identical payload N times. **Five generations per organization may be in flight at once** — fire at most five, then start the next as each one reaches a terminal state. A sixth submission comes back `429` with `error.details.reason` of `concurrency_limit`, which is a different problem from a rate limit and takes a different response: wait for a slot, do not lengthen the backoff.
+For N variations, fire the identical payload N times. **Ten generations per organization may be in flight at once** (API 2.51.0): fire at most ten, then start the next as each one reaches a terminal state. An eleventh submission comes back `429` with `error.details.reason` of `concurrency_limit`, which is a different problem from a rate limit and takes a different response: wait for a slot, do not lengthen the backoff.
 
 **Log each submission immediately**: one line appended to `logs/novoads-api.jsonl` with the timestamp, endpoint, model, `jobId`, `productId`, **`creditsCharged` from this `202`**, and the request config (duration, aspectRatio, language, reference counts, prompt **word count**). The charge goes on the line *now* — the poll payload does not carry it, so a line written without it can never be completed. Never log the prompt text, the key, or the Authorization header. The log is observability — latency and spend after the fact. **It is never a pricing source.** Prices come from `/v1/estimates`, always. The file is gitignored: it is the user's session history, not repo content.
 
@@ -576,7 +576,7 @@ Say which check failed and show the evidence — the transcript line, the silenc
 
 - **A mispronounced invented brand name** → re-render with the phonetic spelling for that language (gate 1): `NO-vo-ads` in `en`, `Novo Ads` in `es`. A prompt fix with a validated result on `seedance-2.0`, not a gamble.
 - **A stutter — a clause spoken twice.** Seen once in three `es` renders of the same payload. Re-render the **identical** body: the defect is nondeterministic delivery, not a prompt fault, so re-sampling the same cell is the right move. This is the one exception to "never resend an identical payload", which is about prompt-caused image defects. It still costs credits, so it still goes through gate 2.
-- **Leading silence eating the hook** → re-render shorter, or drop the eye-contact-break beat, or move to `sora-2`, which measured none.
+- **Leading silence eating the hook** → trim it, re-render shorter, drop the eye-contact-break beat, or re-render with a reference or a start frame (measured at about 0.5s). `sora-2`, which measured none, left the API in 2026-09.
 - **No audio stream, or a silent track on a talking ad** → re-render. Nothing in the prompt fixes a dead track.
 - **Burned-in captions** → the clean-plate clause is missing from the prompt. Add it and re-render.
 
@@ -716,7 +716,7 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 
 **A 429 is not always a rate limit.** `details.reason` names which of four ceilings refused you, and they are paced differently:
 
-- `concurrency_limit` — five generations already in flight for the organization (`details.inFlight` says how many). **Waiting is the only fix**: a longer backoff does nothing, a finished job does. Generation endpoints only; reads, estimates, and uploads never hit it.
+- `concurrency_limit`: ten generations already in flight for the organization (`details.inFlight` says how many). **Waiting is the only fix**: a longer backoff does nothing, a finished job does. Generation endpoints only; reads, estimates, and uploads never hit it.
 - `key_limit` — 60 requests a minute on this key. The `X-RateLimit-*` headers track this one. Honor `Retry-After`.
 - `organization_limit` — 180 a minute across every key the organization holds. `X-RateLimit-*` will still show room on your key; that is correct, not a broken limiter. Minting another key does not raise it.
 - `client_limit` — 1,200 a minute pre-authentication. Carries no `X-RateLimit-*` trio.
@@ -739,7 +739,7 @@ Append one line per new failure. Forward only. Every bullet is a real thing that
 - Never resubmit after a 500 without checking `GET /v1/generations` first.
 - A 400 is a malformed request. Read `details.issues`, fix the field, and do not go looking for a prompt rule — none of them can 400 anymore. Never send `styleFamily`: the field no longer exists on this API and any body carrying it is a 400.
 - Prompt rules exist **only** on `POST /v1/estimates`, as the advisory `warnings` array, and they cannot refuse or reprice anything. **Nothing on the API will stop a weak prompt from being rendered and billed**, so the prompt libraries are still the quality gate. Read every warning, judge it against your prompt (they false-positive — see gate 2), and never apply a suggested fix without checking it fits.
-- Never fire more than five generations at once, and poll at 15 seconds, not 5. A QA retry still costs credits: cap at 2, and report the extras.
+- Never fire more than ten generations at once, and poll at 15 seconds, not 5. A QA retry still costs credits: cap at 2, and report the extras.
 - **Never hand over a video you have not QA'd.** §7 is free and it is the only thing that hears the brand name. A render that looks perfect frame by frame can still say the wrong word.
 - **Never put `-v error` on the `volumedetect` or `silencedetect` calls.** It suppresses the results and the check reports nothing while looking like it passed.
 - Spell invented brand names phonetically inside the quoted line, and re-run gate 1 when you do — the words changed.

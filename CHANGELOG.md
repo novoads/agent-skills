@@ -2,9 +2,9 @@
 
 What changed in the **pack**: the skills, the scripts, the setup path and the docs.
 
-This is not an API changelog. When a file here and the deployed spec disagree, the spec wins,
-and [`GET /v1/openapi.json`](https://api.novoads.ai/v1/openapi.json) is where its own history
-lives.
+This is not an API changelog. When a file here and the deployed spec disagree, the spec wins:
+[`GET /v1/openapi.json`](https://api.novoads.ai/v1/openapi.json) describes what the API does now,
+though not how it got there.
 
 Entries land under `## Unreleased`. `./scripts/release.sh` dates that heading into
 `## vX.Y.Z — YYYY-MM-DD` and opens a fresh one; it never invents the prose. Group an entry
@@ -20,12 +20,25 @@ the same six ratios, 4 references, 32,000 prompt characters, `quality`, `outputF
 `sourceAssetId` edit arm. A call that names no model and no preset now renders on 2.6 Sunburst,
 where it rendered on 2.5 Sunburst, and an estimate that names no model prices it. The 2.5 pair and
 `gpt-image-2` keep working, and the 2.5 and 2.6 ids charge the same as each other. What an
-unqualified call sees change is the size: 2.6 comes back at 1088 x 1920 at `9:16` at every
-quality, where 2.5 came back up to 2160 x 3840 at `high`. `novoads-api`'s model tables, the
-README, the image prompt library, `chatgpt-image-ad` (which still locks `gpt-image-2` and now
-points label-exact work at 2.6 Sunburst) and the thumbnail skill's estimate line say so, and
-`verify-image-caps.sh` audits the two new ids. The lines that said every GPT model charges the
-same per image now say `gpt-image-2` has its own price at `high`.
+unqualified call sees change is the model in the response and the size: 2.6 comes back at
+1088 x 1920 at `9:16` at every quality, where 2.5 could come back larger (up to 2160 x 3840 at
+`high`). `novoads-api`'s model tables and its Nano Banana prompt file, the image-ad overview and
+its prompt library, the README, `chatgpt-image-ad` (which still locks `gpt-image-2` and now points
+label-exact work at 2.6 Sunburst) and the thumbnail and Nano Banana skills' estimate lines say so,
+and `verify-image-caps.sh` audits the two new ids. The lines that said every GPT model charges the
+same per image now say `gpt-image-2` has its own price at `high`, and the lines that called
+`gpt-image-2` the cheaper or the cheapest model now say at which `quality`.
+
+**`reve-2.1` is retired (API 2.48.0), and `sora-2` left the API (2026-09).** The API refuses
+`reve-2.1` before any charge with `400` `invalid_input`, `details.reason: "model_retired"`, on
+`POST /v1/images` and `POST /v1/estimates`, and a call naming `sora-2` is a `400` `invalid_input`;
+`GET /v1/models` lists neither. The README's model tables, `novoads-api`'s model row, image grid
+and Nano Banana prompt file, and the image-ad overview say so. `novoads-api`'s router and the
+overview send a second opinion on a still to the other image family, and `novoads-api` sends a
+clip whose first word must land at once to `seedance-2.0` with a reference or a start frame, then
+a trim. `wan-3.0` (API 2.53.0) joins `novoads-api`'s list of video ids. The lines that still said
+five generations in flight now say ten (API 2.51.0), and the GPT character sheet says
+`nano-banana-pro` takes 14 references, not 4.
 
 **Ten video generations in flight (API 2.51.0).** An organization may now have ten video
 generations running at once through the API, up from five, on every plan; the eleventh is the

@@ -294,7 +294,7 @@ flight — and may be backing off the wrong **queue** entirely.
   limiter.
 - No branch is written on a `details` key the spec does not name. `details.inFlight` on
   a concurrency refusal is the only extra there is.
-- At most five generations are in flight, and the ceiling is stated as shared with
+- At most ten generations are in flight, and the ceiling is stated as shared with
   whatever else the account is running.
 
 **Fails if:** a concurrency refusal is backed off; or the user is told a refused

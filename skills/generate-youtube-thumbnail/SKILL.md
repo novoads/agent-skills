@@ -278,7 +278,8 @@ There is no cost table in this file, deliberately. Every price comes from a live
 `POST /v1/estimates` in the current session, shown to the user and approved before anything is
 generated (see step 3). Report the real total from `creditsCharged` when the run finishes.
 
-`nano-banana-pro` costs more per image than `gpt-image-2`. If a batch is exploratory and the
+At the default `quality` (`medium`: this skill names none), `nano-banana-pro` costs more per image
+than `gpt-image-2`. If a batch is exploratory and the
 concept doesn't depend on photoreal likeness, pricing both is worth the two estimates, which charge nothing.
 
 ## See also

@@ -15,7 +15,7 @@ Together: ~1,575 chars of always-on guard, leaving headroom under each model's p
 
 **Model portability:** every entry includes a `Model notes` block explaining how each template renders on the models the image-ad skills target:
 
-- **`gpt-image-2`** (ChatGPT Image 2) — strong text fidelity, dense small-text rendering, faithful UI mimicry (iOS, Slack, Google search, comparison tables). Best for typography-heavy templates. The API default, and the cheapest of the three.
+- **`gpt-image-2`** (ChatGPT Image 2) — strong text fidelity, dense small-text rendering, faithful UI mimicry (iOS, Slack, Google search, comparison tables). Best for typography-heavy templates. Not the API default (a call naming no `model` renders `gpt-image-2.6-sunburst`, API 2.58.0), so name it. At `low` and `medium` it is on the cheapest tier of image model on this API; at `high` it costs more than `nano-banana-pro` at its default resolution, so price both when the choice is close.
 - **`nano-banana-pro`** (Nano Banana Pro) — strong photorealism, multi-image reference blending, character continuity across runs. Weaker on dense small text.
 - **`reve-2.1`** — the third opinion, reachable through the `clone-image-ad` validator. Most entries list it as `untested`; that is honest, and better than a guess.
 

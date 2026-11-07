@@ -96,8 +96,9 @@ added `gpt-image-2.6-flare` and `gpt-image-2.6-sunburst`. The API's default when
 omitted moved from `gpt-image-2` to 2.5 Sunburst in 2.25.0, and to 2.6 Sunburst in 2.58.0. This
 skill still locks `gpt-image-2`, which is unchanged and still offered. **When the brief turns on
 label text, small legal copy, a wordmark or a spec table coming back exact, render it on
-`gpt-image-2.6-sunburst` instead**, or on `gpt-image-2.5-sunburst` when a `high` render has to
-come back larger than 2.6's 1088 x 1920 at `9:16`. Sunburst is the slower model of each pair and
+`gpt-image-2.6-sunburst` instead**, or on `gpt-image-2.5-sunburst` when the render has to come
+back larger than 2.6's 1088 x 1920 at `9:16` (2.5 goes up to 2160 x 3840 at `high`; read `width` and
+`height` on the response). Sunburst is the slower model of each pair and
 the one built to hold fine detail. Everything in this skill carries over unaltered: the same six
 aspect ratios, the same **cap of 4 `referenceAssetIds`**, the same 32,000-character prompt
 ceiling and the same `sourceAssetId` edit arm, so the change is the `model` value and nothing
@@ -106,7 +107,7 @@ else in the body. The price is not the same at `high`, so price it with the `ima
 value but `gpt-image-2`, so a Sunburst render is a direct `POST /v1/images` call.
 
 **N variants is one call, not N calls.** Send `numImages: 4` and four images come back in
-`images[]`. Do not fan out four parallel requests — that burns four of your five concurrency
+`images[]`. Do not fan out four parallel requests — that burns four of your ten concurrency
 slots to get the same result at the same price.
 
 **There IS an edit mode, on the GPT models only.** `sourceAssetId` edits an existing image

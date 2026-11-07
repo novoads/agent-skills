@@ -138,8 +138,8 @@ based on. Ask: "Use this, edit it, or start over?" Loop until approved.
 `POST /v1/estimates` with `{"kind":"image","model":"nano-banana-pro","prompt":"<final>","numImages":<N>}`.
 Free. Show the user `credits` and whether it fits their `balance`, and wait for an explicit yes.
 
-**Name the model** — the image schedules differ by more than 3×, so an estimate that forgot
-`model` prices gpt-image-2 and understates this run. This is the **only** legitimate source of
+**Name the model**: the image schedules differ by more than 3×, so an estimate that forgot
+`model` prices `gpt-image-2.6-sunburst`, the API default, and understates this run. This is the **only** legitimate source of
 a price: not memory, not the logs, not `MASTER_CONTEXT.md`.
 
 The call says nothing about the prompt. No endpoint on this API reads one for quality, so the

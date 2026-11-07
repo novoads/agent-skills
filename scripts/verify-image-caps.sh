@@ -45,10 +45,11 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 # here will send. Section 1 is the half that matters for them anyway, because the
 # claim this repo makes about them is a DOCUMENTED cap and that is what drifts.
 #
-# The two GPT Image 2.6 ids joined in 2.57.0, on a deployment where their switch
-# is on, and are section-1 only for the same reason (read off deployed spec
-# 2.59.0 on 2026-11-07: 4 references, 32,000 prompt characters each). Where the
-# switch is off they leave the spec, and section 1 reports them as drift.
+# The two GPT Image 2.6 ids joined in 2.57.0, on deployments that offer them,
+# and are section-1 only for the same reason (read off deployed spec 2.59.0 on
+# 2026-11-07: 4 references, 32,000 prompt characters each). On a deployment
+# that does not offer them they are absent from the spec, and section 1 reports
+# them as drift.
 #
 # The two Seedream 5 ids join in API 2.39.0 and are section-1 only for the same
 # reason. Their caps (10 references, 10,000 prompt characters) are read off the
@@ -221,7 +222,7 @@ check_prompt_cap "skills/clone-image-ad/scripts/validate_image.py" 4000 --model 
 # it is a family-universal claim, it goes stale the day one GPT model carries a
 # different cap, and the remedy this guard asks for (name the models, or name the
 # cap per model) costs one edit and cannot rot. A scoped sentence that says
-# "each of the three GPT models takes 4" passes, which is the wording README.md
+# "each of the five GPT models takes 4" passes, which is the wording README.md
 # and reference.md use.
 RESIDUE="$(grep -rn -i \
   -e "caps at .* on every" \

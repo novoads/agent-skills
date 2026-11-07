@@ -91,7 +91,7 @@ Once the hero is approved:
 
 1. Upload the hero image **once** via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It is durable and reusable across every later call and session, so this upload never repeats.
 2. **Reference strategy (the rolling window):**
-   - `gpt-image-2` accepts **max 4 `referenceAssetIds` per request** — the tightest of the three (`reve-2.1` 8, `nano-banana-pro` 14), which is what makes the rolling window below necessary here and optional on the Nano Banana sibling.
+   - `gpt-image-2` accepts **max 4 `referenceAssetIds` per request** — tighter than `nano-banana-pro` (14) or either Seedream 5 model (10), which is what makes the rolling window below necessary here and optional on the Nano Banana sibling.
    - Always include the **hero** as the first ref (the anchor). Order is preserved.
    - For angles 2–4: pass `[hero]` only — you have no prior angles yet anyway.
    - For angles 5+: pass `[hero, angle_N-1, angle_N-2, angle_N-3]` — the three most recent angles plus the hero. This keeps continuity from the most recent successful generation while still anchoring on the hero.
@@ -187,7 +187,7 @@ Once the character sheet exists, it can be used as input for:
 
 - **Product showcase** ([product-showcase.md](product-showcase.md)) — use the hero image + product photo to generate the influencer holding the product. Use `gpt-image-2` again for the showcase still if you want the rendering style to match the sheet.
 - **Influencer recreation** ([influencer-recreation.md](influencer-recreation.md)) — skip the "analyze reference" step since the character already exists.
-- **Video generation** — pass the hero (or any angle) as `startImageAssetId` on a Seedance video; see the `novoads-api` skill's SKILL.md for the call. The same `assetId` you already uploaded works directly. Note Seedance may render the character with a slight rendering-style shift since it is not gpt-image-2-native; mention this before the user spends on video. (Veo 3.1 and Sora 2 are live on this API but take a start frame only — no `referenceAssetIds` — so a character sheet drives them through `startImageAssetId`, one angle per clip.)
+- **Video generation** — pass the hero (or any angle) as `startImageAssetId` on a Seedance video; see the `novoads-api` skill's SKILL.md for the call. The same `assetId` you already uploaded works directly. Note Seedance may render the character with a slight rendering-style shift since it is not gpt-image-2-native; mention this before the user spends on video. (Veo 3.1 and Kling v3 Pro are live on this API but take a start frame only — no `referenceAssetIds` — so a character sheet drives them through `startImageAssetId`, one angle per clip. Sora 2 was removed from the API in 2026-09.)
 - **UGC selfie-style** ([ugc-selfie-style.md](ugc-selfie-style.md)) — gpt-image-2 has a slightly stylized aesthetic that can fight against "iPhone selfie" realism cues. Consider using the Nano Banana sheet for UGC use cases even if the gpt-image-2 sheet exists for the same character.
 
 **Cross-model rendering style:** if you mix references from the gpt-image-2 sheet with a Nano Banana generation request, the model will average between styles. Pick one model per derived workflow for cleanest output.

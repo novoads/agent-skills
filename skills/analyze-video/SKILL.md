@@ -470,7 +470,7 @@ organization may be in flight at once.
   a generated video for the user's product instead of a template file.
 - [scripts/extract-frames.sh](scripts/extract-frames.sh) — frame and audio extraction,
   shared by both skills.
-- [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) — the platform guide every generated template defers to. The other two live video models carry their own grids, and you need one the moment a template targets them rather than Seedance: [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) when the first spoken word has to land immediately (it measured no leading silence, where Seedance front-loads 3–5s), [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo or the shot has to evolve over its runtime. Neither takes `referenceAssetIds`.
+- [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) — the platform guide every generated template defers to. The other live video models carry their own grids, and you need one the moment a template targets them rather than Seedance: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo or the shot has to evolve over its runtime (it takes no `referenceAssetIds`). A template whose first spoken word has to land immediately stays on `seedance-2.0`, with a reference or a start frame (about 0.5s of leading silence), the eye-contact-break beat dropped, and the first `silence_end` checked and trimmed; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md), the model that measured none, was removed from the API in 2026-09 and is kept as history.
 - [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) — the cross-model UGC guide. Its *Core principles* transfer to Seedance; its per-model formulas do not — never port one across by find-and-replace.
 - [../../SKILL.md](../novoads-api/SKILL.md) — the call sequence, the two gates, polling, download.
 - [../../reference.md](../novoads-api/reference.md) — every endpoint, field, limit and error code.
@@ -502,7 +502,7 @@ skills/novoads-api/
         ├── character-sheet.md                ← image formulas (character consistency)
         ├── character-sheet-gpt-image-2.md    ← the same on gpt-image-2
         ├── nano-banana.md                    ← image formulas (Nano Banana Pro)
-        ├── sora-2.md · veo-3-1.md            ← the other two LIVE video models' grids
+        ├── veo-3-1.md · sora-2.md            ← Veo's grid; Sora's, kept as history (removed 2026-09)
         └── kling-3.md · ugc-selfie-style.md  ← Kling 3.0 is on the API as `kling-v3-pro` (2.38.0); the selfie guide is cross-model
 ```
 

@@ -168,7 +168,7 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `outputFormat` | n/a | `png` `jpeg` `webp`, GPT Image models only; does not move the price, accepted so the quote carries the body you will send (API 2.36.0) |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | same |
 
-Every model in both lists prices here, `veo-3.1` and `sora-2` included (verified live, 2026-08-02; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07; `kling-v3-pro` and the two Seedream 5 models in API 2.38.0 and 2.39.0, read off their PRs, not probed).
+Every model in both lists prices here, `veo-3.1` included (verified live, 2026-08-02, when `sora-2`, since removed, priced too; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07; `kling-v3-pro` and the two Seedream 5 models in API 2.38.0 and 2.39.0, read off their PRs, not probed; `wan-3.0` in API 2.53.0, read off the deployed spec, not probed).
 
 **The `3 to 30` span is the OUTER bound across the whole set, and no model renders all of it.** Only `seedance-2.5` goes past 15 seconds; asking `seedance-2.0` for 20 is a `400` here rather than a quote for something it cannot render. The spec says so in the field's own description — read `GET /v1/models` for the per-model grid.
 
@@ -178,7 +178,7 @@ There is **no `styleFamily`** on either arm. The field was deleted from the whol
 
 There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, and this endpoint takes only fields that do. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
 
-**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: `{"model":"sora-2","durationSeconds":11}` comes back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` prices cleanly (verified live, 2026-08-02). So the call that charges nothing catches an out-of-grid duration before the paid one does — one more reason to run it every time.
+**`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: on 2026-08-02, before it was removed from the API, `{"model":"sora-2","durationSeconds":11}` came back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` priced cleanly (verified live). So the call that charges nothing catches an out-of-grid duration before the paid one does — one more reason to run it every time.
 
 Response:
 
@@ -210,13 +210,13 @@ This endpoint refuses a churned organization with a 403, on purpose. `sufficient
 
 Per-model request bodies, all `.strict()`.
 
-**Shared by the six models before `kling-v3-pro` in the table below** (Kling's body: [its own section](#kling-v3-pro-api-2380)): `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
+**Shared by the five models before `kling-v3-pro` in the table below** (Kling's body: [its own section](#kling-v3-pro-api-2380)): `model`, `prompt`, `durationSeconds`, `aspectRatio`, `language`, `startImageAssetId`, `productId`. Only `model` and `prompt` are required. Beyond that the variants differ, and every difference is a `400` rather than a dropped field:
 
-- **`referenceAssetIds`**: the three Seedance variants and, since API 2.30.0, `omni-flash`. `veo-3.1`, `sora-2` and `kling-v3-pro` have no such field.
+- **`referenceAssetIds`**: the three Seedance variants, since API 2.30.0 `omni-flash`, and since API 2.53.0 `wan-3.0` (up to 9). `veo-3.1` and `kling-v3-pro` have no such field.
 - **`referenceVideoAssetIds`, `referenceAudioAssetIds`**: the three Seedance variants, since API 2.35.0. See [Seedance video and audio references](#seedance-video-and-audio-references-api-2350).
 - **`referenceVideoAssetId`, `firstFrameAssetId`, `lastFrameAssetId`, `seed`**: `omni-flash` only, and the last three only where the server publishes them. See [`omni-flash` inputs](#omni-flash-inputs-api-2300). One exception: `kling-v3-pro` also takes `lastFrameAssetId`, beside its `startImageAssetId` (API 2.44.0, [its section](#kling-v3-pro-api-2380)).
 - **`resolution`**: only on a model whose `resolutions` in `GET /models` lists more than one value. See [`resolution`](#resolution-is-a-price-field-and-get-models-sets-it-per-model).
-- **`audioEnabled`**: the three Seedance variants and `kling-v3-pro` (API 2.38.0). See below.
+- **`audioEnabled`**: the three Seedance variants, `kling-v3-pro` (API 2.38.0) and `wan-3.0` (API 2.53.0). See below.
 - **`productSwap`**: the Seedance family, since API 2.42.0. See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420).
 
 There is **no `styleFamily`** on any variant. It was deleted from the API in spec `2.0.0` along with the blocking prompt rules it scoped, and the variants are strict, so sending it is a `400`.
@@ -228,10 +228,9 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 | `seedance-2.0-mini` | 4–15, any integer (**10**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
 | `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
 | `veo-3.1` | 4, 6, 8 (**8**) | `9:16` (default) `16:9` | — | — | 4,000 |
-| `sora-2` | 4, 8, 12 (**4**) | `9:16` (default) `16:9` | — | — | 4,000 |
 | `kling-v3-pro` (2.38.0) | 3–15, any integer | `16:9` `9:16` `1:1` | start frame, and an end frame beside it (2.44.0) | yes | read `GET /models` |
 
-Defaults that bite: **the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `sora-2` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `sora-2` to 4, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
+Defaults that bite: **the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `wan-3.0` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `wan-3.0` to 5, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
 
 **`seedance-2.5` is the only model here that renders past 15 seconds**, and its grid is the same continuous integer range Seedance has always had — 4, 5, 6 … 29, 30, with no gaps. It is otherwise shaped exactly like `seedance-2.0`: same six aspect ratios, same `16:9` default, same 9 reference images, same `audioEnabled` toggle, same 4,000-character prompt ceiling. **The one place it is narrower is `resolution`** — see that section.
 
@@ -248,7 +247,7 @@ Verified live 2026-08-02, each probe pinned with an out-of-grid `durationSeconds
 | Sent to | Result |
 |---|---|
 | `seedance-2.0`, `seedance-2.0-mini` (and `seedance-2.5`, from its published variant) | accepted — the only complaint was the pinned duration |
-| `omni-flash`, `veo-3.1`, `sora-2` | `400 Unrecognized key: "audioEnabled"` |
+| `omni-flash`, `veo-3.1`, `sora-2` (since removed from the API) | `400 Unrecognized key: "audioEnabled"` |
 | `POST /estimates`, any model | `400 Unrecognized key: "audioEnabled"` |
 
 **Keep the prose silence clause in the prompt as well.** The flag mutes the render; the clause (`a silent product film with no spoken dialogue`) stops the model staging a talking shot in the first place — an actor mouthing nothing, billed in full. They do different jobs and the belt-and-suspenders pair is deliberate.
@@ -264,8 +263,8 @@ Confirmed against the deployed spec `2.0.0` on 2026-08-02 (the `1.2.0`-era note 
 | | `startImageAssetId` | `referenceAssetIds` |
 |---|---|---|
 | What the model does with it | Animates the image as the **first frame**; on `omni-flash`, a reference the model may place anywhere | **Composites** the images as visual references — a character, a product, a wardrobe, a setting |
-| How many | 1 | Up to **9** on Seedance; on `omni-flash`, the field's `maxItems` in the OpenAPI document |
-| Which models | all six | the three Seedance variants and, since API 2.30.0, `omni-flash`. The `veo-3.1` and `sora-2` variants omit the field, and both are strict (`400 Unrecognized key`, verified live 2026-08-02) |
+| How many | 1 | Up to **9** on Seedance and `wan-3.0`; on `omni-flash`, the field's `maxItems` in the OpenAPI document |
+| Which models | every video model | the three Seedance variants, since API 2.30.0 `omni-flash`, and since API 2.53.0 `wan-3.0`. The `veo-3.1` and `kling-v3-pro` variants omit the field, and both are strict (`400 Unrecognized key`, verified live on `veo-3.1` 2026-08-02, read off the spec for `kling-v3-pro`) |
 | Addressed in the prompt | no | yes: `@Image1`, `@Image2` … in the order you send them |
 
 **Sending both is a 400**, not a merge: they select different modes on the provider.
@@ -312,7 +311,6 @@ Verified live 2026-08-04 against deployed spec **2.6.0**; `seedance-2.5`'s row r
 | `seedance-2.5` | **`480p`, `720p` — and nothing above** | `720p` |
 | `seedance-2.0-mini` | `480p`, `720p` since API 2.34.0 (before it, **none**: the variant had no such property) | `720p` |
 | `omni-flash` | depends on the server: `360p`, `720p`, `1080p` where `GET /models` lists them (API 2.29.0), plus `4k` only where it lists that too (API 2.31.0), else **none** | `720p` |
-| `sora-2` | **none** | 720p, fixed |
 | `veo-3.1` | `720p`, `1080p` since API 2.34.0 (before it, **none**, 1080p fixed) | read `defaultResolution` |
 
 For mini the tiers are their own schedule: quote the tier with `POST /estimates`, never with the Seedance ratios. On `veo-3.1` the tier does not move the quote at 2.34.0 (one flat price), so never offer `720p` as a cheaper option; quote it all the same.
@@ -346,7 +344,7 @@ Those are ratios, not a rate card — they exist so you can warn a user that `4k
 
 **So an estimate that accepted `resolution` is not a licence to send it to `POST /videos`.** Against a server older than 2.34.0, never send the key on mini; from 2.34.0 the general rule applies: send it only when `GET /models` lists more than one tier.
 
-Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
+Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
 
 There are **no idempotency keys.** See the 500 note below.
 
@@ -393,7 +391,7 @@ On the Seedance family (the models whose body in the OpenAPI document lists the 
 
 **One thing this does not cover: `POST /estimates` does not share these numbers.** Its own request schema caps `prompt` at 50,000 for every image model, so a 20,000-character `seedream-5-lite` prompt prices cleanly and is then refused by `POST /images`. A clean estimate is proof of the price, not of the length.
 
-**The reference cap is per model and is not uniform.** Each of the five GPT models takes 4, `nano-banana-pro` 14 and each Seedream 5 model 10 (API 2.39.0; read `maxItems` in the OpenAPI document). Seedream takes no `quality`, `resolution` or `outputFormat`. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0, and so did the two 2.6 models in 2.57.0 (read off deployed spec 2.59.0 on 2026-11-07). Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
+**The reference cap is per model and is not uniform.** Each of the five GPT models takes 4, `nano-banana-pro` 14 and each Seedream 5 model 10 (API 2.39.0; read `maxItems` in the OpenAPI document). Seedream takes no `quality`, `resolution` or `outputFormat`. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` (since retired) → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0, and so did the two 2.6 models in 2.57.0 (read off deployed spec 2.59.0 on 2026-11-07). Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
 
 The response carries `images[]` (`url`, `expiresInSeconds` 3600, `assetId`, `width`, `height`), `jobId`, `status`, `creditsCharged`, and `model`. **No `warnings`**, for the same reason as video: the prompt rules run on `POST /estimates` only — where an image prompt *does* get read. `banned_polish` and `blank_label` observed on a `kind: "image"` estimate against deployed spec 2.19.0 (verified live 2026-08-12); the older note here, that images returned no `warnings` key at all, described the 2026-08-04 deployment. A render still going after about 105 seconds answers `running` instead: see [below](#a-slow-render-answers-running-poll-it-api-2390). `numImages` multiplies the price.
 
@@ -447,7 +445,7 @@ same size — an edit is one image, charged once.
 
 | | |
 |---|---|
-| Models | The five GPT models only: `gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare` and `gpt-image-2`. The field is ABSENT from the `nano-banana-pro` and `reve-2.1` variants, and `.strict()` refuses it there. |
+| Models | The five GPT models only: `gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare` and `gpt-image-2`. The field is ABSENT from the `nano-banana-pro`, `seedream-5-lite` and `seedream-5-pro` variants, and `.strict()` refuses it there. |
 | `aspectRatio` | **Cannot be combined.** Sending both is `400`, not a silently-ignored field. |
 | Output shape | Tracks the source: the service measures it and renders the closest cell of the model's grid. Portrait never becomes landscape, or the reverse — but the grid has nothing between `1:1` and `16:9`, so a 4:3 source renders `1:1`. |
 | `referenceAssetIds` | Still allowed. The source **counts against the same cap** and is always first. |
@@ -1042,7 +1040,7 @@ curl -sS -X POST https://api.novoads.ai/v1/products \
 
 The catalog: per model `id`, `displayName`, `kind`, `endpoint`, `credits`, `representativeOutput`, `aspectRatios`, `durationsSeconds`, `maxPromptCharacters`, and — on video models — **`resolutions[]` and `defaultResolution`**, and on image models that offer them, `qualities`, `outputFormats` and `resolutions`, each with its `default*` (API 2.36.0) (verified live 2026-08-04; the earlier note that this endpoint published no output size is superseded).
 
-**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `sora-2` returns `["720p"]`; `seedance-2.0-mini` returned `["720p"]` and `veo-3.1` `["1080p"]` until API 2.34.0, which lists `480p` and `720p` for mini and `720p` and `1080p` for Veo; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
+**`resolutions[]` is the authority on which tiers a model takes.** Live on 2026-08-04, plus `seedance-2.5` from deployed spec `2.13.0` on 2026-08-07: `seedance-2.0` returns `["480p","720p","1080p","4k"]`; **`seedance-2.5` returns `["480p","720p"]`**; `sora-2`, since removed, returned `["720p"]`; `seedance-2.0-mini` returned `["720p"]` and `veo-3.1` `["1080p"]` until API 2.34.0, which lists `480p` and `720p` for mini and `720p` and `1080p` for Veo; **`omni-flash` depends on the server** (API 2.29.0; `4k` since 2.31.0): `["360p","720p","1080p","4k"]` or `["360p","720p","1080p"]` where the server enables them, else `["720p"]`. `4k` is there only when the list carries it, so never assume it. Read it instead of hardcoding a set — a value outside a model's list is a `400`, not a downscale. **Send `resolution` only when the model's list has more than one value.** A model whose list has one value has no `resolution` key, and a body carrying it is a `400`, that one value included: for those, `resolutions[]` reports what they render, not something you may send.
 
 **`durationsSeconds` is the same kind of authority for length**, and since 2.13.0 the entries no longer agree with each other: `seedance-2.5` publishes 4 … 30, every other model stops at or below 15. Read the model's own array rather than assuming a family shares a grid.
 
@@ -1072,11 +1070,11 @@ Measured on production renders (all providers, succeeded only, p10 to p90):
 | `seedance-2.0-mini` | 2 to 3 minutes | ~2.3 minutes | — |
 | `omni-flash` | not published | — | — |
 | `veo-3.1` | not published | — | — |
-| `sora-2` | not published | — | **~123s** (2026-08-02, n=1) |
+| `sora-2` (removed from the API in 2026-09) | not published | — | **~123s** (2026-08-02, n=1) |
 
 The right-hand column is `createdAt` → first observed `succeeded` at 15-second poll granularity, so it is an upper bound on a handful of renders — not a distribution, and not a contradiction of the fleet range next to it. **Quote the fleet range where there is one and say the number is a range.** Both renders anyone here has actually timed came back under three minutes, so "about five minutes" is a promise the API did not make: a user told five who waits nine has been misled, and the p90 says nine happens.
 
-For `seedance-2.5`, `omni-flash`, `veo-3.1` and `sora-2` there is no published range at all. Say the wait is unknown rather than borrowing another model's — and for `seedance-2.5` specifically, do not borrow `seedance-2.0`'s on the strength of the shared family name: a thirty-second render is six times the output of the five-second clips those numbers were measured on.
+For `seedance-2.5`, `omni-flash` and `veo-3.1` there is no published range at all. Say the wait is unknown rather than borrowing another model's — and for `seedance-2.5` specifically, do not borrow `seedance-2.0`'s on the strength of the shared family name: a thirty-second render is six times the output of the five-second clips those numbers were measured on.
 
 About 4% of `seedance-2.0` renders run past 10 minutes. Failures are usually reported faster than successes, but their tail is much worse, so a wait that is far past p90 is more likely a slow success than a silent failure.
 

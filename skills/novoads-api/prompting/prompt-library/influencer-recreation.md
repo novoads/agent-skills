@@ -19,7 +19,7 @@ returns the finished image. A render still going after about 105 seconds answers
 
 **Video route (after approval):** upload the approved still → pass its `assetId` as
 `startImageAssetId` on a Seedance video. See the `novoads-api` skill's SKILL.md for the call.
-Veo 3.1 and Sora 2 are **not** on this API.
+Veo 3.1 is on this API as `veo-3.1` (start frame only; see [veo-3-1.md](veo-3-1.md)); Sora 2 was removed from it in 2026-09.
 
 ## Workflow
 

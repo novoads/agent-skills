@@ -44,7 +44,7 @@ between the two models, that is a real tiebreaker — but confirm the actual fig
 These come from the live API contract (`GET /v1/openapi.json` is the authority):
 
 1. **Model is `nano-banana-pro`.** The script refuses everything else, including the retired `nano-banana-2` / `nano-banana-edit` strings and `gpt-image-2`.
-2. **Max 14 reference images.** `referenceAssetIds` caps at 14 on `nano-banana-pro` (spec 2.7.0 — `gpt-image-2` takes 4, `reve-2.1` 8). The script enforces it. Headroom is not a goal: 2-4 well-chosen references usually beat many.
+2. **Max 14 reference images.** `referenceAssetIds` caps at 14 on `nano-banana-pro` (spec 2.7.0 — `gpt-image-2` takes 4). The script enforces it. Headroom is not a goal: 2-4 well-chosen references usually beat many.
 3. **Prompts are capped**, and the three always-on suffixes count against it (roughly 1,500 together). The script checks the assembled prompt and fails locally, before spending anything.
 4. **No platform/screenshot chrome in output.** `NO_CHROME_SUFFIX` is always on (unless `--allow-chrome`).
 5. **Edge-safe rule always on.** Text and focal subjects must sit inside the central 84% of the canvas.

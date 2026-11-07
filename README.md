@@ -372,7 +372,7 @@ weather UI, scratch-off tickets, founder letters, dating-app cards, and more.
 
 - **[`chatgpt-image-ad`](skills/chatgpt-image-ad/SKILL.md)** — typography / UI mimicry, on `gpt-image-2`
 - **[`nano-banana-image-ad`](skills/nano-banana-image-ad/SKILL.md)** — photoreal / lifestyle / multi-reference, on `nano-banana-pro`
-- **[`clone-image-ad`](skills/clone-image-ad/SKILL.md)** — reverse-engineer an existing ad into a new library entry; asks which backend to validate against at Phase 1 (`gpt-image-2`, `nano-banana-pro` or `reve-2.1`) and can cross-validate against another at Phase 8
+- **[`clone-image-ad`](skills/clone-image-ad/SKILL.md)** — reverse-engineer an existing ad into a new library entry; asks which backend to validate against at Phase 1 (`gpt-image-2` or `nano-banana-pro`) and can cross-validate against the other at Phase 8
 
 **Read [shared/skills/image-ad-prompting/OVERVIEW.md](shared/skills/image-ad-prompting/OVERVIEW.md)
 first** — it holds the decision tree, the per-backend aspect-ratio matrix, and the standard
@@ -469,6 +469,7 @@ is the current answer, this table is a map.
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
 | **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | read `GET /v1/models` | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`wan-3.0`** | Video | 4–15s, any integer | `9:16` `16:9` `1:1` `4:3` `3:4` | **20,000 chars** | Wan 3.0 (API 2.53.0). Defaults to `9:16` and 5s. Audio on by default, off with `audioEnabled: false`. `startImageAssetId` (with `lastFrameAssetId` as the last frame) **or** up to 9 `referenceAssetIds`, never both. `resolution` `480p` `720p` `1080p`, default `720p`, each tier its own price. Unmeasured here: no render time on record. |
 | **`gpt-image-2.6-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default** (added in API 2.57.0, the default since 2.58.0): a call with no `model` and no `preset` renders this. The newest; slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
 | **`gpt-image-2.6-flare`** | Image | — | same six | **32,000 chars** | The newest fast one, for most images (API 2.57.0). Can answer `running`: poll it. |
 | **`gpt-image-2.5-sunburst`** | Image | — | same six | **32,000 chars** | Slower, keeps fine detail and labels exact. Can come back larger than 2.6, up to 2160 x 3840 at `9:16` at `high`: read `width` and `height`. Can answer `running`: poll it. |
@@ -490,12 +491,12 @@ they share one grid. Images have no start-frame concept. Videos are
 asynchronous (`202` + `jobId`, poll to a terminal status); images come back in the response body,
 or answer `running` and are polled the same way.
 
-`audioEnabled` (default `true`) is on the three Seedance variants and, since API 2.38.0,
-`kling-v3-pro`; send `false` for a clip meant to run silent. `omni-flash`, `veo-3.1` and `sora-2` are
+`audioEnabled` (default `true`) is on the three Seedance variants, `kling-v3-pro` (API 2.38.0)
+and `wan-3.0` (API 2.53.0); send `false` for a clip meant to run silent. `omni-flash` and `veo-3.1` are
 strict and `400` on it, as does `POST /v1/estimates` for every model: it does not move the price.
 
-`resolution` is on **`seedance-2.0`, `seedance-2.5`, and `omni-flash` where `GET /v1/models` lists
-more than one tier for it**, and it is the one output-shape field
+`resolution` is on **`seedance-2.0`, `seedance-2.5`, `wan-3.0` (API 2.53.0), and `omni-flash` where
+`GET /v1/models` lists more than one tier for it**, and it is the one output-shape field
 that moves the price: each tier is its own credit schedule, not a surcharge on the one below it.
 Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, which makes it a real
 draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`,

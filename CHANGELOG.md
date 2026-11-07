@@ -12,6 +12,42 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**No skill routes to `reve-2.1` or `sora-2` any more (`reve-2.1` retired in API 2.48.0, `sora-2`
+removed from the API in 2026-09).** v1.4.0 marked the two models in the tables it touched; this
+makes every other line true. For an agent:
+
+- **A second opinion on a still goes to the other image family.** `clone-image-ad`'s Phase 1
+  chooser, its Phase 8 cross-check and its shared guide validate on `gpt-image-2` or
+  `nano-banana-pro` only, and send a second opinion to the other of the two. Its validator,
+  `validate_image.py`, takes `--model gpt-image-2|nano-banana-pro`; the retired `reve-2.1` is
+  refused in argument parsing, before any upload, with a line that says so and names the model
+  to use instead.
+- **The image-ad overview's model table drops the retired `reve-2.1` column**, because the table
+  lists only what differs between models a call can still name; one line under it says what
+  happened. The prompt library's model notes and its ratio and cap tables, `template-format.md`,
+  the image-ad evals and the generator, thumbnail and character-sheet docs drop that model's caps
+  and ratios.
+- **`check_library.py` measures against `gpt-image-2` as the tightest model**, now that the
+  retired `reve-2.1` is gone: the baseline of over-long templates is empty (T8, T11 and T14 were
+  over only that model), and the library header says 40 of the 40 templates have room for the
+  pin block.
+- **A talking clip whose first word must land at once goes to `seedance-2.0`** with a reference or
+  a start frame, the eye-contact-break beat dropped and the first `silence_end` trimmed, in
+  `clone-video-ad`, `analyze-video` and the UGC and Seedance prompt files, where they used to point
+  at `sora-2` (removed from the API). `sora-2.md` opens with a removed notice and keeps its
+  measurements as history, so an old link still lands on a page that says what happened.
+- **Field lists name the live video models.** The `referenceAssetIds`, `audioEnabled`,
+  `resolution`, default and duration lines in `novoads-api`, `clone-video-ad` and the README drop
+  `sora-2` (removed) and add `wan-3.0` and `kling-v3-pro` where the spec has them, and the README's
+  model table gets a `wan-3.0` row read off its request schema.
+- **Guards.** `verify-image-caps.sh` no longer expects the retired `reve-2.1` caps: it skips a
+  schema whose `model` description says `model_retired`, with a printed note, fails if its own
+  table still names a retired id, and checks that the validator refuses `--model reve-2.1` as
+  retired before the env gate. `check-skill-targets.sh` no longer exempts the removed `sora-2`, so
+  a routing sentence that sends an agent to it fails there.
+
 ## v1.4.0 — 2026-11-07
 
 ### Changed

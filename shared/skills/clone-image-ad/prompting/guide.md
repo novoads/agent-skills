@@ -2,15 +2,18 @@
 
 This guide is the shared brain for the **`clone-image-ad`** skill — taking an existing image ad and turning it into a parameterizable prompt template stored in the shared library.
 
-The workflow is **model-agnostic through Phase 6**. The model choice happens in Phase 1: the skill asks the user (or auto-detects from the reference's typography-vs-photo balance) which of the three Novoads image models to validate against:
+The workflow is **model-agnostic through Phase 6**. The model choice happens in Phase 1: the skill asks the user (or auto-detects from the reference's typography-vs-photo balance) which of the two models the validator takes to validate against:
 
 - **`gpt-image-2`** — typography / UI-mimicry templates
 - **`nano-banana-pro`** — photoreal / lifestyle / multi-reference templates
-- **`reve-2.1`** — the third opinion, when a template renders wrong on both of the others or the user wants a deliberately different look
 
-Phase 8 optionally cross-validates on another model so the resulting library entry has accurate `Model notes:`.
+`reve-2.1`, the third opinion this list used to carry, was retired in API 2.48.0 and is refused
+before any charge. A second opinion, when a template renders wrong on the model you picked or
+the user wants a deliberately different look, now means the other model of these two.
 
-All three are reached through this skill's own validator, `scripts/validate_image.py`. The two
+Phase 8 optionally cross-validates on the other model so the resulting library entry has accurate `Model notes:`.
+
+Both are reached through this skill's own validator, `scripts/validate_image.py`. The two
 generator skills are model-locked on purpose; cloning is the one workflow that needs to move
 between models, so it carries its own caller.
 
@@ -55,8 +58,8 @@ curl -sS -X POST "$NOVOADS_BASE_URL/v1/estimates" \
 
 Multiply by the number of calls the run may need and present that as a **range**: the floor is
 Phase 4 + Phase 7 (two calls), the ceiling is Phase 4 + four iterations + Phase 7 + Phase 8.
-Say which model each leg prices at — the schedules differ by more than 3× across the three, so
-a cross-model Phase 8 on `reve-2.1` costs meaningfully more than the same call on `gpt-image-2`.
+Say which model each leg prices at: the two models price on different schedules, so a
+cross-model Phase 8 on `nano-banana-pro` is not priced by an estimate made for `gpt-image-2`.
 
 A **batch** (several references in one conversation) prices once, up front: the estimate
 validates the prompt it is given, so run one estimate (it charges nothing) per distinct final prompt, present
@@ -100,7 +103,7 @@ expensive as anywhere else in the ecosystem.
 
 1. The reference image path resolves to an existing file. If not, stop and ask.
 2. `.env` has `NOVOADS_API_KEY`; `./scripts/check-novoads-env.sh` prints OK.
-3. **Pick the model.** Ask the user "validate against gpt-image-2, nano-banana-pro, or reve-2.1?" or auto-detect from the reference (typography-heavy → `gpt-image-2`; photoreal / handheld / multi-ref → `nano-banana-pro`). Default to one of those two; `reve-2.1` is a deliberate choice, not a fallback.
+3. **Pick the model.** Ask the user "validate against gpt-image-2 or nano-banana-pro?" or auto-detect from the reference (typography-heavy → `gpt-image-2`; photoreal / handheld / multi-ref → `nano-banana-pro`). Do not offer `reve-2.1`: it was retired in API 2.48.0, and the validator refuses it by name.
 4. Locate this skill's validator: `skills/clone-image-ad/scripts/validate_image.py`. It takes `--model` and applies that model's own aspect-ratio grid.
 5. Read the save target (the shared library). If the file exists, read its current entries to know what tags are taken. If not, plan to create it.
 
@@ -110,11 +113,11 @@ This is the most important phase. Read the reference image and describe what you
 
 - **Aspect ratio.** Measure or estimate (W:H). Map to the nearest ratio the chosen model accepts:
   - `gpt-image-2`: `1:1` `2:3` `4:5` `9:16` `16:9` `21:9`
-  - `nano-banana-pro` and `reve-2.1`: those six plus `3:2` `3:4` `4:3` `5:4`
+  - `nano-banana-pro`: those six plus `3:2` `3:4` `4:3` `5:4`
 
   If the original's ratio exists on one model and not another, say so in the template's
   `Aspect ratio:` field — it is a real routing constraint, not a footnote. A `1.91:1` ad maps
-  to `16:9` and post-crops; a `4:3` ad is native on two models and needs a mapping on the third.
+  to `16:9` and post-crops; a `4:3` ad is native on `nano-banana-pro` and needs a mapping on `gpt-image-2`.
 - **Format type.** What this ad pretends to be: editorial article, product flatlay, comparison table, fake search results, story composite, native UI mimic, etc.
 - **Layout structure.** Header / hero / footer / grid — how regions are arranged.
 - **Typography.** Family (geometric sans, condensed sans, serif, handwritten marker, monospace), weight, hierarchy. Do NOT name specific fonts unless they're iconic and necessary; instead describe the *feel*.
@@ -149,17 +152,15 @@ the three always-on safety suffixes consume 1,575 characters of it before your f
 |---|---|---|
 | `gpt-image-2` | 32,000 | 30,425 |
 | `nano-banana-pro` | 50,000 | 48,425 |
-| `reve-2.1` | 4,000 | **2,425** |
 
-Deployed spec 2.16.0, verified 2026-08-08. On the first two, be as exhaustive as Phase 2 asks
-and do not budget at all: a faithful six-panel clone wants roughly 3,000 characters, which is a
-tenth of the room. On `reve-2.1` that same clone overflows on the first attempt, and that is the
-expected outcome rather than user error. The validator checks the assembled prompt locally,
+Deployed spec 2.16.0, verified 2026-08-08. On both, be as exhaustive as Phase 2 asks and do not
+budget at all: a faithful six-panel clone wants roughly 3,000 characters, which is a tenth of
+the room. (The one model where that clone overflowed, `reve-2.1` at 4,000, was retired in API
+2.48.0.) If a prompt ever does overflow, the validator checks the assembled prompt locally,
 fails before spending anything, prints the exact budget for the flags you passed
-(`--allow-chrome` and `--no-safe-zone` each buy some of it back), and names the roomier models.
-On `reve-2.1`, aim under 2,425 anyway: a v1 that only just fits leaves no room for Phase 5's
-refinements. Switching models is the other repair, and usually the better one, since trimming
-costs the clone fidelity the run exists to measure.
+(`--allow-chrome` and `--no-safe-zone` each buy some of it back), and names the roomier model.
+Switching models is the other repair, and usually the better one, since trimming costs the
+clone fidelity the run exists to measure.
 
 Show the v1 prompt to the user, then price the run (see **Cost** above) and get the go-ahead.
 
@@ -169,7 +170,7 @@ Fire one generation with the original as a reference and the matched aspect rati
 
 ```bash
 ./skills/clone-image-ad/scripts/validate_image.py \
-  --model <gpt-image-2|nano-banana-pro|reve-2.1> \
+  --model <gpt-image-2|nano-banana-pro> \
   --prompt "$(cat prompts/<tag>-v1.txt)" \
   --aspect-ratio <matched_ratio> \
   --image-ref <reference_path> \
@@ -185,7 +186,7 @@ a top-level `prompts/` of its own — correct instinct, untracked directory, a d
 explain.) The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid. Read the generated
 image when it returns.
 
-The reference cap is per model — 4 on `gpt-image-2`, 14 on `nano-banana-pro`, 8 on `reve-2.1`
+The reference cap is per model — 4 on `gpt-image-2`, 14 on `nano-banana-pro`
 (verified against spec 2.7.0, 2026-08-04). For Phase 4 you normally pass exactly one: the
 original ad.
 
@@ -281,13 +282,13 @@ before spending.
 
 ### Phase 8: Cross-model validation (optional but recommended)
 
-Run the same template through another model and note the deltas in the `Model notes` block:
+Run the same template through the other model (`nano-banana-pro` if `gpt-image-2` drew it,
+`gpt-image-2` if `nano-banana-pro` did) and note the deltas in the `Model notes` block:
 
 ```markdown
 **Model notes:**
 - **gpt-image-2:** {what works, what struggles, e.g. "clean — strong on the table text"}
 - **nano-banana-pro:** {e.g. "table text blurs at small row height — keep rows to 4 max, or use gpt-image-2"}
-- **reve-2.1:** {untested, or what it did differently}
 ```
 
 Only the model you actually ran gets a claim. For the rest, say so:
@@ -296,7 +297,6 @@ Only the model you actually ran gets a claim. For the rest, say so:
 **Model notes:**
 - **gpt-image-2:** validated clean (see iteration path)
 - **nano-banana-pro:** untested — validate before using on that model
-- **reve-2.1:** untested
 ```
 
 Never write a note for a model you didn't run. An invented model note is worse than an absent
@@ -309,7 +309,7 @@ Compose the library entry. Use the format in [template-format.md](../../image-ad
 The entry must include:
 - **Tag and one-line title** (e.g. `T40 — Lifestyle hero with overlay text`)
 - **When to use** — 1-2 sentences on positioning fit
-- **Aspect ratio** recommendation, and whether it is native on all three models
+- **Aspect ratio** recommendation, and whether it is native on both models
 - **Reference image guidance** — what kind of reference to pass when reusing this template
 - **Variable schema** — every `{placeholder}` with a 1-line description
 - **Template prompt** in a fenced code block, ready to copy-paste-fill

@@ -27,7 +27,7 @@ Check `references/` at the repo root before asking for anything visual. Product 
 2. Open the matching formula and follow it:
    - Video, Seedance: [seedance-2.md](prompt-library/seedance-2.md) for the platform rules, then [ugc](prompt-library/seedance-2-ugc.md), [premium reveal](prompt-library/seedance-2-premium-reveal.md), [product hero](prompt-library/seedance-2-product-hero.md), [studio lookbook](prompt-library/seedance-2-studio-lookbook.md), or [feature walkthrough](prompt-library/seedance-2-feature-walkthrough.md).
    - Video, fast vertical clip with a long prompt: `omni-flash`, guided by `shared/skills/gemini-omni-flash/prompting/guide.md`.
-   - Image: `shared/skills/image-ad-prompting/OVERVIEW.md` routes between `gpt-image-2`, `nano-banana-pro` and `reve-2.1`.
+   - Image: `shared/skills/image-ad-prompting/OVERVIEW.md` routes between `gpt-image-2` and `nano-banana-pro`.
 3. Resolve `productId` once per session from `GET /v1/products` — the list comes back under **`.items`**, not `.products` (verified live 2026-08-04). Default to the product named in `MASTER_CONTEXT.md`. It is optional, and it is what makes `GET /v1/generations?productId=…` a useful history later. There are no projects or scripts on this API, and folders are read-only.
 4. Upload each reference image once with `POST /v1/uploads`. The `assetId` is durable and reusable across calls, models and sessions — re-uploading the same bytes mints a second asset and loses the identity anchor.
 

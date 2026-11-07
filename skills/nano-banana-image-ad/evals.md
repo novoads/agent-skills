@@ -69,15 +69,16 @@ the product, the logo, a character shot, a style board, several face angles.
 **Observed drift.** `nano-banana-pro` takes up to **14** `referenceAssetIds` — raised
 from 4 in spec `2.7.0`, verified live 2026-08-04 with pinned out-of-range probes (15
 refused, 14 accepted), and re-landed in this pack by PR #88. `gpt-image-2` takes 4 and
-`reve-2.1` takes 8. The number is per model and there is no single one.
+each Seedream 5 model 10. The number is per model and there is no single one.
 
-**The stale copy is still on disk.** The `novoads-api` skill's *Guardrails* list reads
+**The stale copy was still on disk when this eval was written.** The `novoads-api` skill's
+*Guardrails* list then read
 *"Image `referenceAssetIds` caps are per model: 8 on `reve-2.1`, 4 on `gpt-image-2` and
 `nano-banana-pro`"* — the pre-`2.7.0` value — while the same file's own `POST /v1/images`
-section and `reference.md` both say 14. An agent that reads the guardrail list last
-caps itself at four on a model that takes fourteen, and it does so **silently**: nothing
-refuses a short array. That contradiction is present in the repo as this file is
-written, and closing it is not this file's job — naming it is.
+section and `reference.md` both said 14. An agent that read the guardrail list last
+capped itself at four on a model that takes fourteen, and it did so **silently**: nothing
+refuses a short array. That line has since been corrected to 14, and closing it was not
+this file's job — naming it was.
 
 **Assertions.**
 

@@ -56,7 +56,7 @@ its 4 is measured rather than unknown.
 - No step of the run caps at four, and no sentence quotes four as this model's limit.
 - The authority for a cap is `reference.md`'s per-model table, re-checkable with
   `./scripts/verify-image-caps.sh` — never a number restated in a workflow step.
-- If the run is routed to `gpt-image-2` or `reve-2.1` instead, the 5+ advice is stated
+- If the run is routed to `gpt-image-2` instead, the 5+ advice is stated
   as **not surviving the trip**, with that model's real cap named.
 
 **Fails if:** four references are cited on a likeness run; or the run reports four as

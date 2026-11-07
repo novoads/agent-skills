@@ -1,6 +1,6 @@
 # Image-ad ecosystem — overview for AI coding agents
 
-**One-line summary:** three skills + one shared prompt library let you generate standalone Meta image-ad creatives on any of the Novoads image models — ChatGPT Image 2, Nano Banana Pro, Reve 2.1 — and reverse-engineer existing ads into reusable templates. Output is image files. Meta-side uploading is handled by a *separate* `meta-ad-builder` skill, not by these.
+**One-line summary:** three skills + one shared prompt library let you generate standalone Meta image-ad creatives on two of the Novoads image models — ChatGPT Image 2 and Nano Banana Pro — and reverse-engineer existing ads into reusable templates. Output is image files. Meta-side uploading is handled by a *separate* `meta-ad-builder` skill, not by these.
 
 **Read this whole file** at the start of any session where the user mentions: making an ad, image creative, ad library, gpt-image-2, ChatGPT Image 2, Nano Banana, Nano Banana Pro, Reve, cloning an ad, reverse-engineering an ad, or anything in the `T1–T42` template namespace.
 
@@ -26,13 +26,14 @@
 │ TEMPLATE-CREATION SKILL (reverse-engineer an ad → library)      │
 │ skills/clone-image-ad/   asks which model to validate against,  │
 │                          routes to the matching generator, and  │
-│                          can cross-check on a third (reve-2.1). │
+│                          can cross-check on the other one.      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-`reve-2.1` has no generator skill of its own. It is reachable from `clone-image-ad`'s
-Phase-1 chooser and by naming it directly on a call — it exists as a second opinion when a
-template renders wrong on both of the other two, not as a default route.
+`reve-2.1` was retired in API 2.48.0; `clone-image-ad`'s Phase-1 chooser used to offer it as
+a third opinion. The API refuses it before any charge (`400` `invalid_input`,
+`details.reason: "model_retired"`). A second opinion on a template now goes to the other
+family: `nano-banana-pro` if a GPT model drew it, a GPT model if `nano-banana-pro` did.
 
 ---
 
@@ -142,27 +143,31 @@ a markdown file**, including this one, which carries none.
 
 ---
 
-## One endpoint, three models
+## One endpoint, two models
 
 Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which usually answers with the finished images already in the response. One still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): the scripts poll it; a hand-rolled call polls
 `GET /v1/generations/{jobId}` to a terminal status, reads `images[]` there and never resubmits, because a resubmit is a second charge. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
 the `novoads-api` skill's `reference.md`; this table is only what differs *between the models*.
 
-| | `gpt-image-2` | `nano-banana-pro` | `reve-2.1` |
-|---|---|---|---|
-| **Default?** | no: a call naming no `model` renders `gpt-image-2.6-sunburst` (API 2.58.0), so name this one | no | no (retired in API 2.48.0) |
-| **Prompt cap** | model cap | model cap | model cap |
-| **Reference images** | up to 4 `referenceAssetIds` | up to 14 | up to 8 |
-| **Aspect ratios** | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | those plus `3:2` `3:4` `4:3` `5:4` | same 10 as Nano Banana Pro |
-| **Images per call** | `numImages` 1–4 | 1–4 | 1–4 |
+| | `gpt-image-2` | `nano-banana-pro` |
+|---|---|---|
+| **Default?** | no: a call naming no `model` renders `gpt-image-2.6-sunburst` (API 2.58.0), so name this one | no |
+| **Prompt cap** | model cap | model cap |
+| **Reference images** | up to 4 `referenceAssetIds` | up to 14 |
+| **Aspect ratios** | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | those plus `3:2` `3:4` `4:3` `5:4` |
+| **Images per call** | `numImages` 1–4 | 1–4 |
+
+`reve-2.1` had a third column here until it was retired in API 2.48.0. A retired model is
+refused before any charge, so it is not one to choose between, and the table keeps only the
+models a call can still name.
 
 Notes that bite:
 
 - **`aspectRatio` defaults to `1:1`** on every model. For a Stories/Reels creative you must
   say `9:16` — the default is not the ad you wanted.
 - **The three ratios the template library actually uses (`1:1`, `2:3`, `9:16`) are supported
-  on all three models**, so no template needs a fallback-and-crop. Only bespoke prompts can
-  hit the gap: `3:2`, `3:4`, `4:3` and `5:4` exist on Nano Banana Pro and Reve but **not** on
+  on both models**, so no template needs a fallback-and-crop. Only bespoke prompts can
+  hit the gap: `3:2`, `3:4`, `4:3` and `5:4` exist on Nano Banana Pro but **not** on
   gpt-image-2.
 - **`numImages` is one call, not N calls.** Ask for 4 variants by sending `numImages: 4` and
   the response comes back with four images in `images[]`. Do not fan out four parallel
@@ -175,7 +180,7 @@ Notes that bite:
 
 **Editing exists on `gpt-image-2` alone, from spec 2.10.0.** `sourceAssetId` on
 `POST /v1/images` edits an existing image from a prompt — "change the background of this
-one", "remove the text". `nano-banana-pro` and `reve-2.1` do not publish the field, so an
+one", "remove the text". `nano-banana-pro` does not publish the field, so an
 edit request routes to `chatgpt-image-ad` regardless of which model the aesthetic would
 otherwise favour.
 
@@ -220,7 +225,7 @@ gives above. The table itself is never shown.
 | Ambiguous? | Look up the matching template in `prompting/prompt-library.md` and read its `Model notes:` block — every entry recommends one. |
 | No template applies **and** the concept carries no format signal either way | **`chatgpt-image-ad`** is the tiebreak. Its script sends `gpt-image-2` by name; a call that names no model renders `gpt-image-2.6-sunburst` (API 2.58.0), so never drop `model` to reach `gpt-image-2`. |
 
-**Step 3: For cloning, the `clone-image-ad` skill handles all three models.** At Phase 1 it
+**Step 3: For cloning, the `clone-image-ad` skill handles both models.** At Phase 1 it
 asks the user (or auto-detects from the reference's typography-vs-photo balance) which model
 to validate against. It then routes through the matching generator's
 `scripts/generate_image.py`. Phase 8 optionally cross-validates on a second model so the
@@ -260,16 +265,16 @@ specific run, use `--allow-chrome` or `--no-safe-zone` flags and document why.
 
 The suffixes count against the prompt cap of whichever model you send to, and together they
 run to exactly **1,575**. **That cap is per model**, not one number: 32,000 on `gpt-image-2`,
-50,000 on `nano-banana-pro`, 4,000 on `reve-2.1` (deployed spec 2.16.0, verified 2026-08-08).
+50,000 on `nano-banana-pro` (deployed spec 2.16.0, verified 2026-08-08).
 The script measures the final prompt against the model it is locked to, or the one you named,
 and refuses pre-network with the exact overage, so an overflow costs a round trip rather than
 credits.
 
-**Where the budget still bites: `reve-2.1`, and nowhere else.** Its 4,000 leaves 2,425 for a
-template body, or 2,025 once the mandatory 400-character pin block is in, and **23 of the 40
-templates** have that much room while three (T8, T11, T14) exceed even 2,425. The other two
-models leave more than 30,000, which every template in this library clears with room to spare,
-so on the production path the length arithmetic is no longer a constraint on what you write.
+**The budget no longer bites on either model.** Each leaves more than 30,000 for a template
+body, pin block included, which every template in this library clears with room to spare, so
+the length arithmetic is no longer a constraint on what you write. It bit only on one model:
+`reve-2.1`, retired in API 2.48.0, whose 4,000 left 2,025 once the mandatory 400-character pin
+block was in. 23 of the 40 templates fit there, and T8, T11 and T14 did not fit even without it.
 Pass the pin block as `--pin-block "<product description>"` rather than hand-writing it: the
 standard guard is the wording that was measured to stop invented label copy. Per-template
 headroom, per model:

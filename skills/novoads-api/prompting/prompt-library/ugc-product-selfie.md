@@ -240,7 +240,8 @@ are preserved from frame one. This is the correct path for animating UGC stills.
 6. **ALWAYS end prompt with:** `"No subtitles, no captions, no text overlays."`
 7. See [seedance-2-ugc.md](seedance-2-ugc.md) for the full UGC video prompting formula and cue library.
 
-### Veo 3.1 and Sora 2
+### Veo 3.1
 
-Both are on this API (`veo-3.1` and `sora-2`); read [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md)
-for their grids. Neither takes `referenceAssetIds`, so a product reference goes to Seedance or `omni-flash`.
+`veo-3.1` is on this API; read [veo-3-1.md](veo-3-1.md) for its grid. It takes no
+`referenceAssetIds`, so a product reference goes to Seedance or `omni-flash`.
+Sora 2, which this section also covered, was removed from the API in 2026-09 ([sora-2.md](sora-2.md) says what happened).

@@ -50,7 +50,7 @@ A short noun phrase distilling the format. 4-8 words. Examples: "Apple Notes lis
 Two ideas: who/what brand fit (product category, target audience temperament), and which positioning angle (credibility, social proof, comparison, sentimental, etc.). Don't list rules; describe the gut fit.
 
 ### **Aspect ratio**
-Prefer a ratio every model accepts: `1:1`, `2:3`, `4:5`, `9:16`, `16:9`, `21:9`. The four extra ratios `3:2`, `3:4`, `4:3` and `5:4` exist on `nano-banana-pro` and `reve-2.1` but **not** on `gpt-image-2` — if the template needs one of those, say so in **Model notes** so the consuming skill routes correctly instead of hitting a `400`.
+Prefer a ratio every model accepts: `1:1`, `2:3`, `4:5`, `9:16`, `16:9`, `21:9`. The four extra ratios `3:2`, `3:4`, `4:3` and `5:4` exist on `nano-banana-pro` but **not** on `gpt-image-2` — if the template needs one of those, say so in **Model notes** so the consuming skill routes correctly instead of hitting a `400`.
 
 ### **Reference image** (what `--image-ref` to pass)
 Tell the future user/agent what kind of image to ground the generation on. The more specific the better:

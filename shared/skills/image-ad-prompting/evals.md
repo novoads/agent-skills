@@ -50,19 +50,18 @@ its model's cap minus 1,575:
 |---|---|---|---|
 | `gpt-image-2` | 32,000 | 30,425 | `chatgpt-image-ad`, `clone-image-ad` |
 | `nano-banana-pro` | 50,000 | 48,425 | `nano-banana-image-ad`, `clone-image-ad` |
-| `reve-2.1` | 4,000 | **2,425** | `clone-image-ad` only |
 
 **Check, two tiers. Automated.** A body over **30,425** fails: templates are
 authored and validated on `gpt-image-2`, so a body no generator can send is a
 broken template. Nothing in the library is within 27,000 characters of that line
-today. A body over **2,425** is tracked instead, because it is refused only on
-`reve-2.1`, which no production run reaches.
+today. A body over the TIGHTEST model's room is tracked instead, against an exact
+baseline. Since the API retired `reve-2.1` (API 2.48.0) the tightest model is
+`gpt-image-2` itself, so that tier is empty, and it stays in the checker for the
+next route that adds a model with less room.
 
-**Three templates are over the `reve-2.1` line and grandfathered in
-`BASELINE_OVER_TIGHTEST`: T8 (+170), T11 (+377), T14 (+484).** The set did not
-change when 2.16.0 landed, but its meaning did: these were three templates nobody
-could send anywhere, and they are now three templates that route to two of the
-three models and cannot be cross-checked on the third. They have not simply been
+**The baseline is empty.** Until the retirement it held the three templates over the
+`reve-2.1` line (its 4,000 left 2,425, and it was retired in API 2.48.0):
+T8 (+170), T11 (+377), T14 (+484). They had not simply been
 shortened because **every body in this library is a validated artifact** — the
 text is worth what it is worth because someone round-tripped it through a model
 and looked at the output. Trimming one to buy a green check, without the credits
@@ -70,11 +69,6 @@ to re-render and confirm the trim was cosmetic, degrades the library to satisfy
 its own test. So the baseline records the debt instead, and it may only shrink: a
 template that starts fitting fails until its row is deleted, and a new template
 that overflows fails immediately.
-
-**What 2.16.0 does not fix:** the tail of this eval is now about a cross-model
-cross-check, not about production. If the pack ever routes a production run to
-`reve-2.1`, the 2,425 line is a hard failure again and the baseline is real debt
-rather than a note.
 
 The trim itself is not hard when someone funds it. T11 and T14 both repeat
 constraints their own `**Note:**` says the suffixes already enforce — T11 states
@@ -84,17 +78,19 @@ constraints their own `**Note:**` says the suffixes already enforce — T11 stat
 ### L1b — the pin-block headroom is published, and current
 
 **Why:** pinning every brand mark is mandatory (see L-H2), and the pin block
-costs 400 characters. Half the library is too long to carry it. A run discovers
+costs 400 characters. On a tight model, part of the library is too long to carry
+it (on the retired `reve-2.1`, 17 of 40 templates were). A run discovers
 this *after* writing a full brand fill, and the natural repair — trimming the pin
 block — removes the guard that stops the model inventing label copy. Whichever
 way it resolves, the run has already been shaped by a number nobody published.
 
 **Check:** the library header states how many templates have room for the
-standard pin block **on `reve-2.1`**, and the checker recomputes it. **23 of 40**
-as of 2026-08-08. The model has to be named because it is the only one where the
-answer is not "all of them": `gpt-image-2` and `nano-banana-pro` leave over 30,000
-characters pinned, so every template clears them. Editing any template body moves
-the number and reddens the check. Automated.
+standard pin block **on the tightest model, named**, and the checker recomputes it.
+**40 of 40 on `gpt-image-2`** as of 2026-11-07: `gpt-image-2` and `nano-banana-pro`
+leave over 30,000 characters pinned, so every template clears them. Until it was
+retired (API 2.48.0) the named model was `reve-2.1`, at 23 of 40 as of 2026-08-08.
+Editing any template body past the line moves the number and reddens the check.
+Automated.
 
 ### L2 — one count per countable element
 

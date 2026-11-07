@@ -67,8 +67,8 @@ declare -a COMMON_REFS=(
 )
 
 # nano-banana-pro takes 14 (fal's published ceiling for the /edit arm, probed
-# 2026-08-03). gpt-image-2 is still 4 and reve-2.1 is 8, so this guard tracks
-# the model this script actually calls.
+# 2026-08-03). gpt-image-2 is still 4, so this guard tracks the model this
+# script actually calls.
 REF_CAP=14
 if [ "${#COMMON_REFS[@]}" -gt "$REF_CAP" ]; then
   echo "ERROR: ${#COMMON_REFS[@]} references configured; nano-banana-pro caps at $REF_CAP." >&2

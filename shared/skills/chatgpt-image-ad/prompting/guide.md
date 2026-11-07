@@ -52,7 +52,7 @@ These come from the live API contract (`GET /v1/openapi.json` is the authority):
 
 One model, one enum — no per-broker matrix any more:
 
-| Ratio | `gpt-image-2` | `nano-banana-pro` / `reve-2.1` |
+| Ratio | `gpt-image-2` | `nano-banana-pro` |
 |---|---|---|
 | `1:1` (default) | ✅ | ✅ |
 | `2:3` | ✅ | ✅ |

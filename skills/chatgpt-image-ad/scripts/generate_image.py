@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 BASE_URL_DEFAULT = "https://api.novoads.ai"  # host only; this script appends /v1/...
-# gpt-image-2's own aspect-ratio grid. Nano Banana Pro and Reve 2.1 accept four more
+# gpt-image-2's own aspect-ratio grid. Nano Banana Pro accepts four more
 # (3:2, 3:4, 4:3, 5:4) — this model does not, and the request schema is strict.
 ALLOWED_RATIOS = {"1:1", "4:5", "2:3", "9:16", "16:9", "21:9"}
 LOCKED_MODEL = "gpt-image-2"
@@ -48,10 +48,9 @@ LOCKED_MODEL = "gpt-image-2"
 #   model             referenceAssetIds   prompt chars
 #   gpt-image-2                       4         32,000
 #   nano-banana-pro                  14         50,000
-#   reve-2.1                          8          4,000
 #
-# 2.16.0 is what ended the single 4,000 budget: only reve-2.1 still carries it, and
-# reve-2.1 is reachable only from the clone-image-ad validator.
+# 2.16.0 is what ended the single 4,000 budget. The one model that kept it was
+# reve-2.1, retired in API 2.48.0, and the clone-image-ad validator refuses it by name.
 MAX_REFS = 4
 MAX_IMAGES = 4  # numImages enum: 1, 2, 3, 4
 MAX_PROMPT_CHARS = 32000  # gpt-image-2 prompt ceiling; the API 400s above it

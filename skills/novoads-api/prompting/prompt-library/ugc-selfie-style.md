@@ -1,10 +1,11 @@
 # UGC selfie-style video — cross-model prompting guide
 
-> **All three models this guide targets are on this API.** `veo-3.1` and
-> `sora-2` ship as of spec `2.1.0` — their per-model sections below are callable, subject to
-> the grids and field limits in [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md), which are
-> the authority for what those bodies accept. **Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0)**; its
-> section is vendor prompt craft, and the request body comes from `reference.md`. There is still no scene or b-roll endpoint.
+> **Two of the three models this guide targets are on this API.** `veo-3.1` ships as of spec
+> `2.1.0` — its section below is callable, subject to the grids and field limits in
+> [veo-3-1.md](veo-3-1.md), which is the authority for what that body accepts. **Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0)**; its
+> section is vendor prompt craft, and the request body comes from `reference.md`.
+> `sora-2` was removed from the API in 2026-09 (a call naming it is a `400`): its section below is kept as history, and [sora-2.md](sora-2.md) says what happened.
+> There is still no scene or b-roll endpoint.
 >
 > **The aesthetic advice in *Core principles* is model-agnostic and transfers to Seedance.**
 > The per-model *formulas* do not: do not port a Veo or Kling formula to Seedance by
@@ -104,9 +105,9 @@ in a casual tone: 'Nobody talks about how productivity advice is just
 procrastination.' No subtitles, no captions, no text overlays.
 ```
 
-### Sora 2 — narrative director · **live on this API**
+### Sora 2 — narrative director · **removed from the API in 2026-09**
 
-Grid: `durationSeconds` 4/8/12 only, `aspectRatio` `9:16` or `16:9`, `startImageAssetId` yes, **no `referenceAssetIds`**. Full body in [sora-2.md](sora-2.md). Measured here: no leading silence, and `Medium selfie shot` came back a **tight close-up** — name the framing concretely.
+Removed from the API in 2026-09, so this section is history, kept for its craft: the grid was `durationSeconds` 4/8/12 only, `aspectRatio` `9:16` or `16:9`, `startImageAssetId` yes, **no `referenceAssetIds`**, and [sora-2.md](sora-2.md) keeps the body it took. Measured here: no leading silence, and `Medium selfie shot` came back a **tight close-up** — name the framing concretely. A talking clip whose first word must land at once now goes to `seedance-2.0` with a reference or a start frame, the eye-contact-break beat dropped, and the first `silence_end` checked and trimmed.
 
 **Formula:** Structure with headers: `Format & Style`, `Camera`, `Main Subject`, `Location`, `Lighting`, `Actions & Camera Beats`
 

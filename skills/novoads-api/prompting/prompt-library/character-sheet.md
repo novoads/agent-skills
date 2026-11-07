@@ -9,7 +9,7 @@
 ## The reference budget — read this first
 
 A generation may cite up to **14 `referenceAssetIds`** on `nano-banana-pro` (spec 2.7.0 —
-`gpt-image-2` caps at 4, `reve-2.1` at 8). The budget is generous; the discipline below still
+`gpt-image-2` caps at 4). The budget is generous; the discipline below still
 shapes this whole workflow, because more references dilute the hero.
 
 What makes it workable: `POST /v1/uploads` returns a **durable `assetId`** that keeps working

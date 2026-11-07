@@ -7,9 +7,10 @@ generator skills are deliberately model-locked (chatgpt-image-ad to gpt-image-2,
 nano-banana-image-ad to nano-banana-pro) so a production run cannot drift models by
 accident. Cloning has the opposite requirement: Phase 4 validates against one model
 and Phase 8 re-runs the SAME template on another to fill in the Model notes block.
-So this one takes --model, applies that model's own grid, and refuses nothing.
+So this one takes --model, applies that model's own grid, and refuses only a retired id.
 
-`reve-2.1` is reachable only from here — it has no generator skill of its own.
+`reve-2.1` was retired in API 2.48.0. `--model reve-2.1` stops here, before the network,
+with a line that says so and names the model to validate on instead.
 
 It also carries the clone workflow's EDIT path: --source-image / --source-asset-id
 send `sourceAssetId` (gpt-image-2 only), which repaints named zones of an existing
@@ -52,18 +53,39 @@ BASE_URL_DEFAULT = "https://api.novoads.ai"  # host only; this script appends /v
 # goes for max_refs (referenceAssetIds maxItems) and max_prompt_chars (prompt
 # maxLength): both are PER MODEL, neither is one number across the set. The prompt
 # ceilings stopped being uniform in spec 2.16.0, which raised gpt-image-2 to 32,000
-# and nano-banana-pro to 50,000 while reve-2.1 kept 4,000.
+# and nano-banana-pro to 50,000 while reve-2.1 kept 4,000. reve-2.1 has since been retired
+# (API 2.48.0): see RETIRED below.
 #
 # This table is the whole file's source for every cap below. Read off the live
 # per-model request schemas at /v1/openapi.json and verified against deployed spec
-# 2.16.0 on 2026-08-08 — re-check: ./scripts/verify-image-caps.sh
+# 2.16.0 on 2026-08-08 (re-read at 2.59.0 on 2026-11-07) — re-check:
+# ./scripts/verify-image-caps.sh
 _WIDE_RATIOS = {"1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"}
 MODELS = {
     "gpt-image-2":     {"ratios": {"1:1", "4:5", "2:3", "9:16", "16:9", "21:9"},
                         "max_refs": 4,  "max_prompt_chars": 32000},
     "nano-banana-pro": {"ratios": _WIDE_RATIOS, "max_refs": 14, "max_prompt_chars": 50000},
-    "reve-2.1":        {"ratios": _WIDE_RATIOS, "max_refs": 8,  "max_prompt_chars": 4000},
 }
+# Ids the API's spec still names only to refuse them. A --model naming one stops in
+# argument parsing, before the network, with what happened and where to go instead,
+# rather than reaching the API's own 400 after an upload.
+RETIRED = {
+    "reve-2.1": (
+        "reve-2.1 was retired in API 2.48.0: the API refuses it before any charge "
+        "(400 invalid_input, details.reason \"model_retired\"). For a second opinion, "
+        "validate on the other model: nano-banana-pro if gpt-image-2 drew it, "
+        "gpt-image-2 if nano-banana-pro did."
+    ),
+}
+
+
+def model_arg(value: str) -> str:
+    """argparse type for --model: a retired id is refused with its own message."""
+    if value in RETIRED:
+        raise argparse.ArgumentTypeError(RETIRED[value])
+    return value
+
+
 ALL_RATIOS = set().union(*(m["ratios"] for m in MODELS.values()))
 MAX_IMAGES = 4  # numImages enum: 1, 2, 3, 4
 MIN_DIMENSION = 1024
@@ -529,6 +551,7 @@ def main() -> int:
     p.add_argument(
         "--model",
         required=True,
+        type=model_arg,
         choices=sorted(MODELS),
         help="Which model to validate against. Each has its own aspect-ratio grid.",
     )
@@ -576,7 +599,9 @@ def main() -> int:
         metavar="PATH",
         help=(
             "Reference image path (PNG/JPG/WEBP). Repeatable; the cap depends on "
-            "--model (gpt-image-2: 4, nano-banana-pro: 14, reve-2.1: 8). "
+            "--model ("
+            + ", ".join(f"{n}: {m['max_refs']}" for n, m in sorted(MODELS.items()))
+            + "). "
             "Uploaded once each; order is preserved and may be addressed positionally "
             "by the prompt."
         ),

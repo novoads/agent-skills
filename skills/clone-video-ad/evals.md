@@ -110,8 +110,10 @@ holds.
 - The multiplier is never stated from memory as the quote. Approximations orient; the
   estimate decides.
 - `480p` is named as a real draft tier at ≈half the base, not as saving nothing.
-- The key is never sent on `seedance-2.0-mini`, `sora-2` or `veo-3.1` (`400 Unrecognized key`
-  on all three), nor on `omni-flash` wherever `GET /v1/models` lists only `720p` for it.
+- The key is never sent on `kling-v3-pro` (`400 Unrecognized key`: its body has no such
+  field), nor on `omni-flash` wherever `GET /v1/models` lists only `720p` for it. On
+  `seedance-2.0-mini` and `veo-3.1` (which take it since API 2.34.0) it carries only a tier
+  `GET /v1/models` lists for that model.
 - On a series, the tier is paid per clip and the total says so.
 
 **Fails if:** a tier above the default is chosen and the estimate body does not carry it; or

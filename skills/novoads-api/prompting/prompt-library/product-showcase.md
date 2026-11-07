@@ -115,7 +115,7 @@ Once the starting frame is approved and video generation begins, the video model
 
 - Reference the starting frame ("continues from the still image")
 - Add **motion and dialogue** — what the person says about the product
-- Follow the Seedance prompt library ([seedance-2.md](seedance-2.md) and the format-specific files alongside it). **Veo 3.1 and Sora 2 are live** — see [veo-3-1.md](veo-3-1.md) and [sora-2.md](sora-2.md) — but neither takes `referenceAssetIds`, so a showcase built on reference images stays on Seedance. Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0), but it takes no `referenceAssetIds` either, so a showcase built on reference images stays on Seedance.
+- Follow the Seedance prompt library ([seedance-2.md](seedance-2.md) and the format-specific files alongside it). **Veo 3.1 is live** — see [veo-3-1.md](veo-3-1.md) — but takes no `referenceAssetIds`, so a showcase built on reference images stays on Seedance (Sora 2, which this line also named, was removed from the API in 2026-09). Kling 3.0 is on this API as `kling-v3-pro` (API 2.38.0), but it takes no `referenceAssetIds` either, so a showcase built on reference images stays on Seedance.
 - Pull product context from `MASTER_CONTEXT.md` or the product's fields (`description`, `mainFeatures`, `painPoint`)
 
 ### Video prompt template

@@ -45,7 +45,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 1. **Model is `gpt-image-2`.** The script refuses any other value. If the user asks for Nano Banana, point them at `nano-banana-image-ad`.
 2. **No platform/screenshot chrome in output.** `NO_CHROME_SUFFIX` is always on (override with `--allow-chrome` only when the ad's concept *requires* chrome — rare).
 3. **Edge-safe + glyph-safety suffixes always on** unless `--no-safe-zone` is explicit. They fix real failures; don't remove silently.
-4. **Max 4 reference images.** `referenceAssetIds` caps at 4 on `gpt-image-2` (`nano-banana-pro` takes up to 14, `reve-2.1` 8 — spec 2.7.0). The script enforces it.
+4. **Max 4 reference images.** `referenceAssetIds` caps at 4 on `gpt-image-2` (`nano-banana-pro` takes up to 14 — spec 2.7.0). The script enforces it.
 5. **Every brand mark that appears in the frame is passed as a reference asset.** Not a tip — a rule. This model invents brand-shaped content on any surface the prompt leaves unspecified, and it states it as fact. Measured over a 34-template run on one real product (2026-08-04): the label was faithful in **all 34** because a reference pinned it, while unpinned marks failed three ways — a billboard invented a *back-of-can view* carrying "OUR WATER IS SOURCED FROM THE AUSTRIAN ALPS…" with an icon row and a barcode, a prop thermos rendered a **Hydro Flask logo**, and a publication wordmark drifted. So: pin the product, pin the logo, pin any third-party mark the concept needs; and for product surfaces the ad does **not** show, say so — *"front label only; do NOT render the back of the can, no invented label copy, no ingredient text, no sourcing statement, no barcode."* One retry with that wording cured the fabricated claim completely. Unpinned means invented. **Pass it as `--pin-block "<one-line product description>"`** rather than writing the clause by hand: the script wraps the shared library's standard 346-character guard around your description, counts it against this model's prompt cap (32,000 characters, deployed spec 2.16.0, verified 2026-08-08), and refuses pre-network naming the pin block's share if it does not fit. Hand-written pin blocks ran ~700 characters and used to be the single largest cause of a refused prompt, back when the cap was 4,000 on every model. At 32,000 a hand-written block no longer overflows anything, and the reason to pass `--pin-block` is that the standard guard is the wording that was measured to work.
 6. **No Meta upload from this skill.** Image generation only. Hand off via filesystem paths.
 7. **Always show a live cost estimate before generating, and get an explicit yes.** The price comes from `POST /v1/estimates` in this session — never from memory, never from `logs/novoads-api.jsonl`, never from `MASTER_CONTEXT.md`. There are no credit numbers written down anywhere in this repo, on purpose.
@@ -86,8 +86,8 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 | `numImages` | `1`–`4`, **one call**, charged per image |
 | `productId` | optional, organizational only |
 
-`3:2`, `3:4`, `4:3` and `5:4` are **not** on this model — they exist on `nano-banana-pro` and
-`reve-2.1`. The request schema is strict, so sending one is a `400` before anything is charged.
+`3:2`, `3:4`, `4:3` and `5:4` are **not** on this model — they exist on `nano-banana-pro`.
+The request schema is strict, so sending one is a `400` before anything is charged.
 No template in the shared library needs them.
 
 **Four newer GPT models now sit beside this one, and the newest Sunburst is worth naming by
@@ -113,7 +113,7 @@ slots to get the same result at the same price.
 **There IS an edit mode, on the GPT models only.** `sourceAssetId` edits an existing image
 instead of drawing a new one — "remove the logo on the bottle", "make the background a
 kitchen counter". `POST /v1/images` since spec **2.10.0**, since 2.25.0 on the 2.5 pair and
-since 2.57.0 on the 2.6 pair, so on all five GPT models; `nano-banana-pro` and `reve-2.1` do not publish the field, so an edit is a reason to
+since 2.57.0 on the 2.6 pair, so on all five GPT models; `nano-banana-pro` does not publish the field, so an edit is a reason to
 stay in this family rather than switch out of it.
 
 Two rules the API enforces with a `400`, not a shrug:

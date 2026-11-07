@@ -76,7 +76,7 @@ Two facts still shape how you spend them:
 1. **An `assetId` is durable and reusable.** Upload once, reference forever, across runs and across
    sessions. Uploading is free and unlimited — only *generations* are charged. So keep a library of
    uploaded face angles and brand assets and pick from it.
-2. **The other image models are lower.** `reve-2.1` takes 8; `gpt-image-2` takes 4, and that 4 is
+2. **The other image models are lower.** Each Seedream 5 model takes 10; `gpt-image-2` takes 4, and that 4 is
    measured, not assumed — a 5-reference body was refused on the same 2026-08-04 probe run. If you
    route a likeness run to `gpt-image-2`, the 5+ advice does not survive the trip; say so rather
    than silently citing four.
@@ -235,7 +235,7 @@ the 422 claim to a user as an API rule. (Flagged for confirmation in the Phase 4
 
 Not objects, and not file paths — the `assetId` values returned by `POST /v1/uploads`.
 Maximum 14 on `nano-banana-pro`, which is the model this skill runs on. The other image
-models are lower and the number does not travel: `reve-2.1` takes 8, `gpt-image-2` takes 4.
+models are lower and the number does not travel: each Seedream 5 model takes 10, `gpt-image-2` takes 4.
 
 ### Chat-pasted images are NOT files
 

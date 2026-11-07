@@ -151,11 +151,11 @@ the array is treated as a verdict in either direction.
 **Scenario.** An agent reads this skill top to bottom and reaches *Guardrails* last.
 
 **Observed drift — found, and corrected.** The `POST /v1/images` section states the
-reference cap is per model — `nano-banana-pro` **14**, `reve-2.1` 8, `gpt-image-2` 4 —
+reference cap is per model — `nano-banana-pro` **14**, `gpt-image-2` 4 —
 and [reference.md](reference.md) agrees, with the probe log attached: verified live
 2026-08-04 against spec `2.7.0`, *which raised `nano-banana-pro` from 4 to 14*, each
 probe pinned with an out-of-range `numImages` so no body could be valid (15 refused, 14
-accepted; 9 on `reve-2.1` refused, 8 accepted; 5 on `gpt-image-2` refused).
+accepted; 9 on `reve-2.1` (since retired) refused, 8 accepted; 5 on `gpt-image-2` refused).
 
 The *Guardrails* bullet read **"4 on `gpt-image-2` and `nano-banana-pro`"** — the
 pre-`2.7.0` value — for as long as it took someone to read the file top to bottom rather

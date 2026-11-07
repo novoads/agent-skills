@@ -52,11 +52,11 @@ LOCKED_MODEL = "nano-banana-pro"
 #   model             referenceAssetIds   prompt chars
 #   gpt-image-2                       4         32,000
 #   nano-banana-pro                  14         50,000
-#   reve-2.1                          8          4,000
 #
-# 2.16.0 is what ended the single 4,000 budget: only reve-2.1 still carries it, and
-# reve-2.1 is reachable only from the clone-image-ad validator. This model has the
-# most room on the API, which is what makes a long layered brief sendable here.
+# 2.16.0 is what ended the single 4,000 budget. The one model that kept it was
+# reve-2.1, retired in API 2.48.0, and the clone-image-ad validator refuses it by name. This
+# model has the most room on the API, which is what makes a long layered brief
+# sendable here.
 MAX_REFS = 14
 MAX_IMAGES = 4  # numImages enum: 1, 2, 3, 4
 MAX_PROMPT_CHARS = 50000  # nano-banana-pro prompt ceiling; the API 400s above it

@@ -93,9 +93,13 @@ for parent in ("skills", "shared/skills"):
 # rather than as lines, because the claim is true everywhere: these names can
 # never be a skill in this pack, so a line-by-line exemption would be busywork
 # that has to be re-done at every new mention.
+#
+# `sora-2` came off this list when the model left the API (2026-09): a routing
+# sentence that still sends an agent to it now fails here, like a dangling skill
+# name, and the fix is to name a live model instead.
 KNOWN_NON_SKILLS = {
     "gpt-image-2", "gpt-image-1", "nano-banana-pro", "nano-banana-2",
-    "nano-banana-edit", "omni-flash", "sora-2", "veo-3-1", "seedance-2",
+    "nano-banana-edit", "omni-flash", "veo-3-1", "seedance-2",
     "seedance-2-ugc", "reve-2", "dall-e-3", "captions-v1",
 }
 

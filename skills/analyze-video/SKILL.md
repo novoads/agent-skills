@@ -427,9 +427,9 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    `outputs/<descriptive-subfolder>/`, and open the folder so the user can watch it.
 
 **Draft on `seedance-2.0-mini` first.** It is the same grid, the same fields and the same
-prompt at half the price, back in 2 to 3 minutes — and since the `assetId` is durable, the
-final render on `seedance-2.0` reuses the same upload. A template validated on mini is a
-template validated.
+prompt at about a fifth of the price, back in 2 to 3 minutes — and since the `assetId` is
+durable, the final render on `seedance-2.0` reuses the same upload. A template validated on
+mini is a template validated.
 
 Paste this block into every template you generate, so the formula carries its own call
 sequence:

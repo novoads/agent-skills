@@ -12,7 +12,7 @@
 #   - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 #   - Upload ONCE, reuse the assetIds across every prompt in the batch
 #   - POST /v1/images returns the image, or answers "running" and is polled (API 2.39.0)
-#   - Bounded parallelism that respects the API's concurrency ceiling
+#   - Bounded parallelism at the script's own cap, under the API's image queue
 #
 # Requires:
 #   - .env with NOVOADS_API_KEY
@@ -36,9 +36,11 @@ ASPECT="16:9"  # thumbnails are 16:9; nano-banana-pro also takes 1:1 2:3 3:2 3:4
 # PRODUCT_ID is optional and organizational only. Leave empty to use the
 # account's default product; it does not influence what is generated.
 PRODUCT_ID="${PRODUCT_ID:-}"
-# The API allows 5 concurrent generations per organization. Stay under it —
-# a 6th in flight is a 429 with details.reason=concurrency_limit, and waiting
-# is the only thing that clears it.
+# This cap is the script's own choice, not the API's limit. The API allows 12
+# concurrent image generations per organization, counted apart from video in both
+# directions, so 4 leaves room for other image calls the organization runs through
+# the API. A 13th in flight is a 429 with details.reason=image_concurrency_limit,
+# and waiting is the only thing that clears it.
 MAX_PARALLEL=4
 
 OUTPUT_DIR="${OUTPUT_BASE:-output}/thumbnails-$(date +%Y%m%d-%H%M%S)"
@@ -244,7 +246,7 @@ print(imgs[0].get('url','') if imgs else '')
 }
 
 # ─── NO RETRY, ON PURPOSE ───────────────────────────────────────────────────
-# The API has no idempotency keys, so a blind retry after a timeout or a 500 can
+# POST /v1/images takes no idempotency key, so a blind retry after a timeout or a 500 can
 # render and charge twice. If a generation fails, check GET /v1/generations for a
 # job that already landed before resubmitting it by hand.
 
@@ -282,7 +284,7 @@ echo "════════════════════════�
 
 for i in "${!PROMPTS[@]}"; do
   idx=$((i + 1))
-  # Block until a slot frees up, so we never exceed the concurrency ceiling.
+  # Block until a slot frees up, so we never exceed MAX_PARALLEL.
   while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$MAX_PARALLEL" ]; do
     sleep 1
   done

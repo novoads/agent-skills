@@ -115,7 +115,7 @@ Once the hero is approved:
    - `referenceAssetIds`: `[hero_assetId]` — the **same id every time**, no re-upload
    - The angle-specific prompt
 4. **Rolling window for drift.** If an angle starts drifting from the hero, add the last one or two *good* angles alongside the hero: `[hero, angle_N-1, angle_N-2]`, well inside the 14-reference cap (spec 2.7.0). Keep the window small even so — never feed a drifted angle forward; a bad reference propagates.
-5. **Concurrency is 5.** Fire at most 4 at a time to keep headroom. A 6th in flight returns `429` with `details.reason: concurrency_limit`, and unlike the other 429 causes, slowing down doesn't help — only a finishing job frees a slot.
+5. **Images queue at 12.** Fire at most 4 at a time: that is this recipe's own cap, not the API's limit, and it keeps headroom. A 13th in flight returns `429` with `details.reason: image_concurrency_limit`, and unlike a per-minute limit, slowing down doesn't help; only a finishing job frees a slot.
 6. QA each image per [nano-banana.md](nano-banana.md).
 
 ### The 10 angles

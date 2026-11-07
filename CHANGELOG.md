@@ -53,7 +53,8 @@ makes every other line true. For an agent:
   a sentence that says use, see, switch to, route to or offer `sora-2` fails there, and it now
   exempts `kling-v3-pro` and the two Seedream 5 ids, so a correct line naming one passes.
 
-**Facts the pack had stale, made true against the deployed spec (2.59.0).** For an agent:
+**Facts the pack had stale, made true against the deployed spec (2.59.0, re-read on 2.60.0).** For
+an agent:
 
 - **`seedance-2.5` renders `1080p`** where `GET /v1/models` lists it (API 2.28.0), and still never
   `4k`. `novoads-api`, the README and `image-to-motion` no longer call `720p` its ceiling, and
@@ -73,6 +74,30 @@ makes every other line true. For an agent:
 - **Video calls take an `idempotencyKey` (API 2.52.0):** the same key within 24 hours returns the
   first job and its charge. `novoads-api`, `clone-video-ad` and `pixar-ad` no longer say there are
   no keys; `POST /v1/images` still takes none.
+- **Images have their own queue of 12, `image_concurrency_limit`,** counted apart from video in
+  both directions. The image lines that gave a ceiling of 5 or 10, or named `concurrency_limit`,
+  now say so, in `chatgpt-image-ad`, `nano-banana-image-ad`, `generate-youtube-thumbnail`, the
+  image-ad overview, the two character-sheet recipes and `novoads-api`. The cap of 4 in those runs
+  is the run's own choice, and the lines now call it that: its value and every script's behaviour
+  are unchanged, and `generate-batch.sh` changes only in comments. The thumbnail eval YT5 now fills
+  the image queue, and says its two measurements were taken on the render queue.
+- **The relative price words are re-read off the spec's cells, at every length each schedule
+  sells.** Against `720p`: on `seedance-2.0`, `480p` is about two-thirds, `1080p` about 2x and `4k`
+  about 5x; on `seedance-2.5`, `480p` is under half and `1080p` about 1.7x, so the tier tables give
+  each model its own words. `seedance-2.0-mini` is about a fifth of the price of `seedance-2.0`, not
+  half. `seedance-2.5` is dearer than `seedance-2.0` from `720p` up and matches it at `480p`, and
+  thirty seconds of it at `1080p` is the dearest cell the video schedules publish, where the lines
+  called it the dearest model and the dearest call on the API. The spread across the set is the
+  spec's: about 44x at four seconds, about 180x across every cell. A stitched series costs more in
+  step with its total seconds, and "about half" and "roughly double" now read as a dated A/B's
+  result. `POST /v1/estimates` stays the only source of a figure.
+- **`clone-video-ad` no longer says `seedance-2.0-mini` refuses `resolution`,** which stopped being
+  true at API 2.34.0.
+- **A `429` has seventeen reasons (2.60.0),** counted off the spec. `reference.md` breaks out nine
+  and names the other eight, and the lines that said four or twelve causes are gone.
+- **The image lines about idempotency name `POST /v1/images`,** in the thumbnail, `chatgpt-image-ad`
+  and `nano-banana-image-ad` skills and `novoads-api`'s reference, where they said this API or
+  "there are no keys": video calls take one.
 - **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
   family that already failed: when both draw a template wrong, the template is the problem. The
   overview says `clone-image-ad` renders through its own validator, and the template library's

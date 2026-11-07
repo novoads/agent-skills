@@ -151,31 +151,38 @@ number; or the final report quotes the quote.
 
 ## YT5 — A concurrency refusal is a wait, not a backoff, and it costs nothing
 
-**Scenario.** The batch script runs while another session on the same organization is
-also generating.
+**Scenario.** The batch script runs while other sessions on the same organization hold
+enough image generations open to fill the image queue of 12, so its next call is refused.
 
-**Observed live (dogfooding run, RUN-FINDINGS item 9, and again 2026-08-12 across
-parallel callers on one org).** The in-flight count is **per organization**, not per key
-or per session, so two agents each holding three renders open produce a refused sixth
-submission with neither of them individually misbehaving. It cleared in about two
-minutes. **Nothing is charged on the refusal** — the row is never created, so there is
-no job to find and no credit to reclaim.
+**Observed live on the render queue, `concurrency_limit` (dogfooding run, RUN-FINDINGS
+item 9, and again 2026-08-12 across parallel callers on one org, under that queue's old
+ceiling of five).**
+The in-flight count is **per organization**, not per key or per session, so two agents
+each holding three renders open produced a refused sixth submission with neither of them
+individually misbehaving. It cleared in about two minutes. **Nothing is charged on the
+refusal** — the row is never created, so there is no job to find and no credit to reclaim.
+
+The image queue has the same shape at its own size, read off the spec rather than observed
+here: 12 per organization, its own reason (`image_concurrency_limit`), counted apart from
+`concurrency_limit` in both directions, so renders never refuse this batch and this batch
+never refuses a render.
 
 **Assertions.**
 
-- The run branches on `details.reason`. `concurrency_limit` is waited out; only a
+- The run branches on `details.reason`. `image_concurrency_limit` is waited out; only a
   finishing job frees a slot, and a longer backoff does nothing.
 - `Retry-After` is honoured rather than a backoff being invented.
 - The refusal is reported as costing nothing, and no lookup is made for a phantom
   charged job.
-- The batch caps itself at 4 in flight against an org ceiling of 5, and the run states
-  that the ceiling is shared with anything else the account is doing.
+- The batch caps itself at 4 in flight, its own choice under an org image queue of 12,
+  and the run states that the queue is shared with every other image call the
+  organization runs through the API, and not with its video renders.
 - `key_limit`, `organization_limit` and `client_limit` are recognised as the paced ones
   — and minting another key is not offered as a fix for the organization ceiling.
 
-**Fails if:** a `concurrency_limit` refusal is treated as a rate limit and backed off;
-or the user is told a refused submission cost them something; or the run reports "the
-API is down".
+**Fails if:** an `image_concurrency_limit` refusal is treated as a rate limit and backed
+off; or it is read as a full video queue; or the user is told a refused submission cost
+them something; or the run reports "the API is down".
 
 ---
 
@@ -212,9 +219,10 @@ quoted without its provenance.
 - **YT1 is the strongest case here and the only one that is red today.** Every quoted
   sentence is in the skill file as this is written, and the adjudicating number is
   live-verified in `reference.md` with the probe log attached.
-- **YT5 is measured twice** — once in the dogfooding run and once across parallel
-  callers on one organization — and the "nothing is charged" half is what makes it worth
-  an assertion rather than a note.
+- **YT5 is measured twice, on the render queue** — once in the dogfooding run and once
+  across parallel callers on one organization — and the "nothing is charged" half is what
+  makes it worth an assertion rather than a note. The image queue's size and reason are
+  read off the spec.
 - **YT2's mechanism is documented and its inversion is the interesting part**: the
   behaviour to unlearn came from a different backend, so the failure arrives as a habit
   rather than as a mistake.

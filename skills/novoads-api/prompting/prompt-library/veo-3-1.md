@@ -48,7 +48,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   }'
 ```
 
-**Price it at `POST /v1/estimates` before you commit, and price Seedance next to it.** The video schedules differ by roughly 5x across the set. Quoting one model's number for another is the failure this repo has no rate tables in order to prevent.
+**Price it at `POST /v1/estimates` before you commit, and price Seedance next to it.** The video schedules span about 44x across the set at four seconds. Quoting one model's number for another is the failure this repo has no rate tables in order to prevent.
 
 ## Checklist
 

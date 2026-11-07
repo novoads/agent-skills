@@ -171,7 +171,7 @@ Notes that bite:
   gpt-image-2.
 - **`numImages` is one call, not N calls.** Ask for 4 variants by sending `numImages: 4` and
   the response comes back with four images in `images[]`. Do not fan out four parallel
-  requests — that burns four of your ten concurrency slots for no benefit.
+  requests — that burns four of your twelve image slots for no benefit.
 - **Every image is charged**, so `numImages` multiplies the price. It is the single biggest
   lever on what a run costs.
 - **Reference images are uploaded once and reused.** `POST /v1/uploads` returns a durable

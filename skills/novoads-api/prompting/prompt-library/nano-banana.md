@@ -99,7 +99,7 @@ user as the only option without at least one retry (unless they explicitly waive
 3. Call `POST /v1/images` again with the same `model`, `aspectRatio`, `referenceAssetIds` and `productId` as before unless you are intentionally changing them.
 4. **Cap:** at most **2** regeneration attempts after the first image (**3** total per deliverable). After that, describe the remaining issues, show the best attempt, and ask the user how to proceed.
 5. **Credits:** each generation bills separately and there are no free re-rolls. QA retries use the QA-fix exception (no second pre-confirmation inside the cap) but are still billed — report the cumulative `creditsCharged` when you present results.
-6. **Do not blindly retry a `500`.** There are no idempotency keys, so a resubmit can render and charge twice. Check `GET /v1/generations` for a job that already landed first. (A `502 provider_failed` is different — the provider broke and credits are refunded automatically.)
+6. **Do not blindly retry a `500`.** `POST /v1/images` takes no idempotency key, so a resubmit can render and charge twice. Check `GET /v1/generations` for a job that already landed first. (A `502 provider_failed` is different — the provider broke and credits are refunded automatically.)
 
 Full agent steps: [SKILL.md — Generated image QA](../../SKILL.md).
 

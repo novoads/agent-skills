@@ -90,7 +90,7 @@ This model takes the **full ratio set** — including `3:2`, `3:4`, `4:3` and `5
 of style.
 
 **N variants is one call, not N calls.** Send `numImages: 4` and four images come back in
-`images[]`. Do not fan out four parallel requests — that burns four of your ten concurrency
+`images[]`. Do not fan out four parallel requests — that burns four of your twelve image
 slots to get the same result at the same price.
 
 **There is no edit mode on THIS model.** The Nano Banana inpainting flows the older skill
@@ -226,9 +226,9 @@ write them to `./generated/run-<ts>.jsonl` for downstream consumption.
 | `402 insufficient_credits` | `details` carries `required` and `available`. Tell the user the gap; do not retry. |
 | `403 forbidden` | `details.reason` says which: `plan_required`, `subscription_inactive`, or API access off for the account. |
 | `422 content_policy` | Moderation blocked it. The estimate does not run moderation, so this can land on a prompt the estimate priced cleanly. Nothing was charged. Rewrite or stop. |
-| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
+| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
 | `403` on the presigned PUT | The signed headers weren't echoed byte for byte. Send the `headers` object from `POST /v1/uploads` exactly as returned. |
-| `500 internal_error` | **Do not blindly retry** — there are no idempotency keys, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
+| `500 internal_error` | **Do not blindly retry** — `POST /v1/images` takes no idempotency key, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
 | `502 provider_failed` | The model provider failed. Credits are refunded automatically. |
 
 ## Files this skill owns

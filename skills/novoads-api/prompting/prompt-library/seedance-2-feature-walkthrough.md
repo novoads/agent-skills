@@ -22,7 +22,7 @@ This is not a review. There is no skepticism arc, no "I was surprised", no befor
 
 **2. A multi-clip series is where identity breaks, and `@Image2` is the fix.** Seedance re-casts on every cut, let alone between two separate generations. The fork's answer was to repeat the actor's description verbatim in clip B — which helps and does not hold a face. Passing the same person photo as `@Image2` in every clip of the series is what makes it one person. Keep the verbatim tag as well, and never write `the same guy` or `as before`: a back-reference resolves to nobody.
 
-**3. Every clip is its own charge.** A 3-clip series is three generations at three prices. Price the whole set at `POST /v1/estimates` and show the total before submitting any of it, and remember that ten generations per organization may be in flight at once. Draft the series on `seedance-2.0-mini` at half price, then re-render the winners — the `assetId`s are durable, so the finals reuse the same uploads.
+**3. Every clip is its own charge.** A 3-clip series is three generations at three prices. Price the whole set at `POST /v1/estimates` and show the total before submitting any of it, and remember that ten generations per organization may be in flight at once. Draft the series on `seedance-2.0-mini` at about a fifth of the price, then re-render the winners — the `assetId`s are durable, so the finals reuse the same uploads.
 
 The Clip A example below is the fork's, restored verbatim, and priced live 2026-08-03. Note
 that it states no aspect ratio in the prompt text: the `aspectRatio` field is what binds the

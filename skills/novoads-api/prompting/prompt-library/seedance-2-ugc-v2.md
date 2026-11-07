@@ -183,7 +183,7 @@ stream-copies the picture and would otherwise have nothing final to sit under.
 - *"Every video should have at least one silent action beat"* — v1's rule, correct for
   standalone clips, wrong inside a base video. Silent material moves to the b-roll pass.
 - *"One clip per scene, then stitch"* — still valid as the escape hatch, no longer the
-  default. It costs roughly double and requires post-production.
+  default. It cost roughly double in the A/B above and requires post-production.
 - *"Reserve +4s for leading silence"* — measured at 0.44s and 0.0s on start-frame and
   reference renders respectively (n=2), then at 0.515s, 0.529s and 0.482s across three
   more reference renders on 2026-08-11 (n=5). The +4s reserve does not draw in this

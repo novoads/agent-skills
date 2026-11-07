@@ -72,11 +72,11 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 
 | The user wants | Route |
 |---|---|
-| A UGC video: a person talking to camera about a product | `seedance-2.0`. Read [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) for the **shape** — how many beats, how many API calls, which reference mode — then [seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md) for the **craft** of writing each layer. v2 is one render with four talking beats in one location; it is the default and costs about half what stitching costs |
+| A UGC video: a person talking to camera about a product | `seedance-2.0`. Read [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) for the **shape** — how many beats, how many API calls, which reference mode — then [seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md) for the **craft** of writing each layer. v2 is one render with four talking beats in one location; it is the default, and its dated A/B cost about half what stitching did |
 | The user says "a start frame for each scene", or asks for several scenes | That phrasing commits you to one call per scene (`startImageAssetId`), which forecloses multi-beat cuts inside a single render — the two modes are mutually exclusive. Say so, and offer the one-shot alternative from [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) before generating anything |
 | B-roll cutaways, burned captions, background music, or variations of a finished ad | Not part of making the ad. Deliver the base video first, then **offer** these as a separate pass, each owned by its own skill: `broll-overlay` (needs the base **and** its transcript from `POST /v1/transcripts` — no local install; it **overlays** — the base audio keeps running and the final duration is unchanged — it does not extend), `POST /v1/captions`, then `music-mix` last |
-| The same thing, but cheap, to test a prompt before committing | `seedance-2.0-mini`, same grid, same formulas, half the price and back in 2–3 minutes. The draft-then-finalize loop is *Mini-draft tier* in [seedance-2.md](prompting/prompt-library/seedance-2.md) |
-| A clip **longer than 15 seconds**, or `seedance-2.5` by name | `seedance-2.5` — the only model on this API that renders past 15s (any integer **4 to 30**). Same six aspect ratios, same 9 `referenceAssetIds`, same `audioEnabled`, same 4,000-character ceiling, so the Seedance formulas apply unchanged; write for the longer runtime rather than padding a 15s script. **Two things differ:** it never renders `4k` (`1080p` arrived in API 2.28.0, where `GET /v1/models` lists it), and nobody has timed one, so quote its wait as unknown. Price it explicitly: at the same length it is dearer than `seedance-2.0`, and thirty seconds of it is the most expensive single call on this API |
+| The same thing, but cheap, to test a prompt before committing | `seedance-2.0-mini`, same grid, same formulas, about a fifth of the price and back in 2–3 minutes. The draft-then-finalize loop is *Mini-draft tier* in [seedance-2.md](prompting/prompt-library/seedance-2.md) |
+| A clip **longer than 15 seconds**, or `seedance-2.5` by name | `seedance-2.5` — the only model on this API that renders past 15s (any integer **4 to 30**). Same six aspect ratios, same 9 `referenceAssetIds`, same `audioEnabled`, same 4,000-character ceiling, so the Seedance formulas apply unchanged; write for the longer runtime rather than padding a 15s script. **Two things differ:** it never renders `4k` (`1080p` arrived in API 2.28.0, where `GET /v1/models` lists it), and nobody has timed one, so quote its wait as unknown. Price it explicitly: at the same length it is dearer than `seedance-2.0` from `720p` up (the same at `480p`), and thirty seconds of it at `1080p` is the dearest cell the video schedules publish |
 | A premium product reveal: dark void, no person, text narrative | `seedance-2.0` + [seedance-2-premium-reveal.md](prompting/prompt-library/seedance-2-premium-reveal.md) |
 | A product hero: elemental effects, splash or mist, no person | `seedance-2.0` + [seedance-2-product-hero.md](prompting/prompt-library/seedance-2-product-hero.md) |
 | A studio lookbook: polished, voiceover, multi-look | `seedance-2.0` + [seedance-2-studio-lookbook.md](prompting/prompt-library/seedance-2-studio-lookbook.md) |
@@ -240,7 +240,7 @@ curl -sS -X POST https://api.novoads.ai/v1/estimates \
   -d '{"kind":"video","model":"seedance-2.0","durationSeconds":12,"language":"en","prompt":"..."}'
 ```
 
-**Pass `model` explicitly.** It defaults to `seedance-2.0`. **At the same length the video schedules span more than 10x across the set, and more than 28x across every cell the API publishes** once length and resolution are counted too — both figures are derived by the API and printed in the `model` field's own description, and both moved when `seedance-2.5`'s thirty-second grid landed. Image schedules span more than 3x. The per-model prompt ceiling is enforced against whichever model you name. Pricing the wrong model is a quote that disagrees with the invoice.
+**Pass `model` explicitly.** It defaults to `seedance-2.0`. **At four seconds the video schedules already span about 44x across the set, and about 180x across every cell the API publishes** (the cheapest four-second render against the longest, largest one); both figures are derived by the API and printed in the `model` field's own description, and both move with the schedules. Image schedules span more than 3x. The per-model prompt ceiling is enforced against whichever model you name. Pricing the wrong model is a quote that disagrees with the invoice.
 
 It runs the same access checks and the same structural validation the paid call runs, which is why it is worth calling every time and not only when you are unsure:
 
@@ -259,13 +259,13 @@ Show `credits`, the count, the total, and `balance`. Get a yes. Then generate.
 
 **Ask, every time:**
 
-- **Seedance tier, once per workflow.** Before the first Seedance video call: *"Use default `seedance-2.0`, `seedance-2.0-mini` (half price), or `seedance-2.5` (the only one that goes past 15s, and the dearest)?"* No preference means `seedance-2.0`. Whichever they pick goes into the estimate, so the quoted number is the one they pay. **Ask before you assume the script needs 2.5** — a 30-second ad is a format decision, not a longer version of a 15-second one.
+- **Seedance tier, once per workflow.** Before the first Seedance video call: *"Use default `seedance-2.0`, `seedance-2.0-mini` (about a fifth of the price), or `seedance-2.5` (the only one that goes past 15s, and the dearest of the three at `720p`)?"* No preference means `seedance-2.0`. Whichever they pick goes into the estimate, so the quoted number is the one they pay. **Ask before you assume the script needs 2.5** — a 30-second ad is a format decision, not a longer version of a 15-second one.
 - **How many variations**, for every prompt. Default 1. N variations means N identical calls — there is no batch parameter — and the results come back as a numbered list so they can compare and pick.
 
 **Infer, and state what you inferred rather than asking:**
 
 - **`aspectRatio`: default `9:16`** for anything headed to Reels, TikTok, Stories, or a vertical feed. Seedance and `kling-v3-pro` default to `16:9`, and a landscape ad is a wasted render; `omni-flash`, `veo-3.1` and `wan-3.0` already default to `9:16`, and images default to `1:1`. Go landscape only when the user asks. Seedance also accepts `1:1`, `4:3`, `3:4`, and `21:9`; `omni-flash` and `veo-3.1` accept only the two.
-- **`resolution` (only on a model whose `resolutions` in `GET /v1/models` lists more than one value: `seedance-2.0`, `seedance-2.5`, from API 2.34.0 `seedance-2.0-mini` and `veo-3.1`, from API 2.53.0 `wan-3.0`, and `omni-flash` where the server lists more than `720p`): leave it at the model's `defaultResolution`, and never raise it silently.** On the Seedance models it is the one output-shape field that multiplies the bill (not on `veo-3.1`, one flat price at every tier) — on `seedance-2.0`, `1080p` is ≈2.5x the base and `4k` ≈5x — so going above `720p` is a *spend* decision, not a quality preference, and it belongs in front of the user with a fresh estimate attached. **`480p` is now ≈half the base rather than the same price** (family reprice, 2026-08-07), so it is a real draft tier and worth offering when a render is a rehearsal. `seedance-2.5` takes `480p`, `720p` and, where `GET /v1/models` lists it (API 2.28.0), `1080p`, never `4k`. `omni-flash`'s set depends on the server (it may list `360p`, `720p`, `1080p` and `4k`, those three without `4k`, or `720p` alone; offer `4k` only where `GET /v1/models` lists it); off `720p`, re-quote with `POST /v1/estimates`. Do not send the key on a model whose list has one value: that body is a `400`, even when the value is the one it renders.
+- **`resolution` (only on a model whose `resolutions` in `GET /v1/models` lists more than one value: `seedance-2.0`, `seedance-2.5`, from API 2.34.0 `seedance-2.0-mini` and `veo-3.1`, from API 2.53.0 `wan-3.0`, and `omni-flash` where the server lists more than `720p`): leave it at the model's `defaultResolution`, and never raise it silently.** On the Seedance models it is the one output-shape field that multiplies the bill (not on `veo-3.1`, one flat price at every tier) — on `seedance-2.0`, `1080p` is ≈2x the base and `4k` ≈5x — so going above `720p` is a *spend* decision, not a quality preference, and it belongs in front of the user with a fresh estimate attached. **`480p` now costs less than the base rather than the same** (since the family reprice of 2026-08-07; today ≈two-thirds on `seedance-2.0`, under half on `seedance-2.5`), so it is a real draft tier and worth offering when a render is a rehearsal. `seedance-2.5` takes `480p`, `720p` and, where `GET /v1/models` lists it (API 2.28.0), `1080p`, never `4k`. `omni-flash`'s set depends on the server (it may list `360p`, `720p`, `1080p` and `4k`, those three without `4k`, or `720p` alone; offer `4k` only where `GET /v1/models` lists it); off `720p`, re-quote with `POST /v1/estimates`. Do not send the key on a model whose list has one value: that body is a `400`, even when the value is the one it renders.
 - **`language`**: the language the script is written in. Set it, and show it in the dialogue gate. Write the prompt in that language too — nothing on the API pushes back on a Spanish or Portuguese prompt, and nothing rewrites or judges one either.
 - **`durationSeconds`**: from the word count, below. Only `veo-3.1` defaults to its maximum — `seedance-2.0` and `seedance-2.5` default to 5, mini to 10, `omni-flash` to 8, `kling-v3-pro` and `wan-3.0` to 5 — so always send it. **`seedance-2.5` defaults to 5 of the 30 it can render**, which is the easiest way to pay for the long model and ship a short clip.
 - **`audioEnabled`**: leave it alone on anything with a spoken line. It exists on the three Seedance variants (`seedance-2.0`, `seedance-2.5`, `seedance-2.0-mini`), `kling-v3-pro` (API 2.38.0) and `wan-3.0` (API 2.53.0), defaults `true`, and the one time to send it is `false`, on a clip that is meant to be silent: see below.
@@ -319,7 +319,7 @@ working rule here too: budget ~0.5s with a reference or start frame, the reserve
 
 **A longer clip is not a longer script poured into the same ad.** Thirty seconds wants more beats,
 not slower delivery: a second location, a demo the actor actually performs, a reaction. If the
-script only fills 15s, render 15s — on `seedance-2.0`, which is cheaper at that length.
+script only fills 15s, render 15s — on `seedance-2.0`, which is cheaper at that length from `720p` up.
 
 **Nobody here has timed a `seedance-2.5` render.** Do not quote `seedance-2.0`'s 3-to-8-minute
 fleet range for it; say the wait is unknown and poll.
@@ -357,12 +357,12 @@ Unmeasured here, so these are the 2.0-words-per-second arithmetic and nothing mo
 
 | `resolution` | `seedance-2.0` | `seedance-2.5` |
 |---|---|---|
-| `480p` | **≈half** the base | **≈half** the base |
+| `480p` | **≈two-thirds** of the base | **under half** the base |
 | `720p` (default) | base | base |
-| `1080p` | **≈2.5x** base | its own schedule where `GET /v1/models` lists it (API 2.28.0): quote it with `POST /v1/estimates` |
+| `1080p` | **≈2x** base | **≈1.7x** base, where `GET /v1/models` lists it (API 2.28.0): quote it with `POST /v1/estimates` |
 | `4k` | **≈5x** base | **`400` — does not exist on this model** |
 
-**`480p` used to cost the same as `720p` and no longer does** (family reprice, 2026-08-07). The old advice here — "no draft discount, so there is no reason to ask for it" — is retired: it is now roughly half, which makes it the honest tier for a rehearsal render whose only job is to check whether the prompt works.
+**`480p` used to cost the same as `720p` and no longer does** (family reprice, 2026-08-07). The old advice here — "no draft discount, so there is no reason to ask for it" — is retired: the table above has what it costs now, which makes it the honest tier for a rehearsal render whose only job is to check whether the prompt works.
 
 **2.5 has no `4k`, and that is a provider fact, not a rollout gap.** Its `1080p` arrived in API 2.28.0 and is offered only where `GET /v1/models` lists it, so read the list before you send it. Never carry a `resolution` across a model switch: `4k` that priced clean on `seedance-2.0` is a rejected request on `seedance-2.5`.
 
@@ -701,15 +701,15 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 | 404 | `not_found` | No such object **for this organization**. | Do not assume it exists elsewhere. |
 | 409 | `conflict` | Includes `/watch` on an unfinished job. | Keep polling. |
 | 422 | `content_policy` | Moderation blocked it, and this is the **only** way a prompt is refused for what it says. The estimate skips moderation, so it can land on a prompt the estimate priced clean. | Nothing was charged. Rewrite or stop. |
-| 429 | `rate_limited` | **Four different causes.** Branch on `details.reason`. | See below. |
+| 429 | `rate_limited` | **Several causes.** Branch on `details.reason`. | See below. |
 | 500 | `internal_error` | | **Do not blindly retry.** See below. |
 | 502 | `provider_failed` | A model provider failed. | Credits are refunded automatically. |
 
 **The 400 vs 422 line is simple now, and worth stating because it used to be blurred.** A `400` is a malformed request and nothing else. A `422` is moderation and nothing else. Prompt craft — a missing actor descriptor, no spoken line, a forbidden word — produces no status at all: the API neither refuses it nor mentions it. Do not write a retry loop that expects a rule to stop a bad prompt; the only thing that stops it is you, before you send it.
 
-**A 429 is not always a rate limit.** `details.reason` names which of four ceilings refused you, and they are paced differently:
+**A 429 is not always a rate limit.** `details.reason` names which ceiling refused you, and they are paced differently. The spec names seventeen (API 2.60.0), [reference.md](reference.md#the-causes-of-a-429) breaks out nine, and these are four of them:
 
-- `concurrency_limit`: ten generations already in flight for the organization (`details.inFlight` says how many). **Waiting is the only fix**: a longer backoff does nothing, a finished job does. Generation endpoints only; reads, estimates, and uploads never hit it.
+- `concurrency_limit`: ten generations already in flight for the organization (`details.inFlight` says how many). **Waiting is the only fix**: a longer backoff does nothing, a finished job does. Generation endpoints only; reads, estimates, and uploads never hit it. Images have their own queue of twelve, `image_concurrency_limit`, counted apart in both directions and waited out the same way.
 - `key_limit` — 60 requests a minute on this key. The `X-RateLimit-*` headers track this one. Honor `Retry-After`.
 - `organization_limit` — 180 a minute across every key the organization holds. `X-RateLimit-*` will still show room on your key; that is correct, not a broken limiter. Minting another key does not raise it.
 - `client_limit` — 1,200 a minute pre-authentication. Carries no `X-RateLimit-*` trio.
@@ -732,7 +732,7 @@ Append one line per new failure. Forward only. Every bullet is a real thing that
 - Never resubmit after a 500 without checking `GET /v1/generations` first.
 - A 400 is a malformed request. Read `details.issues`, fix the field, and do not go looking for a prompt rule — none of them can 400 anymore. Never send `styleFamily`: the field no longer exists on this API and any body carrying it is a 400.
 - Prompt rules exist **only** on `POST /v1/estimates`, as the advisory `warnings` array, and they cannot refuse or reprice anything. **Nothing on the API will stop a weak prompt from being rendered and billed**, so the prompt libraries are still the quality gate. Read every warning, judge it against your prompt (they false-positive — see gate 2), and never apply a suggested fix without checking it fits.
-- Never fire more than ten generations at once, and poll at 15 seconds, not 5. A QA retry still costs credits: cap at 2, and report the extras.
+- Never fire more than ten video generations at once (images queue apart, twelve at most), and poll at 15 seconds, not 5. A QA retry still costs credits: cap at 2, and report the extras.
 - **Never hand over a video you have not QA'd.** §7 is free and it is the only thing that hears the brand name. A render that looks perfect frame by frame can still say the wrong word.
 - **Never put `-v error` on the `volumedetect` or `silencedetect` calls.** It suppresses the results and the check reports nothing while looking like it passed.
 - Spell invented brand names phonetically inside the quoted line, and re-run gate 1 when you do — the words changed.

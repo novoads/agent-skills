@@ -170,9 +170,9 @@ guarantee.
 
 **Why.** `numImages: 1`–`4` returns N images from **one** request, charged per image.
 Four parallel requests produce the same images at the same price while burning four of
-the organization's five render slots — and the organization's slots are shared with
-whatever else the account is running, so the cost lands on somebody's next job rather
-than on this one, which is what makes it easy to keep doing.
+the organization's twelve image slots — and those slots are shared with every other image
+call the organization runs through the API, so the cost lands on somebody's next image
+rather than on this one, which is what makes it easy to keep doing.
 
 **Untested as an agent run** — no recorded case of this skill fanning out. It is here
 because the failure is invisible from inside the run that causes it.

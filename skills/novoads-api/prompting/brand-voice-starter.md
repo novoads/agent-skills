@@ -20,7 +20,7 @@ Replace the placeholders with your real brand rules. Agents read `MASTER_CONTEXT
 - **Aspect ratio:** {{9_16_OR_16_9}} — Seedance also takes `1:1`, `4:3`, `3:4` and `21:9`; `omni-flash` takes `9:16` or `16:9` only
 - **Language:** {{EN_ES_PT_OR_OTHER}} — the language ads are written and rendered in
 - **Typical length:** {{SECONDS}} — Seedance renders any integer 4–15s, `omni-flash` only 4, 6, 8 or 10
-- **Default video model:** {{SEEDANCE_2_0_OR_MINI}} — mini is half price for drafts
+- **Default video model:** {{SEEDANCE_2_0_OR_MINI}} — mini is about a fifth of the price, for drafts
 - **Default product:** {{PRODUCT_NAME_AND_ID}} — from `GET /v1/products`
 - **On-screen CTA style:** {{CTA_STYLE}}
 

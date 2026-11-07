@@ -71,7 +71,7 @@ Also gone, in the same probe: `endFrame`, `projectId` (this
 API has products, not projects), `duration` (it is `durationSeconds`) and `referenceImages`
 (it is `referenceAssetIds`).
 
-**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2.5x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs ≈half of `720p`** since the 2026-08-07 family reprice — measured live 2026-08-12, exactly half on both `seedance-2.0` and `seedance-2.5` — so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. On `seedance-2.0-mini` send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on; before it Mini rendered 720p only and the key was a `400`).
+**`resolution` was on that list and has come back.** It is a real field on `seedance-2.0` — `480p`, `720p`, `1080p`, `4k`, default `720p` (verified live against spec 2.12.0, 2026-08-06). A clone should normally match the source's tier, which for a social ad is `720p`; going above it is a **spend** decision (`1080p` ≈2x the base, `4k` ≈5x) that gets priced with `POST /v1/estimates` and approved like any other. **`480p` costs less than `720p`** since the 2026-08-07 family reprice: today ≈two-thirds on `seedance-2.0` and under half on `seedance-2.5` (it measured exactly half on both on 2026-08-12, and the schedules have moved since), so it is a real draft tier, worth offering when a clone is a rehearsal rather than the deliverable. (The older line here, that it cost the same and bought nothing, described the pre-reprice deployment.) **A clone rendered as a series pays the multiplier on every clip** — check the tier before you fan out. On `seedance-2.0-mini` send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on; before it Mini rendered 720p only and the key was a `400`).
 
 **And one the old shape got wrong in the other direction:** aspect ratio is not
 `9:16`-or-`16:9`. Seedance takes `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` — probed live, `1:1`
@@ -386,7 +386,7 @@ the tradeoff and let them pick — do not choose one and mention the other in pa
 | Route | What survives | What it costs |
 |---|---|---|
 | **One-shot compression** — the beats become jump cuts inside a single ≤15s render | Continuous voice, no stitching, one charge | The clone no longer matches the source's runtime or pacing, and those are transferable traits too |
-| **Multi-clip series** — split at beat boundaries taken from the beat map, never from arithmetic | The source's runtime and pacing | Roughly twice the spend: a charge per clip, and any `resolution` tier paid per clip |
+| **Multi-clip series** — split at beat boundaries taken from the beat map, never from arithmetic | The source's runtime and pacing | More spend, in step with its total seconds (a 30s series is about twice a 15s render): a charge per clip, and any `resolution` tier paid per clip |
 
 The evidence that one-shot is viable is #13's measured A/B — one render carrying its beats
 internally came back at roughly half the spend of a stitched arm whose voice was absent for
@@ -408,10 +408,10 @@ on an earlier clip's output any more. Ten generations per organization may be in
 once; an eleventh comes back `429` with `details.reason` of `concurrency_limit`, which is
 solved by waiting for a slot and not by backing off harder.
 
-**Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at half the
-price, back in 2–3 minutes instead of 3–8. Its fields are the same **except `resolution`**,
-which it does not take at all — it renders 720p, and sending the key is a `400`. A clone is
-exactly the case
+**Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at about a
+fifth of the price, back in 2–3 minutes instead of 3–8. Its fields are the same **except
+`resolution`**: send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on;
+before it Mini rendered 720p only and the key was a `400`). A clone is exactly the case
 for it: the first render is where you find out whether your reading of the source survived
 into the prompt. Draft on mini, re-price with `model` set to the final tier, and show both
 numbers side by side. `SKILL.md` makes the tier an explicit question, asked once per
@@ -583,7 +583,7 @@ Returns `credits`, `balance`, `sufficient` and a `warnings` array, plus `shortBy
 against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio`,
 `audioEnabled`, the asset fields and `productId` are a `400` here.
 
-- **Pass `model` explicitly.** It defaults to `seedance-2.0`, and mini is half the price —
+- **Pass `model` explicitly.** It defaults to `seedance-2.0`, and mini is about a fifth of the price —
   pricing the wrong tier is a quote that disagrees with the invoice.
 - **Pass `resolution` whenever the tier is above the default.** It is the second price
   axis: the high tiers are their own credit schedules, not a surcharge on the low one.
@@ -791,7 +791,7 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | `startImageAssetId` **XOR** `referenceAssetIds` | Separate modes on the model. A body with both is a `400` whose message says exactly that. Nothing is charged |
 | `referenceAssetIds` ≤ **9**, images only | Ten is `Too big: expected array to have <=9 items`. A video asset id is refused here; from API 2.35.0 Seedance video and audio go in `referenceVideoAssetIds` and `referenceAudioAssetIds` |
 | No `referenceVideos`, no `referenceAudios`, no `endFrame`, no `projectId` | All `400 Unrecognized key`. Nothing is charged, and no clone workflow can depend on them |
-| `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2.5x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈half** the base since the 2026-08-07 reprice (measured live 2026-08-12), so it is a real draft tier. `400 Unrecognized key` on `kling-v3-pro`, whose body has no such field (as it was on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0, which gives mini `480p`/`720p` and Veo `720p`/`1080p`: read `resolutions` from `GET /v1/models`), and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
+| `resolution` on **`seedance-2.0`**: `480p` `720p` `1080p` `4k`, default `720p` | Real, and re-verified against spec 2.12.0 (2026-08-06). **It multiplies the bill** — `1080p` ≈2x the base, `4k` ≈5x, and a series pays it per clip. Price the tier at `POST /v1/estimates`; `480p` is **≈two-thirds** of the base (before the 2026-08-07 reprice it cost the same), so it is a real draft tier. `400 Unrecognized key` on `kling-v3-pro`, whose body has no such field (as it was on `seedance-2.0-mini` and `veo-3.1` before API 2.34.0, which gives mini `480p`/`720p` and Veo `720p`/`1080p`: read `resolutions` from `GET /v1/models`), and a `400` on `omni-flash` wherever `GET /v1/models` lists only `720p` for it (where it lists more, Omni has its own tiers, `4k` included only when listed) |
 | `audioEnabled` — **the Seedance variants, `kling-v3-pro` and `wan-3.0`**, optional, default `true` | Send `false` for a silent clone. `400 Unrecognized key` on `omni-flash` and `veo-3.1`, and on `POST /estimates` for every model |
 | `durationSeconds` 4–15, integer | Out-of-grid values are rejected, never rounded. Default is **5** |
 | `aspectRatio` `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | Default is **`16:9`**. Set it, or a vertical clone ships landscape |
@@ -817,7 +817,7 @@ quote when reporting a problem.
 | `403 forbidden` | `details.reason` is `plan_required` or `subscription_inactive` — the key is fine, the plan is not | Say which one it is; they are different fixes |
 | `409 conflict` | `/watch` on a job that has not finished | Keep polling |
 | `422 content_policy` | Moderation blocked the prompt. Nothing was charged | Rewrite the flagged idea or stop. Do not resend the same payload |
-| `429 rate_limited` | Four causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
+| `429 rate_limited` | Several causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
 | `500 internal_error` | Possibly charged | **Do not retry blindly.** `GET /v1/generations` first: if the job is there, poll it instead of resubmitting |
 | `502 provider_failed` | The model provider failed | Credits are refunded automatically |
 | Job `status: failed` or `blocked` | Read the `error` on the job | If it is content-related, rewrite. If it is a provider failure, credits are already refunded |

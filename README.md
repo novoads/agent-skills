@@ -286,9 +286,10 @@ Five prompt formulas ship, each with a worked example that has been priced live:
 The platform guide — grids, the two reference modes, prompt length by shot count, the mini-draft
 tier — is [seedance-2.md](skills/novoads-api/prompting/prompt-library/seedance-2.md).
 
-**Draft on Mini first.** `seedance-2.0-mini` takes the same grid and the same formulas at half the
-price and comes back in 2–3 minutes. Upload once, draft on Mini, re-price naming the final tier,
-render once. The agent asks which tier you want before the first Seedance call of a workflow.
+**Draft on Mini first.** `seedance-2.0-mini` takes the same grid and the same formulas at about a
+fifth of the price and comes back in 2–3 minutes. Upload once, draft on Mini, re-price naming the
+final tier, render once. The agent asks which tier you want before the first Seedance call of a
+workflow.
 
 ### 🎬 Seedance 2.5 — the long one
 
@@ -299,15 +300,16 @@ the five Seedance formulas apply unchanged.
 
 Two differences worth knowing before you pick it. It renders **`480p`, `720p` and, where
 `GET /v1/models` lists it, `1080p`** (API 2.28.0; the deployed spec lists it), and never `4k`, so a
-`4k` carried over from a 2.0 workflow is a rejected request rather than a downgrade. And it is the
-**dearest** model on the API at the same length; thirty seconds of it is the most expensive single
-call this API takes. Price it, like everything else, at `POST /v1/estimates`.
+`4k` carried over from a 2.0 workflow is a rejected request rather than a downgrade. And from `720p`
+up it is **dearer** than `seedance-2.0` at the same length (at `480p` the two match); thirty seconds
+of it at `1080p` is the dearest cell the video schedules publish. Price it, like everything else, at
+`POST /v1/estimates`.
 
 > "Make a 30-second Seedance 2.5 ad — the founder walks through the workshop and explains why they
 > built it"
 
 A longer clip wants **more beats**, not slower delivery. If the script only fills 15 seconds, render
-15 seconds on `seedance-2.0`, which is cheaper at that length.
+15 seconds on `seedance-2.0`, which is cheaper at that length from `720p` up.
 
 ### 🎬 Omni Flash — fast vertical clips
 
@@ -465,8 +467,8 @@ is the current answer, this table is a map.
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
 |---|---|---|---|---|---|
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
-| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearest per second; nothing has timed one, so quote the wait as unknown. |
-| **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, half the price, back in 2–3 min. The drafting tier. |
+| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
+| **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, about a fifth of the price, back in 2–3 min. The drafting tier. |
 | **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
@@ -501,8 +503,9 @@ strict and `400` on it, as does `POST /v1/estimates` for every model: it does no
 API 2.34.0), `wan-3.0` (API 2.53.0), and `omni-flash` where `GET /v1/models` lists more than one
 tier for it**. On every one of them but `veo-3.1`, which quotes the same at both of its tiers, it
 is the one output-shape field that moves the price: each tier is its own credit schedule, not a
-surcharge on the one below it. Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than
-the same, which makes it a real draft tier on all three Seedance variants (quote each tier).
+surcharge on the one below it. Since 2026-08-07 `480p` costs less than `720p` rather than the same
+(about two-thirds on `seedance-2.0`, under half on `seedance-2.5`, about half on Mini), which makes
+it a real draft tier on all three Seedance variants (quote each tier).
 `seedance-2.5` stops at `1080p` where `GET /v1/models` lists it, and never takes `4k`. `omni-flash`
 may list `360p`, `720p` and `1080p`, plus `4k` where the server publishes it: read the live list,
 never assume `4k`.

@@ -172,7 +172,7 @@ Every model in both lists prices here, `veo-3.1` included (verified live, 2026-0
 
 **The `3 to 30` span is the OUTER bound across the whole set, and no model renders all of it.** Only `seedance-2.5` goes past 15 seconds; asking `seedance-2.0` for 20 is a `400` here rather than a quote for something it cannot render. The spec says so in the field's own description — read `GET /v1/models` for the per-model grid.
 
-**`resolution` is accepted here because it moves the price** (not on `veo-3.1`, one flat price at every tier, so its `720p` is never a saving) — on `seedance-2.0`, `480p` is ≈half the `720p` base, `1080p` is ≈2.5x it and `4k` ≈5x (the 480p arm re-priced 2026-08-07; the rest verified live 2026-08-04). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
+**`resolution` is accepted here because it moves the price** (not on `veo-3.1`, one flat price at every tier, so its `720p` is never a saving) — on `seedance-2.0`, `480p` is ≈two-thirds of the `720p` base, `1080p` is ≈2x it and `4k` ≈5x (read off the deployed spec 2.60.0, 2026-11-07). Like `durationSeconds`, the enum in the table is the schema's union and **not** what any one model accepts: the service range-checks it against the named model, so a tier outside the named model's `resolutions` in `GET /models` comes back `400` rather than a quote (verified live 2026-08-04, when mini's only tier was `720p`). Full per-model table and the mini caveat under *POST /videos → `resolution`*.
 
 There is **no `styleFamily`** on either arm. The field was deleted from the whole API in spec `2.0.0`, and both arms are strict, so a body carrying it comes back `400 (root): Unrecognized key: "styleFamily"` (verified live, 2026-08-02).
 
@@ -194,7 +194,7 @@ Response:
 
 **`warnings` never refuses the call and never changes `credits`** — and it false-positives. See *Prompt rules* below before you act on one.
 
-Pass `model` explicitly. **At the same length the video schedules span more than 10x across the set, and more than 28x across every cell the deployment publishes** once length and resolution are counted too (both figures are derived by the API itself and printed in the `model` field's description — they moved when `seedance-2.5`'s thirty-second grid landed). Image schedules differ by more than 3x. Pricing the wrong model is a quote that disagrees with the invoice.
+Pass `model` explicitly. **At four seconds the video schedules already span about 44x across the set, and about 180x across every cell the deployment publishes** (the cheapest four-second render against the longest, largest one; both figures are derived by the API itself and printed in the `model` field's description, and they move with the schedules). Image schedules differ by more than 3x. Pricing the wrong model is a quote that disagrees with the invoice.
 
 **The schema's 20,000-character `prompt` ceiling is not the one that binds.** The service applies the *named model's* limit here too, so a 5,000-character prompt priced as `seedance-2.0` is rejected at the estimate, which charges nothing, exactly as the paid call would reject it. Omit `model` and it is judged as `seedance-2.0`. Only `omni-flash` and `wan-3.0` genuinely accept 20,000; `kling-v3-pro` stops at 2,500.
 
@@ -322,16 +322,16 @@ For mini the tiers are their own schedule: quote the tier with `POST /estimates`
 
 **`GET /v1/models` now publishes this**: each entry carries `resolutions[]` and `defaultResolution`. That is the authority — read it rather than trusting this table, which is a snapshot.
 
-**It changes the price**, which makes it unlike every other output-shape field here. Relative to the `720p` base, each tier is its own credit schedule rather than a surcharge on the one below it:
+**It changes the price**, which makes it unlike every other output-shape field here. Relative to the `720p` base, each tier is its own credit schedule rather than a surcharge on the one below it, and these words hold at every length each model sells (API 2.60.0):
 
 | `resolution` | `seedance-2.0` | `seedance-2.5` |
 |---|---|---|
-| `480p` | **≈half** the base | **≈half** the base |
+| `480p` | **≈two-thirds** of the base | **under half** the base |
 | `720p` | base (default) | base (default) |
-| `1080p` | ≈2.5x | its own schedule where `GET /models` lists it (API 2.28.0): quote it |
+| `1080p` | ≈2x | ≈1.7x, where `GET /models` lists it (API 2.28.0): quote it |
 | `4k` | ≈5x | **not accepted** |
 
-**`480p` changed on 2026-08-07.** It used to cost the same as `720p`, so there was no reason to ask for it. The family-wide reprice that shipped alongside `seedance-2.5` put it at roughly half — a price *decrease* on live models, so nothing that rendered yesterday costs more today, but a workflow that skipped `480p` on the old advice should reconsider it. **It is reachable on the three Seedance variants (mini since API 2.34.0) and on `wan-3.0`**; `omni-flash` lists no `480p`, and `veo-3.1` starts at `720p`.
+**`480p` changed on 2026-08-07.** It used to cost the same as `720p`, so there was no reason to ask for it. The family-wide reprice that shipped alongside `seedance-2.5` put it at roughly half then (the table above has today's words) — a price *decrease* on live models, so nothing that rendered yesterday costs more today, but a workflow that skipped `480p` on the old advice should reconsider it. **It is reachable on the three Seedance variants (mini since API 2.34.0) and on `wan-3.0`**; `omni-flash` lists no `480p`, and `veo-3.1` starts at `720p`.
 
 Those are ratios, not a rate card — they exist so you can warn a user that `4k` is a five-fold decision before they ask for it. **The number they approve still comes from `POST /estimates`**, and this repo holds no rate table (see SKILL.md gate 2).
 
@@ -484,8 +484,8 @@ charged for. Two consequences worth building around:
   independently recoverable. Fire the batch twelve wide rather than serialising it — 36
   images is three waves, not thirty-six calls in a row.
 
-If a call does time out, do **not** re-send it — there are no idempotency keys, so a retry
-renders and charges again. Check `GET /generations` first and match on `createdAt`; a job
+If a call does time out, do **not** re-send it — `POST /images` takes no idempotency key, so a
+retry renders and charges again. Check `GET /generations` first and match on `createdAt`; a job
 that landed is already there, and image 1 is retrievable even though its siblings are not.
 
 ---
@@ -1138,7 +1138,7 @@ Envelope, on every failure:
 | `method_not_allowed` | 405 | Real path, wrong verb. Carries an `Allow` header. |
 | `conflict` | 409 | Includes `/watch` on an unfinished job. |
 | `content_policy` | 422 | Moderation, and the **only** refusal of a prompt for what it says. Nothing charged. |
-| `rate_limited` | 429 | **Twelve causes**, nine of them broken out. See below. |
+| `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |
 | `provider_failed` | 502 | Credits refunded automatically. |
 
@@ -1163,10 +1163,12 @@ contract: sleep on the header, branch on the reason. `error.details` is a free-f
 response may carry more than the spec names — `details.inFlight` on a concurrency refusal is the
 only extra it does name. Do not branch on an undocumented `details` key.
 
-**The deployed spec names twelve reasons** (read off `2.21.0`, 2026-08-12). Nine are broken
-out below; the three this pack has never hit are `competitor_ads_concurrency_limit`,
-`analysis_concurrency_limit` and `analysis_hourly_limit`. Read the live spec's `429`
-description if you meet one that is not here — this table is a working set, not the contract.
+**The deployed spec names seventeen reasons** (counted off `2.60.0`, 2026-11-07). Nine are broken
+out below; the other eight are `competitor_ads_concurrency_limit`, `analysis_concurrency_limit`,
+`analysis_hourly_limit`, `voice_change_daily_cap`, `talking_actor_concurrency_limit`,
+`talking_actor_preview_limit`, `reference_check_concurrency_limit` and
+`assembly_concurrency_limit`. Read the live spec's `429` description if you meet one that is
+not here — this table is a working set, not the contract.
 
 | `details.reason` | Cause | What to do |
 |---|---|---|

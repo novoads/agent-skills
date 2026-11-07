@@ -192,7 +192,7 @@ The script handles:
 - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
 - **Upload once, reuse the assetIds for every prompt in the batch**
 - Each call blocks ~60–90s and returns the image; one still going after about 105 s answers `running` and the script polls it (API 2.39.0)
-- Bounded parallelism (4 in flight, under the API's concurrency ceiling of 5)
+- Bounded parallelism (4 in flight: the script's own cap, under the API's image queue of 12)
 - Per-run credit total from each response's `creditsCharged`
 
 ### 7. Review and present
@@ -248,16 +248,17 @@ With 1-2 face references the AI generalizes to "generic bearded man with glasses
 references from different angles it locks in the specific person. **Always use 5+ face references
 for character work.** For a series, use the rolling window described above.
 
-### Concurrency is 5, not "as many as you like"
+### Images queue at 12, not "as many as you like"
 
-The API allows 5 concurrent generations per organization. A 6th in flight returns `429` with
-`details.reason: concurrency_limit` — and unlike the other 429 causes, **slowing your request
-rate does not help**; only a finishing job frees a slot. The batch script caps itself at 4 in
-flight for headroom.
+The API allows 12 concurrent image generations per organization, counted apart from video in
+both directions. A 13th in flight returns `429` with `details.reason: image_concurrency_limit`,
+and unlike a per-minute limit, **slowing your request rate does not help**; only a finishing job
+frees a slot. The batch script's cap of 4 in flight is its own choice, not the API's limit: it
+leaves room for other image calls the organization runs through the API.
 
 ### Do not blindly retry a failed generation
 
-There are no idempotency keys on this API, so resubmitting after a timeout or a `500` can
+`POST /v1/images` takes no idempotency key, so resubmitting after a timeout or a `500` can
 render and charge twice. Check `GET /v1/generations` for a job that already landed before
 resubmitting. The batch script deliberately does not auto-retry.
 

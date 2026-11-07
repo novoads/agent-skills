@@ -107,7 +107,7 @@ else in the body. The price is not the same at `high`, so price it with the `ima
 value but `gpt-image-2`, so a Sunburst render is a direct `POST /v1/images` call.
 
 **N variants is one call, not N calls.** Send `numImages: 4` and four images come back in
-`images[]`. Do not fan out four parallel requests — that burns four of your ten concurrency
+`images[]`. Do not fan out four parallel requests — that burns four of your twelve image
 slots to get the same result at the same price.
 
 **There IS an edit mode, on the GPT models only.** `sourceAssetId` edits an existing image
@@ -290,8 +290,8 @@ zero.
 **3. Pilot five, then check them yourself.** Run `T12` (fake ChatGPT), `T14` (fake Slack), `T33`
 (typography hero), `T34` (iMessage), `T38` (stat hero + chart) — five templates that
 exercise dense UI text, conversation layout, pure type, and chart rendering, which is where
-this model fails if it is going to. **At most 4 requests in flight** (the org concurrency
-cap is 5, it is org-wide, and anything else the account is running shares it). Then Phase 6
+this model fails if it is going to. **At most 4 requests in flight** (this run's own cap:
+the org's image queue is 12, shared by every image call it has running through the API). Then Phase 6
 QA on all five. **This is the agent's checkpoint, not the user's**
 (`shared/skills/image-ad-prompting/OVERVIEW.md` § Presenting choices to the user): when the
 five read right, continue into the remainder in the same run. Stop and show the images only
@@ -308,7 +308,7 @@ from a previous run or from another product's library** — entries get added, a
 get corrected by exactly the kind of run you are doing now. Templates marked `acceptable`,
 or whose note leads with a caveat rather than "clean", are not in the set; name them in the
 report as skipped rather than silently dropping them. Same 4-in-flight cap. On `429`, branch
-on `details.reason`: `concurrency_limit` clears only by waiting, so honor `Retry-After`
+on `details.reason`: `image_concurrency_limit` clears only by waiting, so honor `Retry-After`
 instead of retrying tighter.
 
 **5. One image per call.** Omit `numImages` (or send `1`). A library run wants one render
@@ -341,9 +341,9 @@ that is `clone-image-ad`'s job.
 | `402 insufficient_credits` | `details` carries `required` and `available`. Tell the user the gap; do not retry. |
 | `403 forbidden` | `details.reason` says which: `plan_required`, `subscription_inactive`, or API access off for the account. |
 | `422 content_policy` | Moderation blocked it. The estimate does not run moderation, so this can land on a prompt the estimate priced cleanly. Nothing was charged. Rewrite or stop. |
-| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
+| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
 | `403` on the presigned PUT | The signed headers weren't echoed byte for byte. Send the `headers` object from `POST /v1/uploads` exactly as returned. |
-| `500 internal_error` | **Do not blindly retry** — there are no idempotency keys, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
+| `500 internal_error` | **Do not blindly retry** — `POST /v1/images` takes no idempotency key, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
 | `502 provider_failed` | The model provider failed. Credits are refunded automatically. |
 
 ## Files this skill owns

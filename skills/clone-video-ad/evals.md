@@ -72,9 +72,10 @@ this skill exists to preserve.
 **Assertions.**
 
 - Both routes are named before either is picked.
-- Each carries its tradeoff in one line: one-shot is roughly half the spend with continuous
+- Each carries its tradeoff in one line: one-shot is the cheaper route with continuous
   voice, but the clone no longer matches the source's runtime or pacing; the series
-  preserves both at roughly twice the spend, and pays any resolution multiplier per clip.
+  preserves both at more spend, in step with its total seconds, and pays any resolution
+  multiplier per clip.
 - **No default.** The agent presents the choice and waits. It does not pick one and mention
   the other in passing.
 - If it cites the #13 A/B, it states the mechanism caveat in the same breath.
@@ -109,7 +110,8 @@ holds.
 - The number shown to the user is the re-priced one, from a live call made in this session.
 - The multiplier is never stated from memory as the quote. Approximations orient; the
   estimate decides.
-- `480p` is named as a real draft tier at ≈half the base, not as saving nothing.
+- `480p` is named as a real draft tier below the base (≈two-thirds on `seedance-2.0`, under
+  half on `seedance-2.5`), not as saving nothing.
 - The key is never sent on `kling-v3-pro` (`400 Unrecognized key`: its body has no such
   field), nor on `omni-flash` wherever `GET /v1/models` lists only `720p` for it. On
   `seedance-2.0-mini` and `veo-3.1` (which take it since API 2.34.0) it carries only a tier

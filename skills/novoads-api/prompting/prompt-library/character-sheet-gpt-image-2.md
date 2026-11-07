@@ -108,7 +108,7 @@ Once the hero is approved:
    - `model`: `gpt-image-2`
    - `referenceAssetIds`: the array per step 2 above (max 4)
    - The angle-specific prompt
-5. **Concurrency is 5.** Fire at most 4 at a time. A 6th in flight returns `429` with `details.reason: concurrency_limit` — and unlike the other 429 causes, slowing down doesn't help; only a finishing job frees a slot.
+5. **Images queue at 12.** Fire at most 4 at a time: that is this recipe's own cap, not the API's limit. A 13th in flight returns `429` with `details.reason: image_concurrency_limit`, and unlike a per-minute limit, slowing down doesn't help; only a finishing job frees a slot.
 6. QA each per the Step 3 checklist.
 
 ### The 10 angles (same as Nano Banana version)

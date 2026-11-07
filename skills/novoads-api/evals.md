@@ -272,15 +272,16 @@ delivery — re-sampling the identical body is the right move, and it still cost
 generating.
 
 **Why, and it is measured.** The in-flight count is **per organization**, not per key or
-per session: two agents each holding three renders open produce a refused sixth
-submission with neither individually misbehaving — observed live 2026-08-12 across
-parallel callers on one org, and again in the dogfooding run (RUN-FINDINGS item 9),
-where it cleared in about two minutes. **Nothing is charged on the refusal**: the row is
-never created, so there is no job to find and no credit to reclaim.
+per session: two agents each holding five renders open see an eleventh submission refused,
+with neither individually misbehaving. That was observed live 2026-08-12 across parallel
+callers on one org, under the old ceiling of five (three renders each, a sixth refused),
+and again in the dogfooding run (RUN-FINDINGS item 9), where it cleared in about two
+minutes. **Nothing is charged on the refusal**: the row is never created, so there is no
+job to find and no credit to reclaim.
 
 The queues are separate, and that is the part an agent gets wrong. Video, images,
 captions, transcripts, voice-overs and voice-changes each have their own ceiling and
-their own `details.reason`. The deployed spec names twelve reasons. An agent that reads
+their own `details.reason`. The deployed spec names seventeen reasons (2.60.0). An agent that reads
 only *"429 means slow down"* backs off on the wrong axis when the problem is jobs in
 flight — and may be backing off the wrong **queue** entirely.
 
@@ -295,8 +296,8 @@ flight — and may be backing off the wrong **queue** entirely.
   limiter.
 - No branch is written on a `details` key the spec does not name. `details.inFlight` on
   a concurrency refusal is the only extra there is.
-- At most ten generations are in flight, and the ceiling is stated as shared with
-  whatever else the account is running.
+- At most ten video generations are in flight, and the ceiling is stated as shared with
+  whatever else the account is running on that queue. Images queue apart, twelve at most.
 
 **Fails if:** a concurrency refusal is backed off; or the user is told a refused
 submission cost them something; or one queue's refusal stops the others.
@@ -333,8 +334,8 @@ there — while some of them are perfectly valid on the generation call.
   it. The two schemas are different and the differences are documented per field.
 - `resolution` is re-priced whenever the tier changes, and never carried across a model
   change.
-- `model` is named explicitly in every estimate body — the schedules span more than 10×
-  across the set at one length, and the prompt ceiling is enforced against whichever
+- `model` is named explicitly in every estimate body — the schedules span about 44×
+  across the set at four seconds, and the prompt ceiling is enforced against whichever
   model is named. Naming none is judged as `seedance-2.0`.
 - `durationSeconds` is validated against the **named model's** grid, and an out-of-grid
   value is **rejected, never rounded**.

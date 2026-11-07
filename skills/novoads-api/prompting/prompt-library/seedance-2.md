@@ -10,7 +10,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 
 | Field | Value / range | Notes |
 |---|---|---|
-| `model` | `seedance-2.0`, `seedance-2.0-mini` | Mini is half the price on the same grid. Ask once per workflow; see *Mini-draft tier* below. |
+| `model` | `seedance-2.0`, `seedance-2.0-mini` | Mini is about a fifth of the price on the same grid. Ask once per workflow; see *Mini-draft tier* below. |
 | `prompt` | required | The video prompt. See *Length* below. |
 | `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
 | `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9`.** Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
@@ -26,7 +26,7 @@ Only `model` and `prompt` are required. The body is **strict** — any key not i
 
 `referenceAssetIds` is **images only** (`image/jpeg`, `image/png`, `image/webp`); since API 2.35.0 mp4 and mp3 references go in `referenceVideoAssetIds` and `referenceAudioAssetIds`, with caps from the OpenAPI document (`GET /v1/openapi.json`: each field's `maxItems` and description, which also state the summed-seconds and total-file caps), and cannot be combined with `startImageAssetId`; an audio reference needs an image or video reference beside it. Ten references is `referenceAssetIds: Too big: expected array to have <=9 items`. `omni-flash` takes `referenceAssetIds` too since API 2.30.0 (images only as well, with one separate `referenceVideoAssetId`); read its guide before carrying a Seedance reference prompt across.
 
-**`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈half**, `1080p` is **≈2.5x**, `4k` is **≈5x**. The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: measured live 2026-08-12, exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5`, so a rehearsal render has an honest cheap tier to go to.
+**`resolution` exists on this model and it multiplies the bill** (verified live 2026-08-04, spec 2.6.0 — the older note here saying the field did not exist described a previous deployment). It takes `480p`, `720p`, `1080p`, `4k` and defaults to `720p`. Relative to that base: `480p` costs **≈two-thirds**, `1080p` is **≈2x**, `4k` is **≈5x** (deployed spec 2.60.0). The `480p` arm was repriced on 2026-08-07 — it used to cost the same as `720p`, which is why the older note here called it no draft tier at all. It is one now: it measured exactly half the `720p` quote on `seedance-2.0` and on `seedance-2.5` on 2026-08-12, the schedules have moved since, and a rehearsal render still has an honest cheap tier to go to.
 
 Those are ratios for warning the user, **not a rate card — never quote a credit number from them.** Price the exact cell with `POST /v1/estimates`, which takes `resolution` on its video arm, and get the usual approval before rendering.
 
@@ -184,11 +184,11 @@ Embed the line in the prompt with natural attribution: `she says: "…"` or `he 
 
 ## Mini-draft tier
 
-`seedance-2.0-mini` is the same grid, the same fields, and the same formulas at **half the price**, and it returns in 2–3 minutes instead of 3–8. Use it as a draft tier:
+`seedance-2.0-mini` is the same grid, the same fields, and the same formulas at **about a fifth of the price**, and it returns in 2–3 minutes instead of 3–8. Use it as a draft tier:
 
 1. Ask once per workflow which tier to use (`SKILL.md` makes this an explicit question; no preference means `seedance-2.0`).
 2. Upload the reference **once**. The `assetId` is durable, so the final render reuses it with no second upload.
-3. Draft on `seedance-2.0-mini` until the prompt is right — wrong framing, a garbled label, or a rushed line costs half as much to discover.
+3. Draft on `seedance-2.0-mini` until the prompt is right — wrong framing, a garbled label, or a rushed line costs about a fifth as much to discover.
 4. Re-price at `POST /v1/estimates` with `model` set to the final tier and re-confirm before the finishing render. **Show both numbers side by side** when the user is choosing; never quote either from memory.
 
 The prompt does not change between tiers. If it renders well on mini, the only thing the full model changes is fidelity.

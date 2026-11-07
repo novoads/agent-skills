@@ -96,7 +96,7 @@ fired on the pre-suffix prompt.
 "remove the sticker on the bottle".
 
 **Observed live (dogfooding run, RUN-FINDINGS item 6, confirmed live).**
-`sourceAssetId` exists **only** on `gpt-image-2`, and it **rejects `aspectRatio`**: an
+`sourceAssetId` exists **only** on the five GPT models, and it **rejects `aspectRatio`**: an
 edit's output tracks the source's shape, so the pair is a `400`. The second half is
 easier to miss — **the source spends a reference slot**, so source plus
 `referenceAssetIds` must total ≤ 4.

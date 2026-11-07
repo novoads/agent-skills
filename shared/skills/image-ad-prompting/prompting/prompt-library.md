@@ -124,7 +124,7 @@ from the live request schemas (`GET /v1/openapi.json` is the authority):
 | `4:3` | ❌ | ✅ |
 | `5:4` | ❌ | ✅ |
 
-**Every ratio used by the 40 templates in this file (`1:1`, `2:3`, `9:16`) renders natively on
+**Every ratio used by the 40 templates in this file (`1:1`, `2:3`, `4:5`, `9:16`) renders natively on
 both models.** No template in this library needs a fallback-and-crop — that whole class of
 workaround is gone. The gap only bites a bespoke prompt asking for `3:2`, `3:4`, `4:3` or `5:4`,
 and the fix there is to route it to `nano-banana-pro`.

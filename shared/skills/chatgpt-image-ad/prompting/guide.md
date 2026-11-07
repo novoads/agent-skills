@@ -62,7 +62,7 @@ One model, one enum — no per-broker matrix any more:
 | `21:9` | ✅ | ✅ |
 | `3:2` `3:4` `4:3` `5:4` | ❌ | ✅ |
 
-**Every ratio the shared template library uses (`1:1`, `2:3`, `9:16`) renders natively here**,
+**Every ratio the shared template library uses (`1:1`, `2:3`, `4:5`, `9:16`) renders natively here**,
 so no template needs a fallback-and-crop. Only a bespoke prompt asking for `3:2`, `3:4`, `4:3`
 or `5:4` hits the gap — for those, switch to `nano-banana-image-ad`.
 

@@ -60,8 +60,8 @@ Field notes:
 - **On submit:** append the request metadata immediately, before polling starts, so a crashed session still leaves a trace of a charge that was incurred.
 - **On terminal status:** update the line with the final status and elapsed time. Carry `creditsCharged` over from the `202` you already logged — `GET /v1/generations/{jobId}` does **not** return it (its schema is `createdAt`, `error`, `jobId`, `kind`, `model`, `outputUrl`, `outputUrlExpiresInSeconds`, `prompt`, `status`). Verified live 2026-08-02. If it is missing from your submit line it is gone; never reconstruct it from a rate.
 
-  **Update the line by `jobId`, not by position, and do not reach for `head -n -1`.** Up to five
-  generations run at once, so the line you need is often not the last one — and `head -n -1` is a
+  **Update the line by `jobId`, not by position, and do not reach for `head -n -1`.** Up to ten
+  video generations run at once, so the line you need is often not the last one — and `head -n -1` is a
   GNU extension that fails on stock macOS (`head: illegal line count -- -1`), which is this repo's
   first target. Portable, keyed, and atomic:
 

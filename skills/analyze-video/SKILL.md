@@ -460,8 +460,8 @@ sequence:
 5. Poll `GET /v1/generations/{jobId}` every 15s until a terminal status, then download from
    `GET /v1/generations/{jobId}/watch`.
 
-Every clip in a series is its own call and its own charge. Five generations per
-organization may be in flight at once.
+Every clip in a series is its own call and its own charge. Ten generations per
+organization may be in flight at once (API 2.51.0).
 ```
 
 ## Related files
@@ -470,7 +470,7 @@ organization may be in flight at once.
   a generated video for the user's product instead of a template file.
 - [scripts/extract-frames.sh](scripts/extract-frames.sh) — frame and audio extraction,
   shared by both skills.
-- [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) — the platform guide every generated template defers to. The other live video models carry their own grids, and you need one the moment a template targets them rather than Seedance: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo or the shot has to evolve over its runtime (it takes no `referenceAssetIds`). A template whose first spoken word has to land immediately stays on `seedance-2.0`, with a reference or a start frame (about 0.5s of leading silence), the eye-contact-break beat dropped, and the first `silence_end` checked and trimmed; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md), the model that measured none, was removed from the API in 2026-09 and is kept as history.
+- [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) — the platform guide every generated template defers to. The other live video models carry their own grids, and you need one the moment a template targets them rather than Seedance: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo or the shot has to evolve over its runtime (it takes no `referenceAssetIds`), [kling-3.md](../novoads-api/prompting/prompt-library/kling-3.md) for `kling-v3-pro` (vendor craft; the body is in reference.md), and [the Omni Flash guide](../../shared/skills/gemini-omni-flash/prompting/guide.md) for `omni-flash`; `wan-3.0` has no guide here, so its grid is the `POST /videos` table in [reference.md](../novoads-api/reference.md). A template whose first spoken word has to land immediately stays on `seedance-2.0`, with a reference or a start frame (about 0.5s of leading silence), the eye-contact-break beat dropped, and the first `silence_end` checked and trimmed; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md), the model that measured none, was removed from the API in 2026-09 and is kept as history.
 - [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) — the cross-model UGC guide. Its *Core principles* transfer to Seedance; its per-model formulas do not — never port one across by find-and-replace.
 - [../../SKILL.md](../novoads-api/SKILL.md) — the call sequence, the two gates, polling, download.
 - [../../reference.md](../novoads-api/reference.md) — every endpoint, field, limit and error code.

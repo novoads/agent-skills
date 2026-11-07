@@ -197,7 +197,7 @@ default; or a total is shown without the per-image number behind it.
 "remove the sticker", "make the background a kitchen counter".
 
 **Why.** There is **no edit mode on this model**. `nano-banana-pro` does not publish
-`sourceAssetId`; there is no mask, no inpainting, no img2img. Editing is a `gpt-image-2`
+`sourceAssetId`; there is no mask, no inpainting, no img2img. Editing is a GPT-model
 capability, which makes it a reason to switch skills rather than a reason to
 approximate. The approximation is the failure: a reference-led regeneration reads like
 an edit, costs like a render, and silently reinvents everything the user did not

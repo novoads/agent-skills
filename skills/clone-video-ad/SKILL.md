@@ -800,7 +800,7 @@ Full detail in [reference.md](../novoads-api/reference.md).
 | Prompt rules are advisory and live on `/estimates` only | The estimate returns a `warnings` array of `{rule, message}` craft advice; `POST /videos` does not. None of it can refuse or reprice a call, so a weak prompt still renders and bills exactly like a strong one. The warnings are substring matches and **do false-positive** — read them, judge each against the prompt, and say so when you override one |
 | Moderation is `422 content_policy` | The only refusal of a prompt for what it says, and the estimate skips it, so a clean quote can still be blocked. **Nothing is charged** |
 | Ten generations in flight per organization | An eleventh is `429` with `details.reason: concurrency_limit`. Wait for a slot; backing off harder does nothing |
-| No idempotency keys | Which is why a 500 is never blindly retried — see below |
+| `idempotencyKey` on every video call (API 2.52.0) | The same key within 24 hours returns the first job and its charge, so a retry after a timeout is safe; without one, a 500 is never blindly retried: see below |
 
 ## Error recovery
 

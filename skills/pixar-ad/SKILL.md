@@ -539,8 +539,8 @@ a render that already succeeded and was already billed.
 **If a call times out, do NOT generate again.** The work usually completed and
 was charged; what timed out was the response carrying its id. Call
 `GET /v1/generations?limit=10&kind=video`, find the job by `createdAt` and its
-prompt, and take it from there. There are no idempotency keys, so a blind retry
-renders and charges a second time.
+prompt, and take it from there. A clip sent without an `idempotencyKey` (API 2.52.0)
+renders and charges a second time on a blind retry.
 
 ### Per-clip QA, before you spend a voice-over on it
 

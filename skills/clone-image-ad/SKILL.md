@@ -333,8 +333,8 @@ the same local prompt-length check before spending.
 
 ### Editing a source (Phase 7's second instrument)
 
-`POST /v1/images` accepts `sourceAssetId` — **`gpt-image-2` only** — which repaints the zones a
-prompt names and leaves the rest of the frame alone:
+`POST /v1/images` accepts `sourceAssetId` — **on the GPT models; this validator sends it on
+`gpt-image-2`** — which repaints the zones a prompt names and leaves the rest of the frame alone:
 
 ```bash
 ./skills/clone-image-ad/scripts/validate_image.py \

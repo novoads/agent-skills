@@ -71,7 +71,7 @@ done <<'PATTERNS'
 all|arcads_|vendor tool name; nothing here can call it
 all|register_image|no analogue on /v1; the warning is meaningless
 all|nbGenerations|not a field; live-verified 400 Unrecognized key
-skill|720p or higher|720p is this model's ceiling; 1080p is a live-verified 400
+skill|720p or higher|never "or higher": 4k is a 400 here, and 1080p only where GET /v1/models lists it
 skill|expire quickly|inverted: the assetId is durable, the upload URL expires
 PATTERNS
 

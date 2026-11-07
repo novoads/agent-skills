@@ -45,7 +45,7 @@ submit time.
   out loud — they are substring matches and they do false-positive.
 - One consolidated consent line: per-call number, count, total, balance. One yes covers
   all N.
-- The renders fire concurrently, every variant counted against the five-slot cap.
+- The renders fire concurrently, every variant counted against the ten-slot cap.
 
 **Fails if:** one estimate is fired and its number reused as the quote for all variants; or
 each variant gets its own separate approval gate; or "three variations" silently becomes

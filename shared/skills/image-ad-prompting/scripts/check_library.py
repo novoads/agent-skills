@@ -27,7 +27,8 @@ this library is a validated artifact, and trimming one costs a re-validation ren
 to prove the render did not change.
 
 reve-2.1, retired in API 2.48.0, was the tightest (4,000), and the baseline held
-T8, T11 and T14. The tightest is now gpt-image-2, which is also the default: every
+T8, T11 and T14. The tightest is now gpt-image-2, which is also this library's DEFAULT_MODEL
+(the API's own default is gpt-image-2.6-sunburst since 2.58.0): every
 template fits it, so the baseline is empty, and the ratchet stays for the next
 route that adds a model with less room.
 
@@ -356,7 +357,7 @@ def main() -> int:
 
     # ── L1 — the template is usable on the model it is sent under ────────────
     # The generator appends the suffixes and refuses above the named model's cap.
-    # Since 2.16.0 that cap is three numbers, so "does it fit" is three answers:
+    # The cap is per model (since 2.16.0), so "does it fit" has one answer per model:
     # a body over the DEFAULT model's room is unsendable on the path the library
     # actually routes to and fails; a body over the TIGHTEST model's room is only
     # unsendable there, and is held to an exact baseline instead.

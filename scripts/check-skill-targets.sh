@@ -97,10 +97,14 @@ for parent in ("skills", "shared/skills"):
 # `sora-2` came off this list when the model left the API (2026-09): a routing
 # sentence that still sends an agent to it now fails here, like a dangling skill
 # name, and the fix is to name a live model instead.
+#
+# An id with a dot (`wan-3.0`, `veo-3.1`, `reve-2.1`) needs no entry: a name must
+# run straight into its closing backtick, so the pattern below never matches one.
 KNOWN_NON_SKILLS = {
     "gpt-image-2", "gpt-image-1", "nano-banana-pro", "nano-banana-2",
     "nano-banana-edit", "omni-flash", "veo-3-1", "seedance-2",
-    "seedance-2-ugc", "reve-2", "dall-e-3", "captions-v1",
+    "seedance-2-ugc", "dall-e-3", "captions-v1", "kling-v3-pro",
+    "seedream-5-lite", "seedream-5-pro",
 }
 
 FAMILY = (r'(?:novoads|clone|spy)-[a-z0-9]+(?:-[a-z0-9]+)*'

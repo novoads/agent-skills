@@ -52,8 +52,8 @@ including whether there is a job.
   this API described"*, never as a diagnosis of the key, the plan or the prompt.
 - Before anything is retried, `GET /v1/generations` is called and matched on
   `createdAt` — a row may exist, may be charged, and may already be refunded.
-- Nothing is re-sent blind. There are **no idempotency keys**, so a retry can render and
-  charge again.
+- Nothing is re-sent blind. A video call carries an `idempotencyKey` or is checked in
+  `GET /v1/generations` first; an image call takes no key, so a retry can render and charge again.
 - The user is told plainly whether a charge landed and whether it came back, from the
   ledger rather than from the failed response.
 - On a bare edge page specifically, the client is examined before the credential. A
@@ -178,7 +178,8 @@ is the general lesson: a summary that restates a number owns that number forever
   charged, which is the good outcome: a silently dropped reference would be a paid render
   missing the product.
 - Video references are understood as a **different** number and a narrower set: up to 9,
-  on the three Seedance variants only. (Here "video references" means image references
+  on the three Seedance variants and `wan-3.0`, with `omni-flash` on its own limit. (Here
+  "video references" means image references
   on a video model; Seedance mp4 and mp3 references since API 2.35.0 have their own caps.)
 - A guardrail bullet that restates a limit is checked against the section it summarises
   before it is quoted to a user.
@@ -205,7 +206,7 @@ indistinguishable from a measurement.
 
 - The submission is logged **immediately**, one line, carrying `creditsCharged` from the
   `202`. The charge goes on the line now.
-- The line is updated by `jobId`, not by position — up to five jobs are in flight and the
+- The line is updated by `jobId`, not by position — up to ten video jobs are in flight and the
   one being updated is often not the last written.
 - The log is never a pricing source. Prices come from `POST /v1/estimates`, always.
 - No prompt text, key or `Authorization` header is ever logged.
@@ -318,8 +319,8 @@ as **not re-verified**, because confirming it again means a paid render — whic
 itself worth asserting: the run does not go and check.)
 
 **The neighbouring shape, same lesson.** Never carry a `resolution` across a model
-switch. `seedance-2.5` renders `480p` and `720p` and nothing above — a workflow that
-renders `seedance-2.0` at `1080p` and swaps the model id is a **rejected request**, not
+switch. `seedance-2.5` stops at `1080p` and never takes `4k` — a workflow that
+renders `seedance-2.0` at `4k` and swaps the model id is a **rejected request**, not
 a downgrade. And the estimate body more generally is strict and narrow: it takes only
 the fields that move the price, so `aspectRatio`, `startImageAssetId`,
 `referenceAssetIds`, `productId`, `audioEnabled` and `styleFamily` are each a `400`

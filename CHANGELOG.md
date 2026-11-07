@@ -35,18 +35,49 @@ makes every other line true. For an agent:
   pin block.
 - **A talking clip whose first word must land at once goes to `seedance-2.0`** with a reference or
   a start frame, the eye-contact-break beat dropped and the first `silence_end` trimmed, in
-  `clone-video-ad`, `analyze-video` and the UGC and Seedance prompt files, where they used to point
-  at `sora-2` (removed from the API). `sora-2.md` opens with a removed notice and keeps its
-  measurements as history, so an old link still lands on a page that says what happened.
+  `clone-video-ad`, `analyze-video` and the cross-model UGC guide, where they used to point at
+  `sora-2`; `seedance-2.md` and `ugc-product-selfie.md` no longer list it as live. `sora-2.md`
+  opens with a removed notice and keeps its measurements as history, so an old link still lands
+  on a page that says what happened.
 - **Field lists name the live video models.** The `referenceAssetIds`, `audioEnabled`,
-  `resolution`, default and duration lines in `novoads-api`, `clone-video-ad` and the README drop
-  `sora-2` (removed) and add `wan-3.0` and `kling-v3-pro` where the spec has them, and the README's
-  model table gets a `wan-3.0` row read off its request schema.
+  `resolution`, default and duration lines in `novoads-api` and the README, and the `audioEnabled`
+  lines in `clone-video-ad`, drop `sora-2` (removed) and add `wan-3.0` and `kling-v3-pro` where the
+  spec has them. The README's model table gets a `wan-3.0` row read off its request schema, and
+  `reference.md`'s `POST /videos`, `resolution` and timings tables get `wan-3.0` rows (`kling-v3-pro`
+  joins the last two), so a Wan body can be built from the reference. `novoads-api`'s router names
+  Wan, and its timing and script-length sections say Kling and Wan are unmeasured.
 - **Guards.** `verify-image-caps.sh` no longer expects the retired `reve-2.1` caps: it skips a
   schema whose `model` description says `model_retired`, with a printed note, fails if its own
   table still names a retired id, and checks that the validator refuses `--model reve-2.1` as
   retired before the env gate. `check-skill-targets.sh` no longer exempts the removed `sora-2`, so
-  a routing sentence that sends an agent to it fails there.
+  a sentence that says use, see, switch to, route to or offer `sora-2` fails there, and it now
+  exempts `kling-v3-pro` and the two Seedream 5 ids, so a correct line naming one passes.
+
+**Facts the pack had stale, made true against the deployed spec (2.59.0).** For an agent:
+
+- **`seedance-2.5` renders `1080p`** where `GET /v1/models` lists it (API 2.28.0), and still never
+  `4k`. `novoads-api`, the README and `image-to-motion` no longer call `720p` its ceiling, and
+  `image-to-motion`'s eval case now holds the `4k` refusal.
+- **Video prompt ceilings are per model:** 20,000 on `omni-flash` and `wan-3.0`, 4,000 on the three
+  Seedance variants and `veo-3.1`, 2,500 on `kling-v3-pro`. The old lines gave `omni-flash` the only
+  20,000 and everything else 4,000, which over-filled a Kling prompt and cut a Wan brief for nothing.
+- **Ten video generations in flight (API 2.51.0).** The video lines v1.4.0 missed now say ten:
+  `analyze-video`, `novoads-api` and its reference (the error table and the caption, transcript
+  and music rows), the log recipe, the feature-walkthrough formula, `clone-image-ad`'s guide and
+  two evals.
+- **`audioEnabled` is on `kling-v3-pro` and `wan-3.0` too**, in `novoads-api`'s decision list and
+  `reference.md`, so a clip meant to be silent on either gets its `false`.
+- **Image editing is on the five GPT models**, where the overview and `clone-image-ad`'s docs said
+  `gpt-image-2` alone. The route is unchanged: an edit goes to `chatgpt-image-ad`, whose script
+  sends `gpt-image-2`, and `clone-image-ad`'s validator edits on `gpt-image-2`.
+- **Video calls take an `idempotencyKey` (API 2.52.0):** the same key within 24 hours returns the
+  first job and its charge. `novoads-api`, `clone-video-ad` and `pixar-ad` no longer say there are
+  no keys; `POST /v1/images` still takes none.
+- **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
+  family that already failed: when both draw a template wrong, the template is the problem. The
+  overview says `clone-image-ad` renders through its own validator, and the template library's
+  ratio set includes `4:5`. The README's `resolution` paragraph lists `seedance-2.0-mini` and
+  `veo-3.1`, and it no longer says `omni-flash` takes no reference images.
 
 ## v1.4.0 — 2026-11-07
 

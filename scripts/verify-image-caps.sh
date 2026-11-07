@@ -53,10 +53,9 @@ BASE="${NOVOADS_BASE_URL:-https://api.novoads.ai}"
 # them as drift.
 #
 # The two Seedream 5 ids join in API 2.39.0 and are section-1 only for the same
-# reason. Their caps (10 references, 10,000 prompt characters) are read off the
-# API's source (seedream-async: kie-image-reference-caps.ts, image-models.ts),
-# not yet off a deployed spec: until 2.39.0 deploys, section 1 reports them as
-# drift, which is the signal that the pack is ahead of the API.
+# reason. Their caps (10 references, 10,000 prompt characters) are read off
+# deployed spec 2.59.0 (2026-11-07); on a deployment that does not offer them,
+# section 1 reports them as drift.
 #
 # reve-2.1 left this table when it was retired (API 2.48.0). The spec still
 # carries its request schema, with the old caps, only so an old client gets the
@@ -283,8 +282,9 @@ $RESIDUE"
 
 # The same check for the PROMPT ceiling, which spec 2.16.0 split three ways. Scoped
 # to the image-ad family, because "4,000 characters" is still the true and current
-# figure for five video models and a repo-wide grep would drown in them. Inside these
-# paths a universal 4,000 claim is by definition about images, and wrong.
+# figure for four video models (the three Seedance variants and veo-3.1) and a
+# repo-wide grep would drown in them. Inside these paths a universal 4,000 claim is
+# by definition about images, and wrong.
 IMAGE_PATHS=()
 for p in "$ROOT/skills/chatgpt-image-ad" "$ROOT/skills/nano-banana-image-ad" \
          "$ROOT/skills/clone-image-ad" "$ROOT/shared/skills/chatgpt-image-ad" \

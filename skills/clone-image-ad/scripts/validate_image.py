@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-Round-trip a clone-workflow prompt through any Novoads image model.
+Round-trip a clone-workflow prompt through gpt-image-2 or nano-banana-pro.
 
 This is the clone-image-ad skill's validator, NOT a production generator. The two
 generator skills are deliberately model-locked (chatgpt-image-ad to gpt-image-2,
 nano-banana-image-ad to nano-banana-pro) so a production run cannot drift models by
 accident. Cloning has the opposite requirement: Phase 4 validates against one model
 and Phase 8 re-runs the SAME template on another to fill in the Model notes block.
-So this one takes --model, applies that model's own grid, and refuses only a retired id.
+So this one takes --model gpt-image-2 or nano-banana-pro, applies that model's own grid, and
+refuses the retired reve-2.1 by name and any other id as an invalid choice.
 
 `reve-2.1` was retired in API 2.48.0. `--model reve-2.1` stops here, before the network,
 with a line that says so and names the model to validate on instead.
 
 It also carries the clone workflow's EDIT path: --source-image / --source-asset-id
-send `sourceAssetId` (gpt-image-2 only), which repaints named zones of an existing
+send `sourceAssetId` (a GPT-model field, sent here on gpt-image-2), which repaints named zones of an existing
 image while leaving the rest of the frame alone. That is Phase 7's second instrument
 — see the guide. It is mutually exclusive with --aspect-ratio, because an edit's
 output tracks the source's shape.
@@ -545,7 +546,7 @@ def lint_placeholders(prompt: str) -> list[str]:
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Round-trip a clone prompt through any Novoads image model (validator, not a generator).",
+        description="Round-trip a clone prompt through gpt-image-2 or nano-banana-pro (validator, not a generator).",
     )
     p.add_argument("--prompt", required=True, help="Image prompt (post-rewrite).")
     p.add_argument(
@@ -664,7 +665,7 @@ def main() -> int:
 
     if editing and args.model != "gpt-image-2":
         log(
-            f"error: editing a source is gpt-image-2 only; {args.model} has no edit "
+            f"error: this validator edits on gpt-image-2 only; {args.model} has no edit "
             f"mode on this API. Drop the source, or switch --model."
         )
         return 2

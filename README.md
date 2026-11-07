@@ -297,11 +297,11 @@ Any integer duration from **4 to 30 seconds**, which makes it the only model her
 `referenceAssetIds`, the same `audioEnabled` toggle, the same 4,000-character prompt ceiling — so
 the five Seedance formulas apply unchanged.
 
-Two differences worth knowing before you pick it. It renders **`480p` and `720p` only** — no
-`1080p`, no `4k`, on either provider — so a resolution carried over from a 2.0 workflow is a
-rejected request rather than a downgrade. And it is the **dearest** model on the API at the same
-length; thirty seconds of it is the most expensive single call this API takes. Price it, like
-everything else, at `POST /v1/estimates`.
+Two differences worth knowing before you pick it. It renders **`480p`, `720p` and, where
+`GET /v1/models` lists it, `1080p`** (API 2.28.0; the deployed spec lists it), and never `4k`, so a
+`4k` carried over from a 2.0 workflow is a rejected request rather than a downgrade. And it is the
+**dearest** model on the API at the same length; thirty seconds of it is the most expensive single
+call this API takes. Price it, like everything else, at `POST /v1/estimates`.
 
 > "Make a 30-second Seedance 2.5 ad — the founder walks through the workshop and explains why they
 > built it"
@@ -313,9 +313,11 @@ A longer clip wants **more beats**, not slower delivery. If the script only fill
 
 > "Give me a fast 8-second vertical clip of the product on a kitchen counter, no dialogue"
 
-`omni-flash` carries a **20,000-character** prompt ceiling, the roomiest of any video model here
-against 4,000 everywhere else, which is what makes long structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`,
-aspect ratios `9:16` or `16:9` only — and it takes **no** reference images. Prompt craft in
+`omni-flash` carries a **20,000-character** prompt ceiling, the roomiest of any video model here,
+shared only with `wan-3.0` (`kling-v3-pro` takes 2,500, the rest 4,000), which is what makes long
+structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`,
+aspect ratios `9:16` or `16:9` only — and since API 2.30.0 it also takes reference images.
+Prompt craft in
 [shared/skills/gemini-omni-flash/prompting/guide.md](shared/skills/gemini-omni-flash/prompting/guide.md),
 which is Google DeepMind's own guide with the parts this API cannot reach marked as such.
 
@@ -463,13 +465,13 @@ is the current answer, this table is a map.
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
 |---|---|---|---|---|---|
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
-| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p` / `720p` only, no `1080p` or `4k`.** Dearest per second; nothing has timed one, so quote the wait as unknown. |
+| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearest per second; nothing has timed one, so quote the wait as unknown. |
 | **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, half the price, back in 2–3 min. The drafting tier. |
 | **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
-| **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | read `GET /v1/models` | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
-| **`wan-3.0`** | Video | 4–15s, any integer | `9:16` `16:9` `1:1` `4:3` `3:4` | **20,000 chars** | Wan 3.0 (API 2.53.0). Defaults to `9:16` and 5s. Audio on by default, off with `audioEnabled: false`. `startImageAssetId` (with `lastFrameAssetId` as the last frame) **or** up to 9 `referenceAssetIds`, never both. `resolution` `480p` `720p` `1080p`, default `720p`, each tier its own price. Unmeasured here: no render time on record. |
+| **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | 2,500 chars | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`wan-3.0`** | Video | 4–15s, any integer | `9:16` `16:9` `1:1` `4:3` `3:4` | **20,000 chars** | Wan 3.0 (API 2.53.0). Defaults to `9:16` and 5s. Audio on by default, off with `audioEnabled: false`. Text alone, `startImageAssetId` (plus an optional `lastFrameAssetId`, which needs it), **or** up to 9 `referenceAssetIds`; never a start frame and references together. `resolution` `480p` `720p` `1080p`, default `720p`, each tier its own price. Unmeasured here: no render time on record. |
 | **`gpt-image-2.6-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default** (added in API 2.57.0, the default since 2.58.0): a call with no `model` and no `preset` renders this. The newest; slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
 | **`gpt-image-2.6-flare`** | Image | — | same six | **32,000 chars** | The newest fast one, for most images (API 2.57.0). Can answer `running`: poll it. |
 | **`gpt-image-2.5-sunburst`** | Image | — | same six | **32,000 chars** | Slower, keeps fine detail and labels exact. Can come back larger than 2.6, up to 2160 x 3840 at `9:16` at `high`: read `width` and `height`. Can answer `running`: poll it. |
@@ -495,12 +497,15 @@ or answer `running` and are polled the same way.
 and `wan-3.0` (API 2.53.0); send `false` for a clip meant to run silent. `omni-flash` and `veo-3.1` are
 strict and `400` on it, as does `POST /v1/estimates` for every model: it does not move the price.
 
-`resolution` is on **`seedance-2.0`, `seedance-2.5`, `wan-3.0` (API 2.53.0), and `omni-flash` where
-`GET /v1/models` lists more than one tier for it**, and it is the one output-shape field
-that moves the price: each tier is its own credit schedule, not a surcharge on the one below it.
-Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than the same, which makes it a real
-draft tier on both Seedance models. `seedance-2.5` stops at `720p`. `omni-flash` may list `360p`,
-`720p` and `1080p`, plus `4k` where the server publishes it: read the live list, never assume `4k`.
+`resolution` is on **`seedance-2.0`, `seedance-2.5`, `seedance-2.0-mini` and `veo-3.1` (both since
+API 2.34.0), `wan-3.0` (API 2.53.0), and `omni-flash` where `GET /v1/models` lists more than one
+tier for it**. On every one of them but `veo-3.1`, which quotes the same at both of its tiers, it
+is the one output-shape field that moves the price: each tier is its own credit schedule, not a
+surcharge on the one below it. Since 2026-08-07 `480p` costs roughly **half** of `720p` rather than
+the same, which makes it a real draft tier on all three Seedance variants (quote each tier).
+`seedance-2.5` stops at `1080p` where `GET /v1/models` lists it, and never takes `4k`. `omni-flash`
+may list `360p`, `720p` and `1080p`, plus `4k` where the server publishes it: read the live list,
+never assume `4k`.
 
 **Kling 3.0 is on this API as `kling-v3-pro` since API 2.38.0**, where `GET /v1/models` lists it:
 any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, audio on or off, text or a start frame, and

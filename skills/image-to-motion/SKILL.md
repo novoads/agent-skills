@@ -234,8 +234,8 @@ cost gate did not price.
   against other models from memory: which cell is dearest depends on the provider this
   deployment routes to, and the estimate is the only thing that knows.
 - `aspectRatio` — `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9`.
-- `resolution` — `480p` or `720p`. **720p is this model's ceiling**, not a floor: 1080p and
-  4k belong to other models and are a `400` here.
+- `resolution` — `480p`, `720p` or, where `GET /v1/models` lists it (API 2.28.0), `1080p`.
+  **`4k` belongs to other models** and is a `400` here.
 - `audioEnabled` — `false` unless sound is wanted.
 - **Four takes gives useful choice.** There is no variations-per-call field, so that is four
   submissions of the identical payload, and **four charges** — which is why it belongs
@@ -321,7 +321,8 @@ When something is off, add specificity rather than emphasis. Naming the object, 
    **send `prompt`** — it is required, and a body without it is a `400`. No rate lives in
    this file.
 2. **N takes is N charges**, said out loud before the first one fires.
-3. **720p is the ceiling** on this model. Do not offer or submit higher.
+3. **`4k` does not exist on this model**, and `1080p` only where `GET /v1/models` lists it.
+   Read the list before you offer it.
 4. **Never send `startImageAssetId` and `referenceAssetIds` together.** Separate modes.
 5. **Upload once.** The asset is durable; the URL is what expires.
 6. **The 0.0s beat names what is absent**, or the reveal cannot happen.

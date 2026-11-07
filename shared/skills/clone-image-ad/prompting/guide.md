@@ -248,7 +248,7 @@ Pick a different brand and substitute test values into every placeholder. Genera
 If the test fails, the structure breaks under different brand assumptions — return to Phase 6 and refine the placeholder set. Often the fix is a placeholder that was missed (e.g. you hardcoded a font feel that's specific to one brand).
 
 **The second way to run this phase: edit the source instead of re-describing it.** `POST /v1/images`
-takes `sourceAssetId` (`gpt-image-2` only) — pass the ORIGINAL ad and a prompt that names only what
+takes `sourceAssetId` (the GPT models; the validator sends `gpt-image-2`) — pass the ORIGINAL ad and a prompt that names only what
 changes, and the model repaints those zones while leaving the rest of the frame alone. That is
 exactly what Phase 7 is trying to prove, so it is the better instrument here:
 
@@ -333,9 +333,9 @@ If the save target already has T1–T42, continue with T43, T44, … Use semanti
 
 - **Generating real ads / uploading to Meta.** The `meta-ad-builder` skill. This skill produces templates only.
 - **Reverse-engineering video ads.** Image only. Refuse with: *"This skill is for static image ads. Video reverse-engineering isn't supported in this version."*
-- **Multi-template extraction in one run.** One reference → one template per skill invocation. A folder of N references is N independent runs — and they may run in parallel: since deployed spec `2.12.0` images have their **own** concurrency budget of **12** in flight per organization (`429`, `details.reason` `image_concurrency_limit`), counted separately from the 5-video budget in both directions, so a clone batch may run twelve wide and never blocks a render. Stagger only beyond 12. (Before `2.12.0` images spent video slots and the number here was 5 — if a `429` says `concurrency_limit` rather than `image_concurrency_limit`, you are reading the video queue.) Price the whole batch up front per the Cost section — one estimate per distinct final prompt (it charges nothing), one combined range, ONE consent before the first charged call.
+- **Multi-template extraction in one run.** One reference → one template per skill invocation. A folder of N references is N independent runs — and they may run in parallel: since deployed spec `2.12.0` images have their **own** concurrency budget of **12** in flight per organization (`429`, `details.reason` `image_concurrency_limit`), counted separately from the 10-video budget in both directions, so a clone batch may run twelve wide and never blocks a render. Stagger only beyond 12. (Before `2.12.0` images spent video slots and the number here was 5 — if a `429` says `concurrency_limit` rather than `image_concurrency_limit`, you are reading the video queue.) Price the whole batch up front per the Cost section — one estimate per distinct final prompt (it charges nothing), one combined range, ONE consent before the first charged call.
 - **Modifying existing templates in the library.** If the user wants to revise T3, treat it as a new run pointed at the same library entry — show the diff and ask before overwriting.
-- **Editing the source image *as the way to build the template*.** There IS an image-edit path — `sourceAssetId` on `POST /v1/images`, `gpt-image-2` only — but a template is a *prompt*, and an edit produces a picture without producing the prompt that made it. Use it where it belongs (Phase 7) and never as a shortcut past Phases 3-6. An earlier version of this file said flatly that no edit path existed; that stopped being true at deployed spec `2.10.0`.
+- **Editing the source image *as the way to build the template*.** There IS an image-edit path — `sourceAssetId` on `POST /v1/images`, the GPT models only — but a template is a *prompt*, and an edit produces a picture without producing the prompt that made it. Use it where it belongs (Phase 7) and never as a shortcut past Phases 3-6. An earlier version of this file said flatly that no edit path existed; that stopped being true at deployed spec `2.10.0`.
 
 ## Files this skill writes to (in user space)
 

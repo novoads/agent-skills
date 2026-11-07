@@ -25,7 +25,7 @@
 ├─────────────────────────────────────────────────────────────────┤
 │ TEMPLATE-CREATION SKILL (reverse-engineer an ad → library)      │
 │ skills/clone-image-ad/   asks which model to validate against,  │
-│                          routes to the matching generator, and  │
+│                          renders through its own validator, and │
 │                          can cross-check on the other one.      │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -165,7 +165,7 @@ Notes that bite:
 
 - **`aspectRatio` defaults to `1:1`** on every model. For a Stories/Reels creative you must
   say `9:16` — the default is not the ad you wanted.
-- **The three ratios the template library actually uses (`1:1`, `2:3`, `9:16`) are supported
+- **The four ratios the template library actually uses (`1:1`, `2:3`, `4:5`, `9:16`) are supported
   on both models**, so no template needs a fallback-and-crop. Only bespoke prompts can
   hit the gap: `3:2`, `3:4`, `4:3` and `5:4` exist on Nano Banana Pro but **not** on
   gpt-image-2.
@@ -178,11 +178,12 @@ Notes that bite:
   `assetId`; pass those in `referenceAssetIds`. The id keeps working across later calls — you
   do not re-upload per variant.
 
-**Editing exists on `gpt-image-2` alone, from spec 2.10.0.** `sourceAssetId` on
-`POST /v1/images` edits an existing image from a prompt — "change the background of this
-one", "remove the text". `nano-banana-pro` does not publish the field, so an
-edit request routes to `chatgpt-image-ad` regardless of which model the aesthetic would
-otherwise favour.
+**Editing is on the five GPT models**: `sourceAssetId` on `POST /v1/images` arrived on
+`gpt-image-2` in spec 2.10.0, on the 2.5 pair in 2.25.0 and on the 2.6 pair in 2.57.0. It edits
+an existing image from a prompt ("change the background of this one", "remove the text").
+`nano-banana-pro` and the two Seedream 5 models do not publish the field, so an edit request
+routes to `chatgpt-image-ad`, whose script sends `gpt-image-2`, regardless of which model the
+aesthetic would otherwise favour.
 
 Still no mask, no region select, no img2img strength dial: the change is described in words.
 And the edit's output tracks the source's shape, so `aspectRatio` cannot be sent with it —
@@ -221,14 +222,15 @@ gives above. The table itself is never shown.
 |---|---|
 | Apple Notes lists, fake search results, chat threads, ChatGPT-style conversations, iOS dialogs, Slack snapshots, comparison tables, Hinge cards, iMessage, calendar UI, weather forecast UI, magazine cover, anything **typography-heavy or UI-mimicry** | **`chatgpt-image-ad`** |
 | Handheld whiteboard signs, napkin handwritten testimonials, sticky-note + product flatlays, letter-board signs, lifestyle scenes, OOH/transit photography, scratch-off tickets, **photoreal / material-rich / multi-reference** ads | **`nano-banana-image-ad`** |
-| A second opinion after both of the above rendered the same template wrong, or a deliberately different look on a concept that already works | the other family on the same template: `nano-banana-pro` if a GPT model drew it, a GPT model if `nano-banana-pro` did (`reve-2.1` was retired in API 2.48.0 and is refused before any charge) |
+| A second opinion on one family's render of a template, or a deliberately different look on a concept that already works | the other family on the same template: `nano-banana-pro` if a GPT model drew it, a GPT model if `nano-banana-pro` did (`reve-2.1` was retired in API 2.48.0 and is refused before any charge). When both families have drawn the same template wrong, the template is the problem: fix its prompt before paying for a third render. |
 | Ambiguous? | Look up the matching template in `prompting/prompt-library.md` and read its `Model notes:` block — every entry recommends one. |
 | No template applies **and** the concept carries no format signal either way | **`chatgpt-image-ad`** is the tiebreak. Its script sends `gpt-image-2` by name; a call that names no model renders `gpt-image-2.6-sunburst` (API 2.58.0), so never drop `model` to reach `gpt-image-2`. |
 
 **Step 3: For cloning, the `clone-image-ad` skill handles both models.** At Phase 1 it
 asks the user (or auto-detects from the reference's typography-vs-photo balance) which model
-to validate against. It then routes through the matching generator's
-`scripts/generate_image.py`. Phase 8 optionally cross-validates on a second model so the
+to validate against. It then renders through its own validator,
+`skills/clone-image-ad/scripts/validate_image.py` (`--model gpt-image-2` or
+`--model nano-banana-pro`). Phase 8 optionally cross-validates on a second model so the
 resulting library entry has `Model notes:` for more than one.
 
 ---
@@ -352,7 +354,7 @@ validate against, Phase 8 optionally cross-validates on another).
 The 10-phase workflow lives in `shared/skills/clone-image-ad/prompting/guide.md`. Key checkpoints:
 
 - **Phase 2 (visual analysis)** — describe the reference structurally, separating brand-specific content from format/structure.
-- **Phase 4-5 (generate + iterate)** — round-trip the prompt through the matching generator until structure is faithful. Cap at 4 iterations.
+- **Phase 4-5 (generate + iterate)** — round-trip the prompt through the skill's own validator until structure is faithful. Cap at 4 iterations.
 - **Phase 6 (generalize)** — replace `[BRAND]`-marked elements with `{placeholder}` variables.
 - **Phase 7 (test with different brand)** — fill placeholders for a different brand and regenerate. If structure breaks, refine the placeholder set.
 - **Phase 8 (cross-model validation, optional)** — round-trip the same template through another model and document deltas in the `Model notes:` block.

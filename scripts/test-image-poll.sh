@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Unit tests for what the three image scripts read off an answer. Spends nothing,
-# touches no network: every HTTP call is a stub.
+# Unit tests for what the four image scripts read off an answer. Spends nothing,
+# touches no network: every HTTP call is a stub, and the batch runs on a stand-in curl.
 #
-# I1 is the one that matters most. A render that outlasts the POST's wait answers
-# "running" and is polled, and the read of a one-picture job carries its picture in
-# outputUrl with no images[]. A script that reads only images[] reports that paid,
-# finished picture as "no images" and exits 1, which invites a second, paid send.
+# I1 and B1 are the ones that matter most. A render that outlasts the POST's wait
+# answers "running" and is polled, and the read of a one-picture job carries its
+# picture in outputUrl with no images[]. A script that reads only images[] reports
+# that paid, finished picture as missing and exits 1, which invites a second, paid send.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -136,6 +136,88 @@ for name, path, extra in SCRIPTS:
           and "(reason: image_concurrency_limit, retry after 7s)" in str(e2),
           f"{name}: a refused call prints details.reasonCode, and details.reason as before")
 
-print(f"\n{passed} passed, {failed} failed")
+print(f"  python scripts: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
 PY
+py_rc=$?
+
+# B1 to B3: generate-batch.sh is a template that runs a whole batch when it starts,
+# so its one function and its run total are run on their own.
+B=skills/generate-youtube-thumbnail/scripts/generate-batch.sh
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+pass=0; fail=0
+ok()  { printf '  ok    %-5s %s\n' "$1" "$2"; pass=$((pass+1)); }
+bad() { printf '  FAIL  %-5s %s\n' "$1" "$2"; fail=$((fail+1)); }
+
+mkdir -p "$WORK/bin"
+cat > "$WORK/bin/curl" <<'SH'
+#!/usr/bin/env bash
+# Stand-in curl: the POST answers running, the poll answers $READ, the picture is bytes.
+out=""; url=""; wfmt=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -w) wfmt="$2"; shift 2 ;;
+    -d|-H|--max-time) shift 2 ;;
+    http*) url="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+case "$url" in
+  */v1/images) echo '{"jobId":"j1","status":"running","model":"nano-banana-pro","creditsCharged":5,"images":[]}' ;;
+  */v1/generations/j1) cat "$READ" > "$out"; [ -n "$wfmt" ] && printf 200 ;;
+  https://example.invalid/one.png) printf 'png' > "$out" ;;
+  *) echo "stand-in curl: unexpected $url" >&2; exit 7 ;;
+esac
+SH
+chmod +x "$WORK/bin/curl"
+
+# The function ends at its second line that is a lone "}": the first closes the
+# request body it builds in Python.
+FN=$(awk '/^generate_one\(\) \{/{on=1} on{print} on && /^\}$/{n++; if (n == 2) exit}' "$B")
+batch() {
+  printf '%s' "$1" > "$WORK/read.json"
+  rm -rf "$WORK/out"; mkdir -p "$WORK/out"
+  (
+    export PATH="$WORK/bin:$PATH" READ="$WORK/read.json"
+    API=https://api.example.invalid NOVOADS_API_KEY=x OUTPUT_DIR="$WORK/out"
+    MODEL=nano-banana-pro ASPECT=16:9 PRODUCT_ID="" POLL_INTERVAL_S=0 POLL_DEADLINE_S=60
+    eval "$FN"
+    generate_one 1 "a plain prompt for a stubbed call" "[]"
+  )
+}
+
+out=$(batch '{"jobId":"j1","status":"succeeded","kind":"image","model":"nano-banana-pro","creditsCharged":5,"outputUrl":"https://example.invalid/one.png","outputUrlExpiresInSeconds":3600}' 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ -s "$WORK/out/1_thumbnail.png" ]; then
+  ok B1 "batch: a one-picture job read after a poll is downloaded from outputUrl"
+else
+  bad B1 "batch: a one-picture job read after a poll (exit $rc): $(printf '%s' "$out" | tail -1)"
+fi
+
+out=$(batch '{"jobId":"j1","status":"failed","kind":"image","model":"nano-banana-pro","creditsCharged":5,"reasonCode":"vendor_timeout","error":"Generation failed. Credits for this job were refunded."}' 2>&1); rc=$?
+want="FAILED: no image (status=failed, jobId=j1, reasonCode=vendor_timeout, error=Generation failed. Credits for this job were refunded.)"
+if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF -- "$want" && [ ! -e "$WORK/out/1_thumbnail.png" ]; then
+  ok B2 "batch: a polled job that stopped downloads nothing and its line names reasonCode and error"
+else
+  bad B2 "batch: a polled job that stopped (exit $rc): $(printf '%s' "$out" | tail -1)"
+fi
+
+# The run total, from the script's own code, on four job files: two succeeded (one
+# with a raw newline in its prompt), one failed and one blocked, at 4 credits each.
+TOT=$(awk 'index($0, "TOTAL=$(python3 - \"$OUTPUT_DIR\" <<") == 1 {on=1; next} on && $0 == "PY" {exit} on {print}' "$B")
+mkdir -p "$WORK/total"
+printf '%s' '{"jobId":"a","status":"succeeded","creditsCharged":4}' > "$WORK/total/1_job.json"
+printf '%s' '{"jobId":"b","status":"failed","creditsCharged":4}' > "$WORK/total/2_job.json"
+printf '%s' '{"jobId":"c","status":"blocked","creditsCharged":4}' > "$WORK/total/3_job.json"
+printf '{"jobId":"d","status":"succeeded","prompt":"line one\nline two","creditsCharged":4}' > "$WORK/total/4_job.json"
+total=$(printf '%s\n' "$TOT" | python3 - "$WORK/total" 2>&1)
+if [ -n "$TOT" ] && [ "$total" = "8.0" ]; then
+  ok B3 "batch: the run total leaves out a failed or blocked job and counts one with a raw newline"
+else
+  bad B3 "batch: the run total (want 8.0, got '$total')"
+fi
+
+printf '  batch: %d passed, %d failed\n' "$pass" "$fail"
+if [ "$py_rc" -ne 0 ] || [ "$fail" -ne 0 ]; then exit 1; fi
+exit 0

@@ -79,8 +79,8 @@ only when a call or a job built on the old id fails.
 
 ### Post-generation QA (mandatory)
 
-The response already contains the finished image, so QA happens immediately — there is no
-polling gap. Check for:
+The response usually contains the finished image, so QA starts at once. A render that outlasts
+the POST's wait answers `running` instead: QA it once the polled job has `succeeded`. Check for:
 
 - Extra or missing **hands** or **fingers**; wrong finger count; fused or blurred digits
 - Wrong number of **limbs**; duplicated or missing arms/legs; impossible **joints** or poses

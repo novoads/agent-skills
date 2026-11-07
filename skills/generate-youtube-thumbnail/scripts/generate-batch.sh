@@ -237,7 +237,14 @@ print(imgs[0].get('url','') if imgs else (d.get('outputUrl') or ''))
 " 2>/dev/null || echo "")
 
   if [ -z "$url" ]; then
-    echo "[#$idx] FAILED: no image (status=$status, jobId=$job_id)"
+    # A job that stopped says why in reasonCode, where that is known, and in error.
+    local why
+    why=$(echo "$response" | python3 -c "
+import json,sys
+d=json.loads(sys.stdin.read(), strict=False)
+print(''.join(', %s=%s' % (k, d[k]) for k in ('reasonCode', 'error') if d.get(k)))
+" 2>/dev/null || echo "")
+    echo "[#$idx] FAILED: no image (status=$status, jobId=$job_id$why)"
     return 1
   fi
 
@@ -304,7 +311,10 @@ import glob, json, sys
 total = 0.0
 for p in glob.glob(sys.argv[1] + "/*_job.json"):
     try:
-        total += float(json.load(open(p)).get("creditsCharged") or 0)
+        job = json.loads(open(p).read(), strict=False)
+        # A failed or blocked job's credits come back on their own, so it is not counted.
+        if job.get("status") not in ("failed", "blocked"):
+            total += float(job.get("creditsCharged") or 0)
     except Exception:
         pass
 print(round(total, 4))

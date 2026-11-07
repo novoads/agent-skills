@@ -79,8 +79,8 @@ an agent:
   now say so, in `chatgpt-image-ad`, `nano-banana-image-ad`, `generate-youtube-thumbnail`, the
   image-ad overview, the two character-sheet recipes and `novoads-api`. The cap of 4 in those runs
   is the run's own choice, and the lines now call it that: its value and every script's calls to the
-  API are unchanged, and `generate-batch.sh` changes only in comments and the words of one printed
-  line. The thumbnail eval YT5 now fills the image queue, and says its two measurements were taken
+  API are unchanged, and for this `generate-batch.sh` changes only in comments and the words of one
+  printed line. The thumbnail eval YT5 now fills the image queue, and says its two measurements were taken
   on the render queue.
 - **The relative price words are re-read off the spec's cells, at every length each schedule
   sells.** Against `720p`: on `seedance-2.0`, `480p` is about two-thirds, `1080p` about 2x and `4k`
@@ -214,6 +214,16 @@ an agent:
   points at a phase it does not have. `character-sheet.md` and its GPT twin point at Step 7 for the
   folder and the ids, where they pointed at the QA step. `logs/README.md` and the two image skills'
   logging lines say a slow render is polled, where they said images have nothing to poll.
+
+### Fixed
+
+- **A picture that outlasted the POST's wait is downloaded, not reported missing.** The two
+  `generate_image.py` scripts, `validate_image.py` and `generate-batch.sh` read only `images[]`
+  after a poll, and the read of a one-picture job has its picture in `outputUrl` and no
+  `images[]`, so a paid, finished render that answered `running` ended in "no images" and exit 1.
+  They now take `outputUrl` when the read lists no `images[]`. The new `scripts/test-image-poll.sh`
+  checks the three Python scripts with every call stubbed, how they print why a job stopped
+  included, and the doctor and CI run it.
 
 ## v1.4.0 — 2026-11-07
 

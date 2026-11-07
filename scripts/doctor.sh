@@ -208,11 +208,11 @@ else
     "$over SKILL.md over 500 lines and recorded; largest is $largest"
 fi
 
-# 4. Unit suites. The six credential-free test scripts guard.yml runs in its
-#    brand-context job. All six or the badge is not earned; any nonzero blocks,
+# 4. Unit suites. The seven credential-free test scripts guard.yml runs in its
+#    brand-context job. All seven or the badge is not earned; any nonzero blocks,
 #    because CI runs these exact scripts.
 badges_total=$((badges_total + 1))
-UNIT=(test-brand-context test-rank-ads test-make-picker test-sweep test-placeholder-lint test-parity-i2m)
+UNIT=(test-brand-context test-rank-ads test-make-picker test-sweep test-placeholder-lint test-parity-i2m test-image-poll)
 unit_ok=0; unit_bad=""
 for t in "${UNIT[@]}"; do
   if ./scripts/"$t".sh >"$WORK/unit-$t.out" 2>&1; then

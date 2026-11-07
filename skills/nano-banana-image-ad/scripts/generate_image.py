@@ -385,7 +385,9 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
 
     A job that is already terminal (the usual case) comes back untouched. The
     poll payload is merged over the POST response, so creditsCharged and model
-    from the POST survive a poll that omits them.
+    from the POST survive a poll that omits them. The read lists `images` only on
+    a job of one row per picture; a one-picture job's picture is its `outputUrl`,
+    so that becomes the one entry of `images`.
     """
     job_id = job.get("jobId")
     status = job.get("status")
@@ -409,7 +411,10 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
             continue
         status = polled.get("status")
         if status in TERMINAL_STATUSES:
-            return {**job, **{k: v for k, v in polled.items() if v is not None}}
+            done = {**job, **{k: v for k, v in polled.items() if v is not None}}
+            if not polled.get("images") and polled.get("outputUrl"):
+                done["images"] = [{"url": polled["outputUrl"]}]
+            return done
     log(f"jobId={job_id} still {status} after {POLL_DEADLINE_S}s. Fetch it later with "
         f"GET /v1/generations/{job_id}; do not resubmit.")
     return {**job, "status": status}

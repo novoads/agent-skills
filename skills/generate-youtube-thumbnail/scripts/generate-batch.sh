@@ -198,7 +198,8 @@ print(json.dumps(body))
   # Since API 2.39.0 a render still going after about 105 s answers 200 with
   # status "running", the same jobId and no images. It is paid and still
   # rendering: poll GET /v1/generations/{jobId} to a terminal status and read
-  # images[] there. Never resubmit it.
+  # the picture there: a one-picture job's read has it in outputUrl, with no
+  # images[]. Never resubmit it.
   while [ -n "$job_id" ] && { [ "$status" = "queued" ] || [ "$status" = "running" ] || [ "$status" = "finalizing" ]; }; do
     if [ "$waited" -ge "$POLL_DEADLINE_S" ]; then
       echo "[#$idx] still $status after ${waited}s. Fetch it later with GET /v1/generations/$job_id; do not resubmit."
@@ -232,7 +233,7 @@ print(json.dumps(body))
 import json,sys
 d=json.loads(sys.stdin.read(), strict=False)
 imgs=d.get('images') or []
-print(imgs[0].get('url','') if imgs else '')
+print(imgs[0].get('url','') if imgs else (d.get('outputUrl') or ''))
 " 2>/dev/null || echo "")
 
   if [ -z "$url" ]; then

@@ -122,6 +122,11 @@ jobs:
       # 400. Both directions are checked; the judgement half is in its evals.md.
       - name: image-to-motion parity guard
         run: ./scripts/test-parity-i2m.sh
+      # A render that outlasts the POST's wait is polled, and a one-picture job's
+      # read has its picture in outputUrl with no images[]. Reading only images[]
+      # reported a paid, finished picture as missing. Every call here is a stub.
+      - name: image scripts' answer reading
+        run: ./scripts/test-image-poll.sh
 
   #   links     — a skill that tells the agent to read a file which is not there
   #             fails SILENTLY: the agent shrugs and proceeds without the rules

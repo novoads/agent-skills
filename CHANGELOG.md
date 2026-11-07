@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.4.0 — 2026-11-07
+
 ### Changed
 
 **GPT Image 2.6 Sunburst and Flare, and the default that moved with them (API 2.57.0, 2.58.0).**

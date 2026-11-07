@@ -223,8 +223,8 @@ an agent:
   `images[]`, so a paid, finished render that answered `running` ended in "no images" and exit 1.
   They now take `outputUrl` when the read lists no `images[]`. The new `scripts/test-image-poll.sh`
   checks the three Python scripts with every call stubbed, how they print why a job stopped
-  included, and the batch's own function and run total with a stand-in `curl`; the doctor and CI
-  run it.
+  included, the batch's own function with a stand-in `curl`, and its run total on planted job
+  files; the doctor and CI run it.
 - **The thumbnail batch says why a polled job stopped, and its total counts only what stayed
   charged.** When a job that answered `running` stops, `generate-batch.sh`'s FAILED line now names
   its `reasonCode` and `error`, as the Python scripts' line does. Its run total counted a failed or

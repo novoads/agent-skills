@@ -183,6 +183,8 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> RuntimeError:
             hint += ")"
         elif details.get("issues"):
             hint = f" (issues: {json.dumps(details['issues'])[:300]})"
+        elif details.get("reasonCode"):
+            hint = f" (reasonCode: {details['reasonCode']})"
     return RuntimeError(f"HTTP {e.code} {code} on {url}: {msg}{hint}")
 
 
@@ -632,7 +634,9 @@ def main() -> int:
     credits = job.get("creditsCharged")
     images = job.get("images") or []
     if not images:
-        log(f"generation returned no images (status={job.get('status')}, jobId={job_id})")
+        stopped = (f", reasonCode={job.get('reasonCode')}, error={job.get('error')}"
+                   if job.get("reasonCode") or job.get("error") else "")
+        log(f"generation returned no images (status={job.get('status')}, jobId={job_id}{stopped})")
         return 1
 
     log(f"jobId={job_id} status={job.get('status')} images={len(images)} credits={credits}")

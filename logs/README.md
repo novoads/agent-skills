@@ -14,7 +14,7 @@ means your prompts, job ids and spend history never travel with a `git push`.
 
 - **`novoads-api.jsonl`** — one JSON object per line, one line per generation call. **Local-only; create it on first write** (`mkdir -p logs && touch logs/novoads-api.jsonl`, or just append — the directory is already there because this README is in it).
   - **Videos are asynchronous:** append the line the moment `POST /v1/videos` returns `202` with a `jobId`, then **update that same line** when polling reaches a terminal status (`succeeded`, `failed`, `blocked`, `canceled`).
-  - **Images are synchronous:** `POST /v1/images` returns the finished images in the response body, so the line is written once, complete. It still carries a `jobId` — log it, there is just nothing to poll and nothing to update.
+  - **Images usually answer in the call:** `POST /v1/images` usually returns the finished images in the response body, so the line is written once, complete. It still carries a `jobId` — log it. One that answers `running` (API 2.39.0) is polled like a video, and its line is updated the same way.
 
 ## Entry schema
 
@@ -58,7 +58,7 @@ Field notes:
 
 - **Before generating:** nothing. Do not read this file to build an estimate — call `POST /v1/estimates`.
 - **On submit:** append the request metadata immediately, before polling starts, so a crashed session still leaves a trace of a charge that was incurred.
-- **On terminal status:** update the line with the final status and elapsed time. Carry `creditsCharged` over from the `202` you already logged — `GET /v1/generations/{jobId}` does **not** return it (its schema is `createdAt`, `error`, `jobId`, `kind`, `model`, `outputUrl`, `outputUrlExpiresInSeconds`, `prompt`, `status`). Verified live 2026-08-02. If it is missing from your submit line it is gone; never reconstruct it from a rate.
+- **On terminal status:** update the line with the final status and elapsed time. Carry `creditsCharged` over from the `202` you already logged. If it is missing from your submit line, take it from `GET /v1/generations/{jobId}`, which carries it too; never reconstruct it from a rate.
 
   **Update the line by `jobId`, not by position, and do not reach for `head -n -1`.** Up to ten
   video generations run at once, so the line you need is often not the last one — and `head -n -1` is a
@@ -74,8 +74,7 @@ Field notes:
 
   `jq -c` reads the file as a stream of objects and writes one per line, so the shape survives.
   Writing to `.tmp` and `mv`-ing means an interrupted update cannot truncate the log. Note the
-  recipe never touches `creditsCharged` — it is already on the line from the submit, and that is
-  the only place it was ever available.
+  recipe never touches `creditsCharged`: it is already on the line from the submit.
 - **Afterwards:** use it to answer "how long did that take", "what did last week cost", and "which config failed" — latency, spend history, and failure patterns.
 
 ## What must never be logged

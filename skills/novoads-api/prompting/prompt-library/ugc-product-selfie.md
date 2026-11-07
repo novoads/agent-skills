@@ -129,7 +129,7 @@ Upload via `POST /v1/uploads` and keep each `assetId`:
 Total: **4** `referenceAssetIds` per call: this workflow's budget, not the API's cap (14 on `nano-banana-pro`).
 
 Reuse ids you already have. The character hero and product photo probably have
-`assetId`s from an earlier run. If a call or a job built on one fails, upload that file again and use the new id: it is the same picture.
+`assetId`s from an earlier run. If a call cannot find or read the file behind one, or a job built on one fails and its `reasonCode` names no other cause, upload that file again and use the new id: it is the same picture.
 
 ### Step 3: Compose the prompt
 

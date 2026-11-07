@@ -138,8 +138,9 @@ creates is **PAUSED** — review and un-pause in Meta Ads Manager.
 ### Products
 
 One block per brand, written the first time a product image arrives, so a later session
-finds what the first one uploaded instead of asking for it again. If a call or a job built on a
-cached `assetId` fails, upload the local reference again and replace the id.
+finds what the first one uploaded instead of asking for it again. If a call cannot find or read
+the file behind a cached `assetId`, or a job built on one fails and its `reasonCode` names no
+other cause, upload the local reference again and replace the id.
 
 - **Product slug:** _(auto-populated)_
   - **Local reference:** _(auto-populated: the file under `references/products/`)_

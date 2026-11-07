@@ -22,9 +22,9 @@ part of that budget — images have their own ceiling of 12 — but they are cha
 sequentially anyway, so it never comes up.
 
 **Write every jobId down the moment it comes back**, before you start waiting —
-id, which beat, and `creditsCharged` from this `202`. **The charge is on the
-submit response and nowhere else**; the poll payload does not carry it, so a line
-written without it can never be completed. A job whose id you recorded is a
+id, which beat, and `creditsCharged` from this `202`. **The charge goes on the
+line now**, while you hold it: a crashed session then still leaves it written
+down. A job whose id you recorded is a
 lookup when something goes wrong. A job whose id you did not is an investigation.
 
 **Poll `GET /v1/generations/{jobId}` every 15 seconds, until TERMINAL.**

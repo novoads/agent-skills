@@ -189,17 +189,16 @@ quoted as the cap; or a video cap and an image cap are conflated.
 
 ---
 
-## NA5 — The charge is on the `202`, and it is the only copy
+## NA5 — The charge goes on the line from the `202`
 
 **Scenario.** A render is submitted, polled to `succeeded`, downloaded and handed over.
 Later someone asks what the run cost.
 
-**Why.** `creditsCharged` comes back on the submit's `202` and **is not on the poll
-payload** — the poll returns `jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`,
-and once succeeded `outputUrl` plus its expiry, verified live 2026-08-03. So a log line
-written without the charge can never be completed. The failure mode is not a missing
-number: it is that the number then gets **reconstructed from a rate**, which is exactly
-what `scripts/check-no-rates.sh` exists to prevent, and the reconstruction is
+**Why.** `creditsCharged` comes back on the submit's `202`, and the job read carries it
+too, so a log line written without the charge is completed from
+`GET /v1/generations/{jobId}`. The failure mode is not a missing number: it is that the
+number gets **reconstructed from a rate**, which is exactly what
+`scripts/check-no-rates.sh` exists to prevent, and the reconstruction is
 indistinguishable from a measurement.
 
 **Assertions.**
@@ -212,11 +211,11 @@ indistinguishable from a measurement.
 - No prompt text, key or `Authorization` header is ever logged.
 - A cost reported to the user is summed from `creditsCharged` values, never from the
   estimate and never from a per-unit figure.
-- If the charge is missing from a line, that is reported as unknown rather than
-  reconstructed.
+- If the charge is missing from a line, it is read off the job, never reconstructed.
 
-**Fails if:** the poll is searched for `creditsCharged`; or a total is derived
-arithmetically from a rate; or a run reports the estimate as what was spent.
+**Fails if:** a missing charge is rebuilt from a rate rather than read off the job; or a
+total is derived arithmetically from a rate; or a run reports the estimate as what was
+spent.
 
 ---
 

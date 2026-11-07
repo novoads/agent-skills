@@ -30,7 +30,7 @@ POST /v1/videos       { model: "seedance-2.0", prompt, durationSeconds: 4-15,
                         aspectRatio: "9:16", startImageAssetId: <this beat's still>,
                         audioEnabled: true, idempotencyKey: <a new one per render> }
                       → 202 { jobId, status, creditsCharged, model } — not ready
-                        yet. `creditsCharged` is HERE and nowhere else.
+                        yet. Log `creditsCharged` from HERE.
 
 GET  /v1/voices       → { voices: [{ id, name, source, languages?, category?, labels? }] }
                         Read once. Pick one. Reuse it for every line. Unpaginated

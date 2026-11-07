@@ -72,7 +72,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 
 - **Base URL:** `https://api.novoads.ai` (or `NOVOADS_BASE_URL`). That is the **host only** — callers append `/v1/...`.
 - **Auth:** `Authorization: Bearer $NOVOADS_API_KEY`.
-- **Endpoint:** `POST /v1/images`: the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+- **Endpoint:** `POST /v1/images`: the call blocks for the render (typically 60–90 seconds) and returns the finished images. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid.
 - **Reference uploads:** `POST /v1/uploads` with `{contentType, sizeBytes}` returns `{assetId, uploadUrl, method, headers, expiresInSeconds, maxBytes}`. `PUT` the raw bytes to `uploadUrl` **echoing the returned `headers` byte for byte** — Content-Type and Content-Length are both part of the signature, so storage returns 403 if either differs. The resulting `assetId` **can be reused across calls**: upload a product shot once and pass the same id on later calls.
 
 ## What this model takes
@@ -207,7 +207,7 @@ Each line on stdout is one JSON image (`variant`, `path`, `job_id`, `width`, `he
 `prompt`, `aspect_ratio`, `model`, `credits_charged`).
 
 Log the call to `logs/novoads-api.jsonl` per `logs/README.md` — images are written **once,
-complete** (sync endpoint, no `jobId` to poll back). Record `creditsCharged` from the response,
+complete** (the script waits out a slow render, so nothing is left to poll). Record `creditsCharged` from the response,
 never an estimate. Observability only, never a pricing source.
 
 ### Phase 5b: For an edit run
@@ -312,8 +312,8 @@ on `details.reason`: `image_concurrency_limit` clears only by waiting, so honor 
 instead of retrying tighter.
 
 **5. One image per call.** Omit `numImages` (or send `1`). A library run wants one render
-per template, and a multi-image response is the **only copy** of images 2–N — a lost
-response loses them while the credits stay charged (see the `novoads-api` skill's
+per template, and a multi-image response can be the **only copy** of images 2–N — a lost
+response can lose them while the credits stay charged (see the `novoads-api` skill's
 `reference.md`). **Write every image to disk the moment it arrives**, before starting the
 next template.
 
@@ -344,7 +344,7 @@ that is `clone-image-ad`'s job.
 | `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
 | `403` on the presigned PUT | The signed headers weren't echoed byte for byte. Send the `headers` object from `POST /v1/uploads` exactly as returned. |
 | `500 internal_error` | **Do not blindly retry** — `POST /v1/images` takes no idempotency key, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
-| `502 provider_failed` | The model provider failed. Credits are refunded automatically. |
+| `502 provider_failed` | The model provider failed. Credits are refunded automatically. The script prints `reasonCode` where the job has one: read it before you send anything again (Status lifecycle in the `novoads-api` skill's `reference.md`). |
 
 ## Files this skill owns
 

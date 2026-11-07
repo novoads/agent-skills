@@ -130,8 +130,9 @@ reference path, the `assetId` that `POST /v1/uploads` returned, and the `product
 first creative request for a brand, offer to create the product record with
 `POST /v1/products`, which writes a record rather than a render (contract in the
 `novoads-api` skill's `reference.md`). Later sessions read the cached `assetId` and
-`productId` back instead of asking the same question twice; if a call or a job built on a cached
-id fails, upload the local reference again and replace the id.
+`productId` back instead of asking the same question twice; if a call cannot find or read the file
+behind a cached `assetId`, or a job built on one fails and its `reasonCode` names no other cause,
+upload the local reference again and replace the id.
 
 ### F. Money
 
@@ -147,7 +148,7 @@ a markdown file**, including this one, which carries none.
 ## One endpoint, two models
 
 Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which usually answers with the finished images already in the response. One still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): the scripts poll it; a hand-rolled call polls
-`GET /v1/generations/{jobId}` to a terminal status, reads `images[]` there and never resubmits, because a resubmit is a second charge. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
+`GET /v1/generations/{jobId}` to a terminal status, reads `outputUrl` and `outputAssetId` there (`images[]` too on a job of several) and never resubmits, because a resubmit is a second charge. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
 the `novoads-api` skill's `reference.md`; this table is only what differs *between the models*.
 
 | | `gpt-image-2` | `nano-banana-pro` |

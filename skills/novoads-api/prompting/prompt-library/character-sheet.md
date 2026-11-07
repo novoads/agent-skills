@@ -15,10 +15,11 @@ shapes this whole workflow, because more references dilute the hero.
 What makes it workable: `POST /v1/uploads` returns an **`assetId` you can reuse across calls**.
 Uploads are free and unlimited; only generations are charged.
 So the approved hero is uploaded **once**, and its `assetId` anchors all nine remaining angles.
-A later workflow can cite it too. Keep the hero file beside it: if a call or a job built on the id fails,
-upload that file again and use the new id, which is the same picture.
+A later workflow can cite it too. Keep the hero file beside it: if a call cannot find or read the
+file behind the id, or a job built on it fails and its `reasonCode` names no other cause, upload
+that file again and use the new id, which is the same picture.
 
-Record the hero's `assetId` in the character folder (see Step 6), beside the hero image it came from.
+Record the hero's `assetId` in the character folder (see Step 7), beside the hero image it came from.
 
 ## Required flow (do NOT skip steps)
 
@@ -94,7 +95,7 @@ This is the anchor image that defines the character. All other angles will refer
    - `prompt`: the hero prompt
    - `aspectRatio`: `9:16`
    - `productId` (optional — organizational only; omit to use the default product)
-3. **The call usually returns the image.** It blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+3. **The call usually returns the image.** It blocks for the render (typically 60–90 seconds) and returns the finished image in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there. Never resubmit it; that job is already paid.
 4. **Post-generation QA:** Inspect for anatomy defects per [nano-banana.md](nano-banana.md). Regenerate with a refined prompt if needed (up to 2 retries — each is charged).
 5. Download the image to the character's `references/influencers/` folder and **open it for the user** (`open <path>` on macOS, `xdg-open` on Linux) so they can review it at full resolution.
 6. **Wait for explicit user approval.** This is the character — if they don't like it, iterate before generating 9 more images. Do NOT proceed without approval.
@@ -195,8 +196,10 @@ enough:
 { "hero_asset_id": "<assetId from POST /v1/uploads>", "model": "nano-banana-pro" }
 ```
 
-Because the id can be reused across calls, a later workflow can cite it directly. If a call or a job built on it fails,
-upload `01-hero-front.jpg` again and write the new id here: the character's identity rides on the picture, not the id.
+Because the id can be reused across calls, a later workflow can cite it directly. If a call cannot
+find or read the file behind it, or a job built on it fails and its `reasonCode` names no other
+cause, upload `01-hero-front.jpg` again and write the new id here: the character's identity rides
+on the picture, not the id.
 
 ### After saving
 

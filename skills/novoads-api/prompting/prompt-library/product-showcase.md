@@ -62,7 +62,7 @@ Follow the template below. The prompt should describe:
 ### 3. Generate the still image
 
 1. **Price it** with `POST /v1/estimates` (`{"kind":"image","model":"nano-banana-pro","prompt":"…","numImages":1}`), show `credits` against the user's `balance`, and get an explicit yes. It charges nothing, and it is the only legitimate source of a price. Budget for up to 2 QA retries, each charged.
-2. Upload the product photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It can be reused across calls, so one upload of the product photo can serve later shoots too. Keep the file, and upload it again if a call or a job built on the id fails.
+2. Upload the product photo via `POST /v1/uploads` → `PUT` the bytes to the returned `uploadUrl`, echoing the returned `headers` byte for byte → keep the `assetId`. It can be reused across calls, so one upload of the product photo can serve later shoots too. Keep the file, and upload it again if a call cannot find or read the file behind the id, or a job built on it fails and its `reasonCode` names no other cause.
 3. Optionally upscale a small product image first (good practice for fidelity; the "too small → 422" rule was specific to the previous backend and is **unverified** here).
 4. Call `POST /v1/images` with:
    - `model` — **`nano-banana-pro`**
@@ -70,7 +70,7 @@ Follow the template below. The prompt should describe:
    - `aspectRatio` — match the video intent (`9:16` for reels, `16:9` for landscape, `1:1` for square). **It defaults to `1:1`**, so set it explicitly.
    - `referenceAssetIds` — `[product_assetId]` (+ the character hero if you have one), max **14** on `nano-banana-pro`
    - `productId` (optional — organizational only; it does not influence what is generated)
-5. **The call usually returns the image**: it blocks for the render (typically 60–90 seconds) and returns the finished still in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+5. **The call usually returns the image**: it blocks for the render (typically 60–90 seconds) and returns the finished still in `images[]`. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there. Never resubmit it; that job is already paid.
 6. **Post-generation QA:** Inspect the still per [nano-banana.md](nano-banana.md) (hands, product edges, merged geometry). **Regenerate** with a refined prompt if needed — up to **2** retries after the first attempt, each billed. **Only then** treat the still as ready to show.
 7. Show the **QA-passed** (or best-effort after max retries) image to the user, and report the cumulative `creditsCharged`.
 

@@ -153,7 +153,7 @@ a product shot, so an empty listing means "ask", not "there is nothing to use".
 **No photo? Three routes, in this order — and the last one is the expensive one.**
 
 1. **A real photo of the real product.** Always the best clone. Ask for it first.
-2. **Generate a still with `POST /v1/images`**: one call (a slow render answers `running`: poll `GET /v1/generations/{jobId}` for its `images[]`), priced through
+2. **Generate a still with `POST /v1/images`**: one call (a slow render answers `running`: poll `GET /v1/generations/{jobId}` for its `outputAssetId`), priced through
    `POST /v1/estimates` and consented to like any other spend. Its response carries an
    **`assetId`** that goes straight into `referenceAssetIds` (step 10). This is the right
    answer for a concept product, a product that does not exist yet, or a user who simply
@@ -725,7 +725,7 @@ curl -sS https://api.novoads.ai/v1/generations/$JOB_ID \
 - Tell the user the wait up front: `seedance-2.0` is usually **3 to 8 minutes**, most often
   around 5. `seedance-2.0-mini` is **2 to 3**.
 - Update each job's log line with the terminal status and elapsed time, carrying `creditsCharged`
-  over from the `202` — the poll response does **not** carry it. Never reconstruct it from a rate.
+  over from the `202`; if that is lost, read it off the job. Never reconstruct it from a rate.
 
 Download through `/watch`, which 302s to a URL signed at request time, so it never hands
 you an expired link:
@@ -775,7 +775,7 @@ Then:
    Re-encode if the codecs differ. Hand back both the stitched file and the individual clips.
 7. Report the total spend by summing the `creditsCharged` values the API returned — those,
    never a number you calculated from a rate.
-8. If a job came back `failed` or `blocked`, say which and quote the `error` it carries.
+8. If a job came back `failed` or `blocked`, say which, quote the `error` it carries, and give its `reasonCode` where it has one.
 
 Next steps worth offering: iterate the one beat that missed rather than re-firing the whole
 set, hand the file to the `meta-ad-builder` skill to publish it as a Meta creative, or burn
@@ -820,7 +820,7 @@ quote when reporting a problem.
 | `429 rate_limited` | Several causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
 | `500 internal_error` | Possibly charged | **Do not retry blindly.** `GET /v1/generations` first: if the job is there, poll it instead of resubmitting |
 | `502 provider_failed` | The model provider failed | Credits are refunded automatically |
-| Job `status: failed` or `blocked` | Read the `error` on the job | If it is content-related, rewrite. If it is a provider failure, credits are already refunded |
+| Job `status: failed` or `blocked` | Read `reasonCode` and the `error` on the job | Credits are already refunded. `moderation`: rewrite. Any other reason: see Status lifecycle in the `novoads-api` skill's `reference.md` |
 | The clone looks nothing like the source | The reading was wrong, not the render | Go back to the beat map with the user before spending again. Change **one** element per iteration — framing, or pacing, or the anchor — never three |
 | The label came back garbled | Seedance preserves logos and destroys printed text | Say in the prompt that the label stays sharp and unchanged, and check the reference photo actually shows it sharp |
 | The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only, under a new `idempotencyKey`. The label being perfect tells you nothing about the audio |

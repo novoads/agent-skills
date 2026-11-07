@@ -158,10 +158,10 @@ to get an id it was already given.
 **Scenario.** The full-library run: one product photo, every template whose Model notes
 mark this model clean or preferred, one flat output folder.
 
-**Why, and it is measured.** A `numImages > 1` call charges for every image and only
-the **first** is recoverable afterwards — `GET /v1/generations/{jobId}` returns a single
-`outputUrl`, and images 2..N exist nowhere but the body of the response that returned
-them. The render blocks inside the POST for 60–90 seconds, so a proxy or CDN idle
+**Why, and it is measured.** A `numImages > 1` call charges for every image, and on a
+single-row job only the **first** is recoverable afterwards — `GET /v1/generations/{jobId}`
+returns a single `outputUrl`, and images 2..N exist nowhere but the body of the response
+that returned them. The render blocks inside the POST for 60–90 seconds, so a proxy or CDN idle
 timeout (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and charged for. That is the
 run's own text: **one image per call**, and **write every image to disk the moment it
 arrives**.
@@ -228,7 +228,7 @@ against first attempts; or the final report sums estimates instead of charges.
   half is spec-read, not probed here.
 - **GI4 is a repeat offence**, which is the argument for it existing: the field was
   available and the run still did the dance, because nothing an operator reads said so.
-- **GI5's premise is measured** (the response is the only copy; the POST blocks long
+- **GI5's premise is measured** (the response can be the only copy; the POST blocks long
   enough for an idle timeout to land). What is untested is an agent losing images to it
   in this pack.
 - **GI6 is prospective and says so.** It is the one case here with no incident behind it.

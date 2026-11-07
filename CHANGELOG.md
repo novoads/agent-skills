@@ -78,8 +78,8 @@ an agent:
   both directions. The image lines that gave a ceiling of 5 or 10, or named `concurrency_limit`,
   now say so, in `chatgpt-image-ad`, `nano-banana-image-ad`, `generate-youtube-thumbnail`, the
   image-ad overview, the two character-sheet recipes and `novoads-api`. The cap of 4 in those runs
-  is the run's own choice, and the lines now call it that: its value and every script's behaviour
-  are unchanged, and `generate-batch.sh` changes only in comments and the words of one printed
+  is the run's own choice, and the lines now call it that: its value and every script's calls to the
+  API are unchanged, and `generate-batch.sh` changes only in comments and the words of one printed
   line. The thumbnail eval YT5 now fills the image queue, and says its two measurements were taken
   on the render queue.
 - **The relative price words are re-read off the spec's cells, at every length each schedule
@@ -170,8 +170,23 @@ an agent:
 - **No line promises how long an upload lasts.** An `assetId` can be reused across calls. The lines
   that called it durable, reusable forever or without limit, or said it does not expire, now say that
   instead, and `reference.md` says the spec makes no promise of how long an id lasts, so keep the
-  source file and upload it again if a call or a job built on an old id fails. The lines that called
-  a second upload a bug that loses the anchor now say what it is: the same picture under a new id.
+  source file and upload it again if a call cannot find or read the file behind an old id, or a job
+  built on one fails and its `reasonCode` names no other cause. The lines that called a second
+  upload a bug that loses the anchor now say what it is: the same picture under a new id.
+- **A job read carries its charge and says why it stopped.** `creditsCharged` is on
+  `GET /v1/generations/{jobId}` and on the list, where the lines said the `202` was the only copy:
+  log it from the `202` as before, and a lost `202` is one read away. `reasonCode` is in the manual
+  now: `reference.md`'s Status lifecycle says what to do for each reason, the recovery lines ask
+  for it, and the image scripts print it.
+- **A polled image job is read by its own fields.** A one-image job has `outputUrl` and
+  `outputAssetId` and no `images[]`, whichever answer it gave, so the lines that said to read
+  `images[]` after a `running` answer now name those fields, with `images[]` on a job of several.
+  The lines that called the response the only copy of images 2..N now say that of a single-row
+  job: a job rendered as one row per image has them on the read and on the list.
+- **A `400` is a request refused before any charge.** `reference.md`'s *The shape of a 400* and
+  `novoads-api` no longer call it a malformed request and nothing else: a refusal with a name of
+  its own, such as `upload_incomplete` or `model_retired`, carries `details.code` or
+  `details.reason` and no `details.issues`, and its `message` says what to do.
 - **The image library's reference line names its one exception.** T4 with its four publication
   wordmarks pinned beside the product is five references, so that run goes to `nano-banana-pro`.
 - **`check-no-rates.sh` reads three more shapes:** a figure after `creditsCharged`, a decimal after
@@ -196,7 +211,9 @@ an agent:
   they pass validation, `novoads-api/SKILL.md` now says what they draw and `ugc-selfie-style.md`
   drops the claim. `seedance-2-product-hero.md` says at its top that its worked example leaves out
   the clause and the ratio line, where it said they were in place, and the thumbnail skill no longer
-  points at a phase it does not have.
+  points at a phase it does not have. `character-sheet.md` and its GPT twin point at Step 7 for the
+  folder and the ids, where they pointed at the QA step. `logs/README.md` and the two image skills'
+  logging lines say a slow render is polled, where they said images have nothing to poll.
 
 ## v1.4.0 — 2026-11-07
 

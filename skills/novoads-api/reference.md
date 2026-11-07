@@ -19,7 +19,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [POST /videos](#post-videos)
   - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`omni-flash` inputs (API 2.30.0)](#omni-flash-inputs-api-2300) · [`resolution` is a price field, and `GET /models` sets it per model](#resolution-is-a-price-field-and-get-models-sets-it-per-model) · [`kling-v3-pro` (API 2.38.0)](#kling-v3-pro-api-2380) · [`productSwap`: an actor holds your product (API 2.42.0)](#productswap-an-actor-holds-your-product-api-2420)
 - [POST /images](#post-images)
-  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [`preset`: image to ad, product to ad, upscale (API 2.40.0)](#preset-image-to-ad-product-to-ad-upscale-api-2400) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response is the only copy of images 2..N](#the-response-is-the-only-copy-of-images-2n)
+  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [`preset`: image to ad, product to ad, upscale (API 2.40.0)](#preset-image-to-ad-product-to-ad-upscale-api-2400) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response can be the only copy of images 2..N](#the-response-can-be-the-only-copy-of-images-2n)
 - [POST /captions, POST /videos/{jobId}/captions](#post-captions-post-videosjobidcaptions)
   - [Presets and pricing](#presets-and-pricing) · [Failure modes](#failure-modes)
 - [POST /transcripts](#post-transcripts)
@@ -45,7 +45,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [Status lifecycle](#status-lifecycle)
 - [Limits](#limits)
 - [Errors](#errors)
-  - [A 400 has one shape](#a-400-has-one-shape) · [The causes of a 429](#the-causes-of-a-429) · [The 500 rule](#the-500-rule)
+  - [The shape of a 400](#the-shape-of-a-400) · [The causes of a 429](#the-causes-of-a-429) · [The 500 rule](#the-500-rule)
 - [Known discrepancies](#known-discrepancies)
 - [Prompt rules](#prompt-rules)
 
@@ -142,7 +142,7 @@ Response `201`:
 
 **`Content-Type` and `Content-Length` are both signed into the URL.** If either differs from what was returned, storage rejects the PUT with a 403 that looks like an auth failure and is not one. `image/jpeg; charset=utf-8` is the classic way to lose an hour here. Measure the file, do not estimate it.
 
-**The `assetId` can be reused across calls.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and no call consumes it, from `startImageAssetId` or from `referenceAssetIds`. Upload the product photo once and reuse it across iterations and models. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated. The spec makes no promise of how long an id lasts, so keep your source file: if a call or a job built on an old id fails, upload the file again and send the new id. A second upload of the same bytes is the same picture under a new id.
+**The `assetId` can be reused across calls.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and no call consumes it, from `startImageAssetId` or from `referenceAssetIds`. Upload the product photo once and reuse it across iterations and models. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated. The spec makes no promise of how long an id lasts, so keep your source file: if a call cannot find or read the file behind an old id, or a job built on one fails and its `reasonCode` names no other cause ([Status lifecycle](#status-lifecycle)), upload the file again and send the new id. A second upload of the same bytes is the same picture under a new id.
 
 ---
 
@@ -409,7 +409,7 @@ Images accept **no `startImageAssetId`** — there is no first-frame concept on 
 Most image renders still come back finished in the `200`. Since API 2.39.0 the server waits about 105 seconds for a render; one still going at that point answers **`200` with `status: "running"`, the same `jobId` and `images: []`**.
 
 - That is a paid render in progress, not a failure, and **never a reason to resubmit**: a resubmit renders and charges again. `creditsCharged` is in that first response; log it there.
-- Poll `GET /generations/{jobId}` every 15 seconds to a **terminal** status (see [Status lifecycle](#status-lifecycle)). On `succeeded` the job carries `images[]` in order, the same entries the response would have carried. On `failed` or `blocked` the credits are refunded.
+- Poll `GET /generations/{jobId}` every 15 seconds to a **terminal** status (see [Status lifecycle](#status-lifecycle)). On `succeeded` the job carries `outputUrl` and `outputAssetId`, with `images[]` in order on a job of several (`url`, `expiresInSeconds` and `assetId` on each). On `failed` or `blocked` the credits are refunded.
 - A job with several images is one job, one entry in `GET /generations`, and one slot against the image budget.
 - **Any script that reads `images[]` from the response must branch on `status` first.** A script that does not reports a paid, still-rendering job as an empty result. The pack's own image scripts poll; a hand-rolled `curl` has to do the same.
 
@@ -459,14 +459,15 @@ same size — an edit is one image, charged once.
 refused like a typo. So `GET /v1/openapi.json` is the honest capability check: if the
 property is absent, this deployment cannot edit, and no retry will change that.
 
-### The response is the only copy of images 2..N
+### The response can be the only copy of images 2..N
 
 **Except a job that answered `running` (API 2.39.0).** Its images are delivered by `GET /generations/{jobId}` as `images[]`, in order, once it has succeeded, so that read is where they are. Everything below is about a response that came back `succeeded` with its images.
 
-A `numImages > 1` call charges for every image, but only the **first** is recoverable
-afterwards. `GET /generations/{jobId}` returns a single `outputUrl` — image 1 — and images
-2..N exist nowhere but the body of the response that returned them. Lose that response and
-the credits stay spent.
+A `numImages > 1` call charges for every image, and you may not get them all back. A job the
+service rendered as one row per image carries `images[]` on `GET /generations/{jobId}` and on
+the list. A single-row job does not: it has one `outputUrl`, image 1, and images 2..N exist
+nowhere but the body of the response that returned them. Which of the two a call becomes is
+not yours to set, so lose that response and the credits stay spent on images you may not reach.
 
 That is not a hypothetical: the render blocks inside the POST for 60–90 seconds, so a
 proxy or CDN idle-timeout on a long call (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and
@@ -477,7 +478,7 @@ charged for. Two consequences worth building around:
 - **Prefer one image per call in a long batch.** `numImages: 4` is one concurrency slot and
   the same price as four calls, which is the right trade when four variants of one prompt
   are wanted. It is the wrong trade when the four are independent deliverables, because it
-  puts three unrecoverable images behind a single response.
+  can put three unrecoverable images behind a single response.
 
   Since spec `2.12.0` this costs you nothing in throughput: images have their **own** budget
   of **12** concurrent jobs, so twelve single-image calls run at once and each response is
@@ -978,15 +979,15 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 
 Returns `items`, `total`, `limit`, `offset`, `hasMore`. `total` ignores pagination.
 
-This is also the recovery path when a call times out: the work may have run and been charged, and the lost thing is the response carrying the `jobId`.
+This is also the recovery path when a call times out: the work may have run and been charged, and the lost thing is the response carrying the `jobId`. Each item has its `jobId`, `status` and `creditsCharged`, so the list gives back both. A finished item also has its `outputUrl`, and `images[]` where the job was rendered as one row per image, but no `error` and no `reasonCode`: read the job by its id for those.
 
 ## GET /generations/{jobId}
 
-`jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`, and once succeeded, `outputUrl` plus `outputUrlExpiresInSeconds` (3600). On failure, `error` carries our own wording, never a provider's raw text, and the credits are already refunded.
+`jobId`, `status`, `kind`, `model`, `prompt`, `createdAt`, `creditsCharged` where the job has one, and once succeeded, `outputUrl` plus `outputUrlExpiresInSeconds` (3600); a succeeded image job can also carry `outputAssetId`, the id to chain instead of downloading the picture and uploading it again. On failure, `error` carries our own wording, never a provider's raw text, the credits are already refunded, and `reasonCode` says why where that is known ([Status lifecycle](#status-lifecycle)). `creditsCharged` is what the job was charged, not a net of refunds.
 
 **The echoed `prompt` can carry raw newlines, and a strict JSON parser will reject the whole response.** Observed live 2026-08-12 on a multi-line video prompt: the control characters arrive unescaped inside the string, so `json.loads()` raises and a poll loop that treats a parse error as "not ready yet" spins until it times out on a job that finished. Parse the poll response tolerantly — `json.loads(body, strict=False)` in Python, or the equivalent lenient mode elsewhere. It is a server-side escaping bug, not a signal about the job; nothing about the render or the charge is affected.
 
-**On a `kind: "image"` job that answered `running`, there is `images[]` once it has succeeded (API 2.39.0)**: every image of the job in order, the same entries the `POST /images` response carries, and `creditsCharged` for the whole job.
+**On a `kind: "image"` job rendered as one row per image, there is `images[]` once it has succeeded (API 2.39.0)**: every image of the job in order, each with `url`, `expiresInSeconds` and `assetId`, and `creditsCharged` for the whole job. A single-row job has no `images[]`: its image is `outputUrl`, and its id `outputAssetId`. A one-image job is a single row, whichever answer it gave.
 
 **On a `kind: "audio"` job that has succeeded, there is also `audio[]`** — the two tracks a music request delivered, each `{ url, expiresInSeconds, durationSeconds, title }`. `audio[0]` is the canonical one and is what `outputUrl` points at; `audio[1]` is a second take of the same prompt, and **`audio[]` is the only place it is published** — it is not a separate library asset and it will not turn up in a listing. Both URLs are presigned and minted **when you read the job**, so re-poll for fresh ones instead of storing them.
 
@@ -1063,6 +1064,8 @@ queued -> running -> finalizing -> succeeded
 
 **Poll for terminal, not for `succeeded`.** A loop waiting only on `succeeded` never exits on a failed job.
 
+**A job that stopped says why in `reasonCode`, where that is known, and its `error` can be one general line, so read the field before you send anything again.** `moderation` is a content refusal: change the prompt or the picture. `input_image_size`, `input_image_format` and `input_image_shape` mean the model refused a picture for that reason: a new upload of the same bytes has the same size, format and shape, so send a file that fixes it. `input_image_unreadable` means the model could not open a picture the job sent it, and sending the same id fails the same way: upload the picture again or use another. `vendor_error`, `vendor_timeout` or no `reasonCode` at all name no other cause: the render failed or never came back, and another try may work (on a video call, under a new `idempotencyKey`), so on a job built on an old id make that try with a new upload. On `POST /images` a job that fails inside the call answers `502` `provider_failed` with `details.jobId` and, where the reason is known, the same field at `details.reasonCode`.
+
 `queued` means charged and submitted but not yet rendering. It is normal, not a stall. A video-out voice change is different: it is charged once the job finds speech in the source, not at `queued` ([Video out](#video-out)).
 
 Measured on production renders (all providers, succeeded only, p10 to p90):
@@ -1131,7 +1134,7 @@ Envelope, on every failure:
 
 | `code` | Status | Notes |
 |---|---|---|
-| `invalid_input` | 400 | **Malformed request only.** `details.issues` names each bad field. Nothing charged. See below. |
+| `invalid_input` | 400 | **Refused before any charge.** `details.issues` names each bad field; a refusal with a name of its own carries `details.code` (`upload_incomplete`, `reference_kind`, the others the spec lists) or `details.reason` (`model_retired`) instead, and its `message` says what to do. See below. |
 | `unauthorized` | 401 | Missing, malformed or revoked key. Carries `WWW-Authenticate: Bearer`. |
 | `insufficient_credits` | 402 | `details` has `required` and `available`, in credits. |
 | `forbidden` | 403 | `details.reason` is `plan_required` or `subscription_inactive`, or the API is not enabled for that organization. |
@@ -1141,11 +1144,11 @@ Envelope, on every failure:
 | `content_policy` | 422 | Moderation, and the **only** refusal of a prompt for what it says. Nothing charged. |
 | `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |
-| `provider_failed` | 502 | Credits refunded automatically. |
+| `provider_failed` | 502 | Credits refunded automatically. On `POST /images`, `details.jobId` names the job and `details.reasonCode` says why, where that is known ([Status lifecycle](#status-lifecycle)). |
 
-### A 400 has one shape
+### The shape of a 400
 
-It is a schema rejection, and it names the fields:
+A schema rejection names the fields:
 
 ```json
 { "error": { "code": "invalid_input", "message": "(root): Unrecognized key: \"styleFamily\"",
@@ -1155,7 +1158,7 @@ It is a schema rejection, and it names the fields:
 An out-of-grid `durationSeconds` and a prompt past the model's ceiling land the same way — the
 response names the field and the limit.
 
-**There is no second shape.** Until spec `2.0.0` a prompt-rule failure was also a 400, carrying `details.rule` and `details.violations[]`. Those keys no longer appear on any response — the rules that replaced them are **advisory only** and arrive as the `warnings` array on a `200` from `/estimates`, never as an error. Code that branches on `details.rule` is reading for something that will never arrive; code that wants the craft advice reads `warnings` off the estimate. (The earlier claim here that `warnings` was itself removed in spec `3.0.0` was wrong — deployed spec is `2.6.0` and it returns the field; verified live 2026-08-04.)
+**There is no prompt-rule shape.** Until spec `2.0.0` a prompt-rule failure was also a 400, carrying `details.rule` and `details.violations[]`. Those keys no longer appear on any response — the rules that replaced them are **advisory only** and arrive as the `warnings` array on a `200` from `/estimates`, never as an error. Code that branches on `details.rule` is reading for something that will never arrive; code that wants the craft advice reads `warnings` off the estimate. (The earlier claim here that `warnings` was itself removed in spec `3.0.0` was wrong — deployed spec is `2.6.0` and it returns the field; verified live 2026-08-04.)
 
 ### The causes of a 429
 

@@ -151,7 +151,7 @@ script has no tier flag and renders the default, so leave it off. It never sees 
   --env-file .env
 ```
 
-The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `images[]` there. Never resubmit it; that job is already paid.
+The call blocks for the render, typically 60–90 seconds. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid.
 
 Each line on stdout is JSON for one image (`variant`, `path`, `job_id`, `width`, `height`,
 `aspect_ratio`, `model`, `credits_charged`). Display the paths to the user.

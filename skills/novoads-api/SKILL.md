@@ -183,7 +183,7 @@ Use it for names that are invented, run two words together, or that a reader wou
 `POST /v1/estimates` spends nothing and returns:
 
 ```json
-{ "credits": 3.2, "balance": 100, "sufficient": true }
+{ "credits": 123, "balance": 456, "sufficient": true }
 ```
 
 When it is short it also returns `shortBy` and `topUpUrl`.
@@ -193,7 +193,7 @@ When it is short it also returns `shortBy` and `topUpUrl`.
 **`POST /v1/estimates` runs craft rules against your prompt and returns them in a `warnings` array** (verified live 2026-08-04 against spec 2.6.0). An earlier version of this file said the field did not exist and that nothing on the API reads a prompt for quality. **Both were wrong.** Each entry is `{ "rule": "...", "message": "..." }`, and the message usually quotes the exact substring that tripped it:
 
 ```json
-{ "credits": 7, "balance": 860.1, "sufficient": true,
+{ "credits": 123, "balance": 456, "sufficient": true,
   "warnings": [
     { "rule": "label_without_hold",
       "message": "Mentions a label, package or screen with no labelHold clause. … (found in your prompt: \"bottle\")" }
@@ -222,12 +222,12 @@ Both rules are substring matches. They cannot tell a physical package from a UI,
 
 **The prompt libraries under `prompting/` are still the real quality gate.** These warnings are a cheap second opinion collected on a call you were making anyway; they are not a substitute for composing against the formula file, and they say nothing at all about whether the *idea* works.
 
-**The estimate body is not the generate body.** It takes only the fields that move the price, plus a `kind` discriminator, and it is strict: any extra key is a 400.
+**The estimate body is not the generate body.** It takes only the fields in this table, and it is strict: any extra key is a 400.
 
 | Estimate accepts | Video | Image |
 |---|---|---|
 | required | `kind: "video"`, `prompt` | `kind: "image"`, `prompt` |
-| optional | `model`, `durationSeconds`, `language`, `resolution` | `model`, `numImages`, `language`, and from API 2.36.0 `quality`, `outputFormat`, `resolution` (as on `POST /v1/images`) |
+| optional | `model`, `durationSeconds`, `language`, `resolution`, `productSwap` (API 2.42.0) | `model`, `numImages`, `language`, `sourceAssetId` to price an edit, and from API 2.36.0 `quality`, `outputFormat`, `resolution` (as on `POST /v1/images`); or `preset` (API 2.40.0) with `numImages` only and no `prompt` |
 
 **`resolution` belongs here because it moves the price** — on `seedance-2.0` it is the difference between the base and roughly five times it. Send the resolution you actually intend to render, or the quote prices a cheaper video than the one you generate. See the `resolution` section below for the ladder and for the `seedance-2.0-mini` trap. (Verified live 2026-08-04.)
 
@@ -245,7 +245,7 @@ curl -sS -X POST https://api.novoads.ai/v1/estimates \
 It runs the same access checks and the same structural validation the paid call runs, which is why it is worth calling every time and not only when you are unsure:
 
 - **It is the one endpoint with an opinion about the prompt** — the `warnings` array above. `POST /v1/videos` and `POST /v1/images` have none and return no such field. Compose against the formula file *before* you price: the warnings are a substring-matching second opinion, not a review, and a prompt that trips nothing can still be a bad prompt.
-- **What it does still refuse, at no charge:** a malformed body — it is strict, and any key that does not move the price is a `400` — and a prompt longer than the *named model's* character ceiling (4,000 for the three Seedance variants and `veo-3.1`, 20,000 for `omni-flash` and `wan-3.0`, 2,500 for `kling-v3-pro`; name no model and it is judged as `seedance-2.0`).
+- **What it does still refuse, at no charge:** a malformed body — it is strict, and any key its arm does not list is a `400` — and a prompt longer than the *named model's* character ceiling (4,000 for the three Seedance variants and `veo-3.1`, 20,000 for `omni-flash` and `wan-3.0`, 2,500 for `kling-v3-pro`; name no model and it is judged as `seedance-2.0`).
 - **On the image arm its length check is looser than the generation's.** The estimate's request schema caps `prompt` at 50,000 characters whatever image model you name, while `POST /v1/images` caps each GPT model at 32,000 and each Seedream 5 model at 10,000 (deployed spec 2.59.0, read 2026-11-07). So an image prompt between the two prices cleanly and is then refused at generation. Only `nano-banana-pro`, at 50,000, has the two numbers agree.
 - A quote it returns cannot disagree with the invoice, with two exceptions worth knowing: it never sees `aspectRatio`, the asset fields, or `productId`, and it **skips moderation**, which the paid call runs. A clean estimate can still come back `422` at generation — moderation is the only thing left that refuses a prompt for what it says.
 
@@ -260,7 +260,7 @@ Show `credits`, the count, the total, and `balance`. Get a yes. Then generate.
 **Ask, every time:**
 
 - **Seedance tier, once per workflow.** Before the first Seedance video call: *"Use default `seedance-2.0`, `seedance-2.0-mini` (about a fifth of the price), or `seedance-2.5` (the only one that goes past 15s, and the dearest of the three at `720p`)?"* No preference means `seedance-2.0`. Whichever they pick goes into the estimate, so the quoted number is the one they pay. **Ask before you assume the script needs 2.5** — a 30-second ad is a format decision, not a longer version of a 15-second one.
-- **How many variations**, for every prompt. Default 1. N variations means N identical calls — there is no batch parameter — and the results come back as a numbered list so they can compare and pick.
+- **How many variations**, for every prompt. Default 1. N variations means N calls, identical but for a new `idempotencyKey` on each — there is no batch parameter — and the results come back as a numbered list so they can compare and pick.
 
 **Infer, and state what you inferred rather than asking:**
 
@@ -428,7 +428,7 @@ Both headers are signed into the URL. `image/jpeg; charset=utf-8` is a 403, and 
 
 ### 2. Price it (gate 2)
 
-`POST /v1/estimates` with `kind`, `prompt`, `model`, and the duration or image count. See gate 2 above for the exact field list, and remember it rejects any field that does not move the price.
+`POST /v1/estimates` with `kind`, `prompt`, `model`, and the duration or image count. See gate 2 above for the exact field list, and remember it rejects any field that list does not name.
 
 ### 3. Confirm the spoken line (gate 1)
 
@@ -441,7 +441,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "seedance-2.0",
+    "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
     "prompt": "...",
     "durationSeconds": 12,
     "aspectRatio": "9:16",
@@ -465,7 +465,7 @@ Returns `202` with `jobId`, `status`, `creditsCharged`, and `model`. **No `warni
 
 **Keep the silence sentence in the prompt as well.** The prose clause (`a silent product film with no spoken dialogue`) and the flag are belt and suspenders and do different jobs: the flag mutes the render, the clause stops the model from *staging* a talking shot in the first place — an actor mouthing nothing, billed in full. Dropping the clause because you set the flag trades a composition fix for a mute button.
 
-For N variations, fire the identical payload N times. **Ten generations per organization may be in flight at once** (API 2.51.0): fire at most ten, then start the next as each one reaches a terminal state. An eleventh submission comes back `429` with `error.details.reason` of `concurrency_limit`, which is a different problem from a rate limit and takes a different response: wait for a slot, do not lengthen the backoff.
+For N variations, fire the identical payload N times, a new `idempotencyKey` on each: a repeated key returns the first job instead of a new take. **Ten generations per organization may be in flight at once** (API 2.51.0): fire at most ten, then start the next as each one reaches a terminal state. An eleventh submission comes back `429` with `error.details.reason` of `concurrency_limit`, which is a different problem from a rate limit and takes a different response: wait for a slot, do not lengthen the backoff.
 
 **Log each submission immediately**: one line appended to `logs/novoads-api.jsonl` with the timestamp, endpoint, model, `jobId`, `productId`, **`creditsCharged` from this `202`**, and the request config (duration, aspectRatio, language, reference counts, prompt **word count**). The charge goes on the line *now* — the poll payload does not carry it, so a line written without it can never be completed. Never log the prompt text, the key, or the Authorization header. The log is observability — latency and spend after the fact. **It is never a pricing source.** Prices come from `/v1/estimates`, always. The file is gitignored: it is the user's session history, not repo content.
 
@@ -568,7 +568,7 @@ Read the transcript against the line the user approved at gate 1, and check thre
 Say which check failed and show the evidence — the transcript line, the silence figure, the missing stream. Then:
 
 - **A mispronounced invented brand name** → re-render with the phonetic spelling for that language (gate 1): `NO-vo-ads` in `en`, `Novo Ads` in `es`. A prompt fix with a validated result on `seedance-2.0`, not a gamble.
-- **A stutter — a clause spoken twice.** Seen once in three `es` renders of the same payload. Re-render the **identical** body: the defect is nondeterministic delivery, not a prompt fault, so re-sampling the same cell is the right move. This is the one exception to "never resend an identical payload", which is about prompt-caused image defects. It still costs credits, so it still goes through gate 2.
+- **A stutter — a clause spoken twice.** Seen once in three `es` renders of the same payload. Re-render the **identical** body under a new `idempotencyKey`: the defect is nondeterministic delivery, not a prompt fault, so re-sampling the same cell is the right move. This is the one exception to "never resend an identical payload", which is about prompt-caused image defects. It still costs credits, so it still goes through gate 2.
 - **Leading silence eating the hook** → trim it, re-render shorter, drop the eye-contact-break beat, or re-render with a reference or a start frame (measured at about 0.5s). `sora-2`, which measured none, left the API in 2026-09.
 - **No audio stream, or a silent track on a talking ad** → re-render. Nothing in the prompt fixes a dead track.
 - **Burned-in captions** → the clean-plate clause is missing from the prompt. Add it and re-render.
@@ -612,7 +612,7 @@ Response is `202` with `jobId`, `status`, `creditsCharged`, and `model` (always 
 
 `GET /v1/caption-presets` lists all **30** styles, each carrying its own `tier` and its own rate. There are two tiers: `basic`, and the costlier `dynamic` (context-aware and animated). **Read the rate off that endpoint and confirm it with the caption arm of `POST /v1/estimates`** — a rate written into this file is a rate that rots, and the one you quote the user must be the one the API just gave you. Its own endpoint rather than a `kind` on `GET /v1/models`, because a caption style generates nothing.
 
-**Billing is per minute of source, rounded up, one-minute minimum** — so everything this API generates (≤30s, on `seedance-2.5`; ≤15s everywhere else) bills exactly one minute at the tier rate. Above the 1080p tier it doubles again, **measured on the short edge**: an ordinary portrait `1080x1920` is 1080p held sideways and is **not** doubled; a true 4K source is, and an `omni-flash` render at `4k` (where `GET /v1/models` lists it) is one, so captioning it bills doubled. Quote it from the caption arm of the estimate, never from this line.
+**Billing is per minute of source, rounded up, one-minute minimum** — so a clip from `POST /v1/videos` (≤30s on `seedance-2.5`, ≤15s everywhere else) bills exactly one minute at the tier rate, and a longer source, such as a talking actor (up to 180 seconds), bills once per started minute. Above the 1080p tier it doubles again, **measured on the short edge**: an ordinary portrait `1080x1920` is 1080p held sideways and is **not** doubled; a true 4K source is, and an `omni-flash` render at `4k` (where `GET /v1/models` lists it) is one, so captioning it bills doubled. Quote it from the caption arm of the estimate, never from this line.
 
 Duration and resolution are read from the file itself at request time, not from anything you declare. **Gate 2 still applies** — price it with the caption arm of the estimate, which charges nothing:
 
@@ -623,7 +623,7 @@ curl -sS -X POST https://api.novoads.ai/v1/estimates \
   -d '{"kind":"caption","preset":"casper","jobId":"<source job>"}'
 ```
 
-**Name the source in the estimate for anything longer than a minute.** A quote without `jobId`/`assetId` is the one-minute minimum, and a 10-minute upload costs ten times it. (Verified live 2026-08-04: sourceless `casper` quoted 0.4, sourceless `glass` quoted 0.8. As always, the number you show the user is the one that came back, not one from this page.) A caption estimate has no prompt, so it returns no `warnings`.
+**Name the source in the estimate for anything longer than a minute.** A quote without `jobId`/`assetId` is the one-minute minimum, and a 10-minute upload costs ten times it. (Verified live 2026-08-04: a sourceless `glass` quoted above a sourceless `casper`, each at its own tier's rate for one minute. As always, the number you show the user is the one that came back, not one from this page.) A caption estimate has no prompt, so it returns no `warnings`.
 
 ### What bites
 
@@ -714,7 +714,7 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 - `organization_limit` — 180 a minute across every key the organization holds. `X-RateLimit-*` will still show room on your key; that is correct, not a broken limiter. Minting another key does not raise it.
 - `client_limit` — 1,200 a minute pre-authentication. Carries no `X-RateLimit-*` trio.
 
-Every 429 carries `details.reason` and a `Retry-After` header — sleep on the header, branch on the reason. `details.inFlight` (concurrency refusals) is the only other key the spec names; do not expect one it does not.
+Every 429 carries `details.reason` and a `Retry-After` header — sleep on the header, branch on the reason. `details.inFlight` (concurrency refusals), `details.limit`, `details.remainingSeconds` and `retryAfterSeconds` are the other keys the spec names, each on the reasons it lists them for; do not expect one it does not.
 
 **On a 500, do not retry until you have checked.** The generation endpoints charge credits, and a failure can land after the debit committed, so a blind retry can pay twice. Call `GET /v1/generations` first. If the job is there, poll it instead of resubmitting. On `POST /v1/videos`, send an `idempotencyKey` (1 to 255 characters, API 2.52.0): the same key within 24 hours returns the first job and its charge instead of a second render. Images take no key.
 

@@ -248,8 +248,8 @@ before the UGC row's 720p render. A dated capture, not a rate table.
     "prompt": "15 seconds UGC style honest review video, filmed on smartphone, grey morning light through the kitchen window blinds, casual handheld selfie angle. … (2,646 characters)"
   },
   "response": {
-    "credits": 7,
-    "balance": 243.2,
+    "credits": "<the quote>",
+    "balance": "<your balance>",
     "sufficient": true
   },
   "responseHeaders": {
@@ -258,8 +258,9 @@ before the UGC row's 720p render. A dated capture, not a rate table.
 }
 ```
 
-`credits` and `balance` are display credits, the same unit `POST /v1/videos` reports back as
-`creditsCharged`. The prompt is abridged here for width; the call carried it in full.
+`credits` and `balance` are in the unit `POST /v1/videos` reports back as `creditsCharged`. The two
+figures are left out because a dated quote reads as a price, and the estimate is the only source of
+one. The prompt is abridged here for width; the call carried it in full.
 
 ## What you can make
 

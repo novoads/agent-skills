@@ -262,7 +262,7 @@ where `-v error` is correct because `-show_entries` writes to stdout.
 
 **Fails if:** a video is handed over untranscribed; or `-v error` rides on either
 loudness call; or a stutter is fixed by editing the prompt (it is nondeterministic
-delivery — re-sampling the identical body is the right move, and it still costs).
+delivery — re-sampling the identical body under a new key is the right move, and it still costs).
 
 ---
 
@@ -294,8 +294,8 @@ flight — and may be backing off the wrong **queue** entirely.
 - `organization_limit` is not answered by minting another key, and the `X-RateLimit-*`
   headers still showing room on the key is understood as correct rather than as a broken
   limiter.
-- No branch is written on a `details` key the spec does not name. `details.inFlight` on
-  a concurrency refusal is the only extra there is.
+- No branch is written on a `details` key the spec does not name. `details.inFlight` is the
+  extra a concurrency refusal carries.
 - At most ten video generations are in flight, and the ceiling is stated as shared with
   whatever else the account is running on that queue. Images queue apart, twelve at most.
 
@@ -323,7 +323,7 @@ itself worth asserting: the run does not go and check.)
 switch. `seedance-2.5` stops at `1080p` and never takes `4k` — a workflow that
 renders `seedance-2.0` at `4k` and swaps the model id is a **rejected request**, not
 a downgrade. And the estimate body more generally is strict and narrow: it takes only
-the fields that move the price, so `aspectRatio`, `startImageAssetId`,
+the fields its arm lists, so `aspectRatio`, `startImageAssetId`,
 `referenceAssetIds`, `productId`, `audioEnabled` and `styleFamily` are each a `400`
 there — while some of them are perfectly valid on the generation call.
 

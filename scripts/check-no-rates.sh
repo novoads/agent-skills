@@ -23,10 +23,13 @@
 # it is what a reader actually needs, and it is exactly what should survive the
 # rewrite when this guard fires.
 #
-# Fenced code blocks are skipped, the same precedent check-links.sh sets. A
+# Fenced code blocks are skipped, the same precedent check-links.sh sets.
 # A fenced json block showing what `POST /v1/estimates` RETURNS is documentation of
 # response shape, not a price list — and its numbers are illustrative by
 # construction, because the endpoint's whole purpose is to replace them.
+#
+# It reads shapes, so a figure in a shape nobody listed still passes: a bare 0.3
+# with no unit beside it, or 7cr with no slash after it. Those need a person's eye.
 #
 # Usage: ./scripts/check-no-rates.sh   (exit 0 clean, 1 on any un-allowlisted hit)
 set -uo pipefail
@@ -36,15 +39,15 @@ cd "$(dirname "$0")/.."
 # Each entry: <path-regex>::<extended-regex the line must match>
 #
 # LINE patterns, never `<path>::.*`. A whole-file exemption shipped twice in this
-# repo's guards and was proved to be a hole both times; the anchors below are
+# repo's guards and was proved to be a hole both times; any anchor added here stays
 # long on purpose, so that EDITING an exempted line un-exempts it and forces the
 # decision to be made again.
 #
 # Empty, and it stays that way. Every line that once sat here now names the
-# meter and sends the reader to the estimate arm, because those figures had
-# gone stale in place: a price written down on the day it was measured keeps
-# reading as current long after it stops being true. Do not add an entry to
-# turn a red run green: delete the figure instead.
+# meter or an ordering and leaves the number to the estimate arm, because those
+# figures had gone stale in place: a price written down on the day it was
+# measured keeps reading as current long after it stops being true. Do not add
+# an entry to turn a red run green: delete the figure instead.
 ALLOW=(
 )
 
@@ -69,11 +72,14 @@ import re, subprocess
 PATTERNS = [
     (r'\b\d[\d.,]*\s*(?:display\s+)?credits?\b',            'N credits'),
     (r'\b\d[\d.,]*\s*cc\b',                                 'N cc'),
-    (r'\b\d[\d.,]*\s*centi-?credits?\b',                    'N centi-credits'),
+    (r'\bcenti-?credits?\b',                                'centi-credit'),
     (r'\b\d[\d.,]*\s*cr\s*/',                               'N cr/unit'),
     (r'\bcredits?\s*(?:/|per\s)\s*(?:billed\s+)?'
      r'(?:minute|second|image|call|clip|generation|ad\b|sweep|character)', 'credits per unit'),
     (r'\bcredits"?\s*:\s*\d',                               'credits: N'),
+    (r'\bcreditsCharged\b\W{1,4}(?:0\.\d|[1-9])',           'creditsCharged: N'),
+    (r'\bquoted\s+\d*\.\d',                                 'quoted N.N'),
+    (r'fraction of a credit',                               'fraction of a credit'),
 ]
 
 files = subprocess.run(

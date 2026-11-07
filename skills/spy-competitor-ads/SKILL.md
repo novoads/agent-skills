@@ -66,7 +66,7 @@ sell sweeps yet", say so plainly, and stop. Do not retry it, do not work around 
 browser, and do not treat the 400 as a body you got wrong.
 
 `POST /v1/competitor-ads` is the only sweep this skill runs. Verified live 2026-08-08 against
-spec `2.19.0`: `HTTP 200`, ads returned, `creditsCharged: 0.2`, matching a
+spec `2.19.0`: `HTTP 200`, ads returned, and a `creditsCharged` matching a
 `{"kind":"competitor-ads"}` estimate taken in the same session.
 
 ## Golden rules
@@ -155,9 +155,9 @@ Returns `credits`, `balance` and `sufficient`; when the balance is short it also
 `shortBy` and `topUpUrl`. It spends nothing and it runs the same access checks the paid call
 runs, which is why it is worth calling every time rather than only when you are unsure.
 
-The estimate body is strict and only takes fields that move the price. The fee is flat per
-sweep, so `kind` is the whole body. If the arm asks for more, the `400` names what is missing —
-send it and re-quote. **Never fall back to a number you remember.**
+The estimate body is strict, and the fee is flat per sweep, so `kind` is the whole body. If the
+arm asks for more, the `400` names what is missing — send it and re-quote. **Never fall back to a
+number you remember.**
 
 Then announce, in one line, and get a yes before the first sweep:
 

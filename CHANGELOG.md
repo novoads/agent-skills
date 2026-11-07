@@ -100,19 +100,46 @@ an agent:
   "there are no keys": video calls take one.
 - **The old credit figures are gone from the skills.** Each figure a skill still quoted was written
   in an older credit unit, so it read about ten times too small: `POST /v1/analyses`,
-  `POST /v1/transcripts`, and the image, video and voice-change calls of dated runs. Those lines now
-  name the meter (one flat fee, or by the minute with a one-minute minimum) or the ordering a dated
-  A/B found, and `POST /v1/estimates` stays the only source of a figure. `reference.md` no longer
-  gives a ratio between credits and an internal unit, and `check-no-rates.sh` now exempts no skill
-  line. The voice-change eval no longer says a 15-second source and a sourceless quote agree: today
-  a source past the minimum quotes higher, so name it.
+  `POST /v1/transcripts`, the sweep and caption quotes, and the image, video and voice-change calls
+  of dated runs. Those lines now name the meter (one flat fee, or by the minute with a one-minute
+  minimum) or the ordering a dated A/B found, and `POST /v1/estimates` stays the only source of a
+  figure. `reference.md` no longer gives a ratio between credits and an internal unit, and
+  `check-no-rates.sh` now exempts no skill line. The voice-change eval dates the run where a
+  15-second source and a sourceless quote agreed: today a source past the minimum quotes higher, so
+  name it.
 - **`concurrency_limit` covers music as well as video,** where `reference.md`'s reason table said
   video only.
+- **`reference.md` prices voice change and voice-overs as the API bills them:** voice change by the
+  second of source above a minimum charge (API 2.32.0), so a sourceless quote is that minimum and
+  anything longer has to name its source; a voice-over per 400 characters of the spoken text.
+- **A caption on a talking actor bills every started minute.** The lines that said everything this
+  API generates bills one minute now say that of a clip from `POST /v1/videos`.
+- **No line says the API cannot edit an image.** The overview's limits list and
+  `nano-banana-image-ad`'s out-of-scope list now send an edit to `chatgpt-image-ad`.
+- **The image skills' estimate lines name `quality` and `resolution`,** which move the price, where
+  they said five fields were the only ones accepted.
+- **The README's dated estimate capture keeps its shape and drops its two figures.**
+- **The last line that said five shared slots says ten,** in `pixar-ad`'s music step.
+- **`novoads-api`'s two estimate examples show plainly made-up numbers,** where they read like
+  quotes the schedules could produce.
+- **The estimate's field lists are whole.** `novoads-api`'s table adds `productSwap`, `sourceAssetId`
+  and `preset`, `reference.md`'s adds `sourceAssetId`, and `clone-video-ad` names `productSwap`. The
+  lines that said an arm takes only what moves the price now say it takes only what it lists:
+  `outputFormat` is accepted and moves nothing.
+- **Worked `POST /v1/videos` calls send an `idempotencyKey`, one per clip,** in `novoads-api`,
+  `clone-video-ad`, `pixar-ad`, `analyze-video` and the Seedance and Veo recipes. The lines about
+  firing N variations or re-sampling a stutter now say each take gets a new key, because a repeated
+  key returns the first job instead of a new take.
+- **A `429`'s other `details` keys are named:** `details.limit`, `details.remainingSeconds` and
+  `retryAfterSeconds`, where the lines called `details.inFlight` the only one.
+- **`check-no-rates.sh` reads three more shapes:** a figure after `creditsCharged`, a decimal after
+  `quoted`, and `a fraction of a credit`. It also reads `centi-credit` with or without a number.
 - **Smaller corrections.** The overview's second-opinion row no longer sends an agent back to a
   family that already failed: when both draw a template wrong, the template is the problem. The
   overview says `clone-image-ad` renders through its own validator, and the template library's
   ratio set includes `4:5`. The README's `resolution` paragraph lists `seedance-2.0-mini` and
-  `veo-3.1`, and it no longer says `omni-flash` takes no reference images.
+  `veo-3.1`, and it no longer says `omni-flash` takes no reference images. `image-to-motion` says
+  which cell is dearest moves with the schedules, where it blamed a provider.
 
 ## v1.4.0 — 2026-11-07
 

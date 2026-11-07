@@ -405,7 +405,7 @@ The template is the deliverable; this step only proves it. It runs the full sequ
      -H "Authorization: Bearer $NOVOADS_API_KEY" \
      -H "Content-Type: application/json" \
      -d '{
-       "model": "seedance-2.0",
+       "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
        "prompt": "<the filled-in prompt>",
        "durationSeconds": 15,
        "aspectRatio": "9:16",
@@ -446,7 +446,7 @@ sequence:
 
 \```json
 {
-  "model": "seedance-2.0",
+  "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
   "prompt": "<your filled-in prompt>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",

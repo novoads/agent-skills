@@ -231,17 +231,18 @@ cost gate did not price.
   it to the beat list; leave a beat of hold at the end. Out-of-grid values are rejected,
   never rounded. Most motion graphics live at the short end, and the schedule is per-second,
   so price the duration you actually need rather than the one the grid allows. Never rank it
-  against other models from memory: which cell is dearest depends on the provider this
-  deployment routes to, and the estimate is the only thing that knows.
+  against other models from memory: which cell is dearest moves with the schedules, and
+  the estimate is the only thing that knows.
 - `aspectRatio` — `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9`.
 - `resolution` — `480p`, `720p` or, where `GET /v1/models` lists it (API 2.28.0), `1080p`.
   **`4k` belongs to other models** and is a `400` here.
 - `audioEnabled` — `false` unless sound is wanted.
 - **Four takes gives useful choice.** There is no variations-per-call field, so that is four
-  submissions of the identical payload, and **four charges** — which is why it belongs
-  inside the cost gate rather than after it. At most **ten** generations may be in flight
-  per organization; an eleventh comes back `429` with `details.reason: concurrency_limit`, which
-  means wait for a slot rather than lengthen the backoff.
+  submissions of the identical payload, any `idempotencyKey` new on each, and **four charges** —
+  which is why it belongs inside the cost gate rather than after it. At most **ten** generations
+  may be in flight per organization; an eleventh comes back `429` with
+  `details.reason: concurrency_limit`, which means wait for a slot rather than lengthen the
+  backoff.
 
 Submit returns `202` with `jobId` and `creditsCharged`. **The poll payload does not carry the
 charge**, so log it from the `202` while you have it — a line written without it cannot be

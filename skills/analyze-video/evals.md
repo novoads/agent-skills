@@ -229,7 +229,7 @@ template was approved.
   the one whose damage compounds — the wrong number propagates into every prompt written
   from the template.
 - **AV4's drift is closed.** `scripts/check-no-rates.sh` exempts no skill line now, so a
-  figure in any skill file fails it.
+  figure in a shape it reads, outside a fenced block, fails it in any skill file.
 - **AV1, AV2 and AV3 restate rules the skill says are defects found in shipped
   formulas.** That provenance is the skill's own claim; this file does not add
   independent evidence for it, and none of the three has a named incident attached here.

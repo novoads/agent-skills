@@ -96,7 +96,7 @@ slots to get the same result at the same price.
 **There is no edit mode on THIS model.** The Nano Banana inpainting flows the older skill
 had do not exist on this API — no `nano-banana-edit`, no mask, no img2img — and
 `nano-banana-pro` does not publish `sourceAssetId`. Editing an existing image is a
-`gpt-image-2` capability (spec 2.10.0): route it to `chatgpt-image-ad` rather than
+GPT-model capability (all five): route it to `chatgpt-image-ad` rather than
 approximating it here with a reference-led regeneration.
 
 ## Inputs the user must provide
@@ -152,7 +152,7 @@ their `balance`. If it is false, say so and stop — the response carries `short
 Three things to know about this call:
 
 - **It reads the image prompt too, and says so in `warnings`.** `POST /v1/estimates` returns the same advisory `warnings` array of craft notes on a `kind: "image"` call as it does on video, with rules of its own — `banned_polish` and `blank_label` both observed live on deployed spec 2.19.0 (verified live 2026-08-12). The older note here, that an image estimate came back with no `warnings` key at all, described the 2026-08-04 deployment and is retired. They are still **advisory**: none refuses the call, none changes `credits`, and they match substrings, so read each one, judge it against what your prompt actually says, and state your reasoning if you override it — never paste a suggested fix into a prompt it does not fit, and never drop one silently. The rewrite rules in Phase 3 remain the real check; this is a second opinion that costs nothing on a call you were making anyway.
-- **The body is strict.** Only `kind`, `prompt`, `model`, `numImages`, `language` are accepted. Sending `aspectRatio` or `referenceAssetIds` is a `400 Unrecognized key` — the estimate never sees them, and neither affects the price.
+- **The body is strict.** This run sends `kind`, `prompt`, `model`, `numImages`, `language`; the arm also takes `resolution` (it moves the price, so send the size you will render). Sending `aspectRatio` or `referenceAssetIds` is a `400 Unrecognized key`: the estimate never sees them, and neither affects the price.
 - **Its length check happens to match this model's.** The estimate's own request schema caps `prompt` at 50,000 characters for every image model, which is exactly this model's ceiling on `POST /v1/images` (deployed spec 2.16.0, verified 2026-08-08). The agreement is a coincidence of this being the roomiest model on the API: on the GPT models (32,000 each) and the Seedream 5 pair (10,000 each) the estimate is the looser of the two and will price a prompt the generation then refuses. It does **not** run moderation either, so a prompt it blessed can still come back `422 content_policy`.
 
 Estimate the **final** prompt, the one the script will send with the safety suffixes
@@ -212,7 +212,7 @@ write them to `./generated/run-<ts>.jsonl` for downstream consumption.
 
 - **Meta upload** — the `meta-ad-builder` skill.
 - **ChatGPT Image 2 / gpt-image-2 generation** — use `chatgpt-image-ad`.
-- **Editing an existing image** — no model on this API has an edit or inpainting path. Offer a fresh generation with the original as a reference.
+- **Editing an existing image**: not on this model. Route it to `chatgpt-image-ad`, which edits from a prompt through `sourceAssetId`.
 - **Video, carousel, DCO ads** — image only. Video lives in the `novoads-api` skill.
 - **Ad copy writing** — different skill.
 - **Editing the shared prompt library** — use `clone-image-ad`.

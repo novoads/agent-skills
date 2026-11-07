@@ -27,8 +27,8 @@ transcribe the dialogue, extract the visual style and beat structure, then gener
 - **clone-video-ad** → the output is a rendered video delivered to the user.
 
 Steps 1 to 3 are the same analysis in both. The only charge in that half is the transcript
-in step 2 — a fraction of a credit, and free on a re-read of the same source. Everything
-from step 9 on is the real spend.
+in step 2, billed by the minute with a one-minute minimum, and nothing on a re-read of the
+same source. Everything from step 9 on is the real spend.
 
 ## If `shared/` is missing from disk
 
@@ -418,12 +418,12 @@ numbers side by side. `SKILL.md` makes the tier an explicit question, asked once
 workflow.
 
 **Ask how many variations, and which kind — here, not at generation time.** Default 1. Two
-different things share the word: the **same script rendered N times** (identical payload,
-seed-level variety only) or **N script variants** (distinct dialogue adaptations on one beat
-structure). A clone usually wants the second. Ask it now, because everything downstream needs
-the answer: step 6 writes N scripts, step 7 gates them together, and step 9 prices each one
-before the single yes. Asking at step 11 means the user approved a spend for one prompt and
-is then handed three.
+different things share the word: the **same script rendered N times** (identical payload but
+for a new key on each, seed-level variety only) or **N script variants** (distinct dialogue
+adaptations on one beat structure). A clone usually wants the second. Ask it now, because
+everything downstream needs the answer: step 6 writes N scripts, step 7 gates them together,
+and step 9 prices each one before the single yes. Asking at step 11 means the user approved a
+spend for one prompt and is then handed three.
 
 Tell the user which mode you picked and why.
 
@@ -578,7 +578,7 @@ Add `"resolution":"1080p"` to that body when the clone is going above the model'
 see the bullet below.
 
 Returns `credits`, `balance`, `sufficient` and a `warnings` array, plus `shortBy` and
-`topUpUrl` when it is short. The body is strict and takes exactly six fields: `kind`,
+`topUpUrl` when it is short. The body is strict and takes these six fields (and `productSwap` on a swap): `kind`,
 `prompt`, `model`, `durationSeconds`, `language`, `resolution` — checked field-for-field
 against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio`,
 `audioEnabled`, the asset fields and `productId` are a `400` here.
@@ -679,7 +679,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "seedance-2.0",
+    "model": "seedance-2.0", "idempotencyKey": "<one per clip>",
     "prompt": "<the adapted prompt>",
     "durationSeconds": 14,
     "aspectRatio": "9:16",
@@ -703,8 +703,8 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   belongs **only** here, because `POST /v1/estimates` refuses it.
 - **The variation count came from step 5**, and by now it has been through gate 1 (step 7)
   and priced per variant (step 9). Do not ask again here, and do not fire a count the user
-  has not approved a price for. Either kind is N calls and N charges — there is no batch
-  parameter.
+  has not approved a price for. Either kind is N calls and N charges, a key each — there is
+  no batch parameter.
 - **At most ten in flight** across the organization, counting every clip and every
   variation. Fire ten, then start the next as each reaches a terminal state.
 - **Log each submission immediately** — one line appended to `logs/novoads-api.jsonl` with

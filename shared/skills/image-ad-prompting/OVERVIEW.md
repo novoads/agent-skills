@@ -376,7 +376,7 @@ Surface these limits clearly when the user asks for anything outside scope:
 - **Meta upload.** Different skill — `meta-ad-builder` (in `shared/skills/meta-ad-builder/`). The image-ad skills produce image files; the ad-builder skill handles cloning page/ad-set/CTA, writing copy, and uploading as paused ads.
 - **Ad copy writing.** Different skill (the user's `meta-ad-builder` or equivalent handles body/headline).
 - **Video, carousel, DCO ads.** Image only. For video, the `novoads-api` skill owns the video models.
-- **Editing or retouching an existing image.** No model on this API has an edit or inpainting path. The nearest honest answer is a fresh generation with the original uploaded as a reference — say that, don't imply an edit.
+- **Masked or region editing.** No model on this API has a mask, a region select or an inpainting path. An edit described in words is on the five GPT models and routes to `chatgpt-image-ad`; any other model can only redraw from the original as a reference, which is a fresh generation: say that, don't imply an edit.
 - **Cross-model in one run.** If the user wants gpt-image-2 AND nano-banana-pro variants of the same prompt, run the generators sequentially. Each generator skill is locked to one model.
 
 ---

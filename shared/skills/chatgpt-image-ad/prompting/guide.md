@@ -135,8 +135,8 @@ quality, so the rewrite rules in Phase 3 are the only check there is. Apply them
 price, not after.
 
 Price the **assembled** prompt including the safety suffixes, and remember the estimate body is
-strict — it takes only `kind`, `prompt`, `model`, `numImages`, `language`. It never sees
-`aspectRatio` or references, and neither changes the price.
+strict: this run sends `kind`, `prompt`, `model`, `numImages`, `language`, and `quality` moves the
+price where you set it. It never sees `aspectRatio` or references, and neither changes the price.
 
 ### Phase 5: Generate
 

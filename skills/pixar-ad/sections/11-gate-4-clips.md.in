@@ -8,8 +8,8 @@
 curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"seedance-2.0","prompt":"<beat N>","durationSeconds":5,
-       "aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
+  -d '{"model":"seedance-2.0","idempotencyKey":"<one per clip>","prompt":"<beat N>",
+       "durationSeconds":5,"aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
 ```
 
 Returns `202` with `jobId`, `status`, `creditsCharged` and `model`.

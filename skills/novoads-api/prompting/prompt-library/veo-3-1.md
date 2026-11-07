@@ -40,6 +40,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Content-Type: application/json" \
   -d '{
     "model": "veo-3.1",
+    "idempotencyKey": "<one per clip>",
     "prompt": "...",
     "durationSeconds": 8,
     "aspectRatio": "9:16",

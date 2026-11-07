@@ -250,6 +250,7 @@ The call:
 ```json
 {
   "model": "seedance-2.0",
+  "idempotencyKey": "<one per clip>",
   "prompt": "<the prompt above>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",

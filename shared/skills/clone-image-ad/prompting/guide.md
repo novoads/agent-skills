@@ -78,7 +78,7 @@ a three-call probe summed correctly while the full-window delta read more than d
 parallel sessions were generating against the same org; the balance also moved between two
 runs in which this workflow spent nothing at all. The fix is not to distrust the delta, it is to
 **bracket tightly**: read the balance immediately before and immediately after *each* charged
-call, not once around the whole batch. Tight brackets in that same run reproduced 0.3 exactly.
+call, not once around the whole batch. Tight brackets in that same run reproduced each call's charge exactly.
 So: report both numbers, prefer the delta when the brackets are tight and the org is quiet,
 prefer the per-call `creditsCharged` when other work is in flight, and **say which one you chose
 and why** — a number reported without that context is the failure mode this rule exists to stop.

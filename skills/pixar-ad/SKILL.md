@@ -209,7 +209,7 @@ curl -sS -X POST $E -H "$H" -H "$J" \
   -d '{"kind":"music"}'
 ```
 
-**Each arm is strict and takes only what moves the price.** The `music` arm takes
+**Each arm is strict and takes only its own short list.** The `music` arm takes
 `kind` and nothing else — sending it a `prompt` is a `400`. The video arm never
 sees `aspectRatio`, `startImageAssetId`, `referenceAssetIds` or `audioEnabled`,
 and rejects all four. Send the `model` you will actually render, or you are
@@ -496,8 +496,8 @@ which they cannot do one image at a time.
 curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"seedance-2.0","prompt":"<beat N>","durationSeconds":5,
-       "aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
+  -d '{"model":"seedance-2.0","idempotencyKey":"<one per clip>","prompt":"<beat N>",
+       "durationSeconds":5,"aspectRatio":"9:16","startImageAssetId":"<beat N still>","audioEnabled":true}'
 ```
 
 Returns `202` with `jobId`, `status`, `creditsCharged` and `model`.
@@ -645,7 +645,7 @@ second take is published.
 
 `prompt` is capped at 500 characters, and the cap applies to the **composed**
 prompt: `style` and the instrumental sentence are concatenated into it before
-submission. A music job spends one of the five shared video slots.
+submission. A music job spends one of the ten shared video slots.
 
 **If `/v1/music` is absent from `GET /v1/openapi.json`, skip this step.** It sits
 behind a deployment flag; where music is off the path answers `400 invalid_input`
@@ -966,7 +966,7 @@ POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16
 
 POST /v1/videos       { model: "seedance-2.0", prompt, durationSeconds: 4-15,
                         aspectRatio: "9:16", startImageAssetId: <this beat's still>,
-                        audioEnabled: true }
+                        audioEnabled: true, idempotencyKey: <one per clip> }
                       → 202 { jobId, status, creditsCharged, model } — not ready
                         yet. `creditsCharged` is HERE and nowhere else.
 

@@ -22,7 +22,7 @@ curl -sS -X POST $E -H "$H" -H "$J" \
   -d '{"kind":"music"}'
 ```
 
-**Each arm is strict and takes only what moves the price.** The `music` arm takes
+**Each arm is strict and takes only its own short list.** The `music` arm takes
 `kind` and nothing else — sending it a `prompt` is a `400`. The video arm never
 sees `aspectRatio`, `startImageAssetId`, `referenceAssetIds` or `audioEnabled`,
 and rejects all four. Send the `model` you will actually render, or you are

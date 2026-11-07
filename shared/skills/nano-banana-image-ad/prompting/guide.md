@@ -49,7 +49,7 @@ These come from the live API contract (`GET /v1/openapi.json` is the authority):
 4. **No platform/screenshot chrome in output.** `NO_CHROME_SUFFIX` is always on (unless `--allow-chrome`).
 5. **Edge-safe rule always on.** Text and focal subjects must sit inside the central 84% of the canvas.
 6. **Glyph-safety rule always on.** Plain words inside body-text blocks; emoji OK in headlines.
-7. **No edit mode on THIS model.** `nano-banana-pro` does not publish `sourceAssetId`: no inpainting, no mask, no `--source`, no img2img. Here, "swap the background" is a fresh generation with the original passed as a reference. It is **not** true of the API as a whole — `gpt-image-2` does edit from a prompt (spec `2.10.0`), so route a genuine edit to `chatgpt-image-ad` instead of re-drawing it here.
+7. **No edit mode on THIS model.** `nano-banana-pro` does not publish `sourceAssetId`: no inpainting, no mask, no `--source`, no img2img. Here, "swap the background" is a fresh generation with the original passed as a reference. It is **not** true of the API as a whole — the five GPT models edit from a prompt, so route a genuine edit to `chatgpt-image-ad` instead of re-drawing it here.
 
 ## Aspect ratios
 
@@ -145,10 +145,10 @@ a price: not memory, not the logs, not `MASTER_CONTEXT.md`.
 The call says nothing about the prompt. No endpoint on this API reads one for quality, so the
 rewrite rules in Phase 3 are the only check there is — apply them before you price, not after.
 
-Price the **assembled** prompt including the safety suffixes. The estimate body is strict — it
-takes only `kind`, `prompt`, `model`, `numImages`, `language`. It never sees `aspectRatio` or
-references, and neither changes the price. It also does not run moderation, so a priced prompt
-can still come back `422`.
+Price the **assembled** prompt including the safety suffixes. The estimate body is strict: this
+run sends `kind`, `prompt`, `model`, `numImages`, `language`, and `resolution` moves the price
+where you set it. It never sees `aspectRatio` or references, and neither changes the price. It
+also does not run moderation, so a priced prompt can still come back `422`.
 
 ### Phase 5: Generate
 
@@ -199,5 +199,5 @@ proceed.
 - **Ad copy writing** — different skill.
 - **Video, carousel, DCO ads** — image only; video lives in the `novoads-api` skill.
 - **ChatGPT Image 2 / gpt-image-2 generation** — use `chatgpt-image-ad` instead.
-- **Editing or retouching an existing image** — not on this model. `gpt-image-2` takes `sourceAssetId` (spec 2.10.0); send it to `chatgpt-image-ad`.
+- **Editing or retouching an existing image** — not on this model. The five GPT models take `sourceAssetId`; send it to `chatgpt-image-ad`.
 - **Editing the prompt library** — use `clone-image-ad` to add new validated templates.

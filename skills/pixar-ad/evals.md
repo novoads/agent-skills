@@ -204,7 +204,7 @@ than none, because the operator stopped checking.
 
 **Check:** human. Compare the announced total with the balance delta after a full
 run. They should differ by zero. A voice-over line longer than the estimate's
-sample is the likeliest source of a gap — and it should be pennies, not credits.
+sample is the likeliest source of a gap, and it should be small, never a clip's worth.
 
 ---
 

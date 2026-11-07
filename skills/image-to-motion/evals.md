@@ -87,7 +87,7 @@ craft half matters as much as the mechanism: **four is the number that gives use
 and a port that translated the mechanism while dropping the recommendation quietly made one
 take the default.
 
-**Check:** ask for several takes. Confirm the skill offers four, fires the identical payload four times,
+**Check:** ask for several takes. Confirm the skill offers four, fires the identical payload four times (any key new on each),
 says out loud that four takes is four charges, and puts that multiplication inside the cost
 gate rather than after it. Confirm it fires at most ten concurrently: an eleventh returns
 `429` with `details.reason: concurrency_limit`, which is a refusal to wait out, not a

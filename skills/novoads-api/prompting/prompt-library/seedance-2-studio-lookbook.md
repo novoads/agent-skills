@@ -270,6 +270,7 @@ The call — `@Image1` first, `@Image2` second, because the tokens resolve by ar
 ```json
 {
   "model": "seedance-2.0",
+  "idempotencyKey": "<one per clip>",
   "prompt": "<the prompt above>",
   "durationSeconds": 15,
   "aspectRatio": "9:16",

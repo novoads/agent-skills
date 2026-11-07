@@ -150,7 +150,7 @@ Response `201`:
 
 Discriminated on `kind`, and strict. Any field not listed is a 400.
 
-**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the one-minute minimum on the three that are billed per minute. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
+**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the minimum charge on the three that read the length of an optional source. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
 
 **An arm's `kind` names the OPERATION, and the job it prices names its OUTPUT.** You estimate `voiceover` and `voice-change`; you poll a job whose `kind` is `"audio"`, exactly as with `music`. Neither is a typo to be fixed. `motion-control` works the same way: its job polls as `kind: "video"`.
 
@@ -159,13 +159,14 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `kind` | required, `"video"` | required, `"image"` |
 | `prompt` | required | required, and refused beside a `preset`, which takes none (API 2.40.0) |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `kling-v3-pro` (API 2.38.0), `wan-3.0` (API 2.53.0). `sora-2` was removed in 2026-09: naming it is a `400` `invalid_input` | `gpt-image-2.6-sunburst` (API 2.57.0; the default since 2.58.0), `gpt-image-2.6-flare` (API 2.57.0), `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `seedream-5-lite`, `seedream-5-pro` (API 2.39.0). `reve-2.1` is retired (API 2.48.0): naming it answers `400` `invalid_input`, `details.reason: "model_retired"`, not a price |
-| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0): the quote of that preset's render. `numImages` on `image-to-ad` and `product-to-ad`; `upscale` takes none. `prompt`, `model`, `quality`, `resolution` and `outputFormat` beside a `preset` are a `400`. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
+| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0): the quote of that preset's render. `numImages` on `image-to-ad` and `product-to-ad`; `upscale` takes none. `prompt`, `model`, `quality`, `resolution`, `outputFormat` and `sourceAssetId` beside a `preset` are a `400`. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
 | `productSwap` | `true` prices the swap and the render together, Seedance family only, refused on any other model (API 2.42.0). See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420) | n/a |
 | `durationSeconds` | 3 to 30 (3 since API 2.38.0) | n/a |
 | `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | `1K` `2K` `4K` spelled exactly (`4k` is a `400`), `nano-banana-pro` only at 2.36.0, default `2K`; **moves the price** (API 2.36.0) |
 | `numImages` | n/a | 1 to 4 |
 | `quality` | n/a | `high` `medium` `low`, GPT Image models only, default `medium`; **moves the price** (API 2.36.0) |
 | `outputFormat` | n/a | `png` `jpeg` `webp`, GPT Image models only; does not move the price, accepted so the quote carries the body you will send (API 2.36.0) |
+| `sourceAssetId` | n/a | Set when pricing an edit. The asset is not read here, only the shape of the call, so it need not be a real id. Refused beside a `preset` |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | same |
 
 Every model in both lists prices here, `veo-3.1` included (verified live, 2026-08-02, when `sora-2`, since removed, priced too; `seedance-2.5` added to the enum in deployed spec `2.13.0`, 2026-08-07; `kling-v3-pro` and the two Seedream 5 models in API 2.38.0 and 2.39.0, read off their PRs, not probed; `wan-3.0` in API 2.53.0, read off the deployed spec, not probed).
@@ -176,7 +177,7 @@ Every model in both lists prices here, `veo-3.1` included (verified live, 2026-0
 
 There is **no `styleFamily`** on either arm. The field was deleted from the whole API in spec `2.0.0`, and both arms are strict, so a body carrying it comes back `400 (root): Unrecognized key: "styleFamily"` (verified live, 2026-08-02).
 
-There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, and this endpoint takes only fields that do. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
+There is **no `audioEnabled`** on either arm, and that is deliberate rather than an omission: the field does not move the price, so this endpoint does not take it. Sending it is `400 Unrecognized key: "audioEnabled"` even on `seedance-2.0`, where the *generation* call accepts it (verified live, 2026-08-02). Price the render without it; send it on `POST /videos`.
 
 **`durationSeconds` is validated against the *named model's* grid here, not against the 3–30 span in the table.** Same behavior as the prompt ceiling: on 2026-08-02, before it was removed from the API, `{"model":"sora-2","durationSeconds":11}` came back `400 durationSeconds must be one of 4, 8, 12 for sora-2.` while `8` priced cleanly (verified live). So the call that charges nothing catches an out-of-grid duration before the paid one does — one more reason to run it every time.
 
@@ -255,7 +256,7 @@ Verified live 2026-08-02, each probe pinned with an out-of-grid `durationSeconds
 
 Response `202`: `jobId`, `status`, `creditsCharged`, `model`. **No `warnings`** — this endpoint does not run the prompt rules. They run on `POST /estimates` only (see *Prompt rules*), so the advice was already on the quote you took before submitting.
 
-`creditsCharged` is in the unit the billing page shows. The API has already converted it, so echo the number as given.
+`creditsCharged` is in the unit the billing page shows, so echo the number as given.
 
 ### `startImageAssetId` and `referenceAssetIds` are two modes, not two fields
 
@@ -514,7 +515,7 @@ Response `202`: `jobId`, `status`, `creditsCharged`, `model`. `model` is always 
 
 `GET /caption-presets` → `{ "presets": [{ "id", "tier", "credits" }] }`. **30 presets in two tiers** — `basic`, and the costlier `dynamic`. The `credits` field on each entry is that preset's per-billed-minute rate and is the only place to read it; this file deliberately does not restate the numbers, because a rate copied into a skill file goes stale without anything going red. The `dynamic` nine are `glass`, `whisper`, `glide`, `glide2`, `fusion`, `terminal`, `handwritten`, `backdrop`, `backdrop2`.
 
-The meter is `rate x whole minutes, rounded up, minimum one`, **doubled again above the 1080p tier, measured on the SHORT edge** — a portrait `1080x1920` is 1080p held sideways and is *not* doubled; a true 4K source is. Duration and resolution are read from the file at request time, not declared. Everything this API generates is ≤30s (`seedance-2.5`'s ceiling; every other model stops at 15), so it bills exactly one minute. An `omni-flash` render at `4k`, where `GET /models` lists that tier, is a true 4K source, so its captions bill doubled; the caption arm of `POST /estimates` prices it.
+The meter is `rate x whole minutes, rounded up, minimum one`, **doubled again above the 1080p tier, measured on the SHORT edge** — a portrait `1080x1920` is 1080p held sideways and is *not* doubled; a true 4K source is. Duration and resolution are read from the file at request time, not declared. A clip from `POST /videos` is ≤30s (`seedance-2.5`'s ceiling; every other model stops at 15), so it bills exactly one minute; a talking actor runs up to 180 seconds and bills once per started minute. An `omni-flash` render at `4k`, where `GET /models` lists that tier, is a true 4K source, so its captions bill doubled; the caption arm of `POST /estimates` prices it.
 
 **`POST /estimates` has a third arm for this:** `{ "kind": "caption", "preset", jobId | assetId }`. `preset` is required; the source is optional but **name it for anything over a minute**, because a sourceless quote is the one-minute minimum. A sourceless quote therefore returns exactly that preset's tier rate for one minute — verified live 2026-08-04 against `basic` (`casper`) and `dynamic` (`glass`), each matching its own entry in `GET /caption-presets`. No prompt, so no `warnings`.
 
@@ -785,7 +786,7 @@ own clones — accept any value. Omit it and the model infers the language from 
 
 ### Pricing
 
-**Per 100 characters of the TRIMMED script, rounded up**, with a floor of one centi-credit.
+**Per 400 characters of the spoken text (the TRIMMED script without its stage directions), rounded up**, with a minimum charge.
 The same schedule the dashboard bills for the same render. `POST /estimates` has its own arm:
 `{ "kind": "voiceover", "script": … }` — `script` is **required** there, because it is what
 the price is made of, and it is checked against the same cap, so a script this endpoint
@@ -833,7 +834,7 @@ returns the finished video as a polled job instead — [Video out](#video-out), 
 | `output` | no | `"audio"` (default, the `200` below) or `"video"` (a `202` job; a video source only, enabled per workspace). See [Video out](#video-out) |
 
 Body is strict; exactly one source. Response with audio out, `200`: `jobId`, `assetId`, `url`,
-`expiresInSeconds`, `creditsCharged`, `billedMinutes`, `voiceId`.
+`expiresInSeconds`, `creditsCharged`, `billedSeconds`, `billedMinutes` (deprecated), `voiceId`.
 
 **What it preserves: timing, pacing and delivery, frame-accurately.** The take drops back
 onto the original picture and stays in sync, which is the whole reason this exists rather
@@ -885,12 +886,13 @@ the call is a `400` whose message says to omit `output`, and nothing is charged.
 
 ### Pricing
 
-**Per minute of source audio: whole minutes, rounded UP, one-minute minimum**, with no
-resolution term — the converter reads an audio track and never sees the picture.
-`billedMinutes` on the response says what was counted. `POST /estimates` has its own arm:
+**By the second of source audio, above a minimum charge (API 2.32.0)**, with no
+resolution term: the converter reads an audio track and never sees the picture.
+`billedSeconds` on the response says what was counted; `billedMinutes` is deprecated and no
+longer what the price reads. `POST /estimates` has its own arm:
 `{ "kind": "voice-change", jobId | assetId }`, at most one source. **Name the source for
-anything over a minute**; a sourceless quote is the one-minute minimum, which is why a 15s
-ad and an empty body quoted the same number on the acceptance run.
+anything past a few seconds**: a sourceless quote is the minimum charge, and a source past
+that minimum quotes higher.
 
 ### Failure modes
 
@@ -1160,8 +1162,9 @@ response names the field and the limit.
 
 Every one carries `details.reason` and a `Retry-After` header. Those two are the documented
 contract: sleep on the header, branch on the reason. `error.details` is a free-form object, so a
-response may carry more than the spec names — `details.inFlight` on a concurrency refusal is the
-only extra it does name. Do not branch on an undocumented `details` key.
+response may carry more than the spec names. `details.inFlight` on a concurrency refusal, and
+`details.limit`, `details.remainingSeconds` and `retryAfterSeconds` on the reasons the spec lists
+them for, are the extras it does name. Do not branch on an undocumented `details` key.
 
 **The deployed spec names seventeen reasons** (counted off `2.60.0`, 2026-11-07). Nine are broken
 out below; the other eight are `competitor_ads_concurrency_limit`, `analysis_concurrency_limit`,

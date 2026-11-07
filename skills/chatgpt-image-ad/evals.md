@@ -77,7 +77,8 @@ nothing charged.
   which is what `generate_image.py` does.
 - A clean estimate is never reported to the user as "the prompt is fine". It is
   reported as the price.
-- The estimate body carries only `kind`, `prompt`, `model`, `numImages`, `language`.
+- The estimate body carries `kind`, `prompt`, `model`, `numImages`, `language`, plus
+  `quality` when the run renders at a named tier, because that field moves the price.
   `aspectRatio` or `referenceAssetIds` in it is a `400 Unrecognized key`, and neither
   moves the price.
 - `model` is named in the body. Omitting it prices the API default, and the image

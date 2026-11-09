@@ -1,6 +1,6 @@
 ---
 name: clone-video-ad
-metadata: {packVersion: 1.4.1}
+metadata: {packVersion: 1.5.0}
 description: >-
   Clones a VIDEO ad end to end for a different product or offer, on the Novoads API. The
   deliverable is a finished rendered MP4 — the WHOLE ad, not its opening, and not a

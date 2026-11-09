@@ -165,7 +165,7 @@ pixel or two lands the composite off-register, and again nothing errors.
 - The composition size equals the source resolution exactly.
 - After rendering, duration, resolution and frame rate are measured against the
   source and reported. Audio is bit-identical.
-- Timestamps come from a transcription of a **silence-trimmed copy**, offset back
+- A clip that opens on silence: timestamps come from a transcription of a **trimmed copy**, offset back
   — and if the master is trimmed later, the captions are regenerated rather than
   shifted, because the offsets no longer describe the file.
 

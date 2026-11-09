@@ -101,8 +101,8 @@ subtitle file rather than pixels; Whisper alone covers that.
    from an untightened master drift once the video is trimmed later.
 2. **Initialize** a captioning project beside the source video.
 3. **Transcribe** — pick the Whisper model by audio type (`medium.en` for the
-   typical speech-over-music ad). **Transcribe a silence-trimmed copy and offset
-   the timestamps back**; Whisper smears the first words across leading silence
+   typical speech-over-music ad). **If the clip opens on silence, transcribe a
+   trimmed copy and offset the timestamps back**; Whisper smears the first words across leading silence
    otherwise. The source file itself is never modified.
 4. **Group** words into 3–5 word reading phrases, then eyeball `groups.json`.
 5. **Render** the captions over a transparent background at the source's frame

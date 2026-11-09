@@ -34,7 +34,13 @@ this changes what an agent picks, not what a call with no `model` renders. For a
   A split talking ad is often a mix, and `-c copy` across models exits 0 with the sound broken: their
   sample rates differ while their codecs match, which "re-encode if the codecs differ" never caught.
 - **The first `silence_end` is the first word only when the first silence starts at 0.** On 22 of 32
-  of our Omni clips it sat inside the line, 1.7 to 7s in, and read as a false alarm.
+  of our Omni clips it sat inside the line, 1.7 to 7s in, and read as a false alarm. `caption-video`'s
+  transcribe step reads it the same way now: the old read trimmed its copy past the first speech on 16
+  of those 32, by voice detection.
+- **`analyze-video`'s pasted block carries the rule**, so a template where someone talks does not send
+  its renders to Seedance past the router.
+- **`novoads-api` no longer refuses a join of clips the user already has**: `POST /v1/assemblies` does it
+  where the deployment offers it.
 - **A failed job's one more try:** `vendor_error`, `vendor_timeout` or no `reasonCode` gets one under a
   new `idempotencyKey`, and a second failure stops and says so.
 - **A talking part over 10 seconds needs one person's picture**: `clone-video-ad` and the router now say

@@ -244,7 +244,8 @@ where `-v error` is correct because `-show_entries` writes to stdout.
   line approved at gate 1** — the brand name, the words, the language.
 - `-v error` never appears on `volumedetect` or `silencedetect`. A check that printed
   nothing is treated as **not run**, not as passed.
-- The first `silence_end` is read on every render and compared against the budget. The
+- The first silence is read on every render as §7 says, and a late first word compared against the
+  budget. The
   silence is drawn fresh each time, so the reservation holding is confirmed, never
   assumed.
 - An audio stream is confirmed to exist at all. No audio stream on a talking clip is a

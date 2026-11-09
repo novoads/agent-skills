@@ -92,6 +92,7 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `POST` | `/estimates` | Price a generation. Spends nothing. The only source of a credit number. |
 | `POST` | `/videos` | Submit a video. `202`, charged, asynchronous. |
 | `POST` | `/videos/animate-actor` | Motion control: a library actor moved by a clip you upload. `202`, charged, asynchronous (API 2.43.0). Where the deployment offers it. |
+| `POST` | `/assemblies` | Put one finished ad together from clips you already have. `202`, charged, asynchronous (API 2.56.0). Where the deployment offers it. |
 | `POST` | `/background-removals` | Remove the background of a video up to 30 s, by `jobId` or uploaded `assetId`. `202`, charged, asynchronous (API 2.41.0). |
 | `POST` | `/videos/{jobId}/background-removal` | Same operation, the job in the path. |
 | `POST` | `/images` | Generate images, or run a `preset` (image to ad, product to ad, upscale; API 2.40.0) on one photo. `200` with the images, or, for a render still going after about 105 s, `200` with `status: "running"` and no images: poll the job (API 2.39.0). |
@@ -977,7 +978,7 @@ Puts one finished ad together from parts you already have (API 2.56.0). It joins
 | `music` | The same two forms, and `take: 2` picks a music job's second take. Played once from the start, lowered while someone talks, faded at the end |
 | `captions` | `{ "preset": ... }`, read from the finished ad's own sound. Moves the price |
 | `aspectRatio` | The ad's shape: `9:16`, `16:9`, `1:1` or `4:5`. Unset: the first video's own shape, and clips of another shape are fitted inside it. Required when every clip is a picture |
-| `cutPauses` | True when unset. A clip with its own speech and no voice-over loses the middle of each pause and its quiet ends. False keeps them. A stated `inSeconds` or `outSeconds` keeps that end |
+| `cutPauses` | True when unset. A clip with its own speech and no voice-over loses the middle of each pause of about 0.3 s or more, and the quiet before its first heard word and after its last. Quiet there includes whatever the same shot shows, so a product used or held up, or a reaction held, after the last word goes with it: state that clip's `outSeconds` at its length to keep it (`inSeconds: 0` for an action before the first word). A stated `inSeconds` or `outSeconds` stays as given. A clip with no speech stays whole. False keeps the pauses and both ends: send it when the pauses are the ad's rhythm |
 | `productId` | Files the job under a product. Organizational only |
 | `idempotencyKey` | The same key within 24 hours returns the first job instead of charging again |
 

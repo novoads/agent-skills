@@ -32,7 +32,7 @@ same source. Everything from step 9 on is the real spend.
 
 ## If `shared/` is missing from disk
 
-`references/solo-install.md` — what a solo install lacks (`craft.md`, `caption-video`, the
+`references/solo-install.md` — what a solo install lacks (`craft.md`, `caption-video`, the Omni guide, the
 b-roll scripts, `check-novoads-env.sh`, `MASTER_CONTEXT.md`) and how to fetch each. Skip it
 inside the full pack.
 
@@ -335,7 +335,7 @@ What gets swapped:
   🔄 [source brand mention] → your brand
 
 What that means for the call:
-  • 13.6s, someone talks → omni-flash, split where the line splits: 8s + 6s (nobody talks, or it stays on Seedance: one clip, durationSeconds: 14)
+  • 13.6s, someone talks → omni-flash, split where the line splits: 8s + 6s, the silent DEMO its own clip between (nobody talks, or it stays on Seedance: one clip, durationSeconds: 14)
   • vertical source       → aspectRatio: "9:16"
   • speech detected (en)  → language: "en", dialogue gate applies
   • product photo given   → referenceAssetIds: ["@Image1 = your product"]
@@ -352,7 +352,7 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
 │   YES → omni-flash: 4, 6, 8 or 10 s a clip, the shortest that holds its line (step 6). A part
 │         over 10 s splits into clips where the line splits: 15 s is 10 + 6, never one scene.
 │         Stays on seedance-2.0: square, productSwap, animated characters, a model they name.
-│   NO, or it stays → source ≤ 15 s: one clip, durationSeconds = its length, an integer in 4–15.
+│   NO, or it stays → that part ≤ 15 s: one clip, durationSeconds = its length, an integer in 4–15.
 │         Longer: two routes, and the USER picks. See "Over 15 seconds on Seedance" below.
 │         Do not default to either.
 │
@@ -462,7 +462,7 @@ composing, and the closest formula for structure —
 a fast demo, [seedance-2-premium-reveal.md](../novoads-api/prompting/prompt-library/seedance-2-premium-reveal.md)
 or [seedance-2-product-hero.md](../novoads-api/prompting/prompt-library/seedance-2-product-hero.md) for a
 product-only source, [seedance-2-studio-lookbook.md](../novoads-api/prompting/prompt-library/seedance-2-studio-lookbook.md)
-for a polished voiceover source. Cloning onto a different model reads that model's own grid first, never a Seedance formula carried across: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo — it takes no `referenceAssetIds`, so a clone carrying both the actor and the product stays on Seedance. A source whose hook speaks from frame one goes on `omni-flash` like any talking scene, the first `silence_end` checked and trimmed; where it stays on `seedance-2.0`: a reference or a start frame (measured at about 0.5s of leading silence, where a render with neither front-loads 3–5s of it), the eye-contact-break beat dropped from the prompt, and the same check. `sora-2`, which measured no leading silence, was removed from the API in 2026-09; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) is kept as history. [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) is the cross-model UGC guide: its *Core principles* transfer, its per-model formulas do not.
+for a polished voiceover source. Cloning onto a different model reads that model's own grid first, never a Seedance formula carried across: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo — it takes no `referenceAssetIds`, so a clone carrying both the actor and the product stays on Seedance. A source whose hook speaks from frame one goes on `omni-flash` like any talking scene, its opening checked (the `novoads-api` skill's §7) and trimmed if it opens quiet; where it stays on `seedance-2.0`: a reference or a start frame (measured at about 0.5s of leading silence, where a render with neither front-loads 3–5s of it), the eye-contact-break beat dropped from the prompt, and the same check. `sora-2`, which measured no leading silence, was removed from the API in 2026-09; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) is kept as history. [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) is the cross-model UGC guide: its *Core principles* transfer, its per-model formulas do not.
 
 **If the mode is a one-shot compression, read
 [seedance-2-ugc-v2.md](../novoads-api/prompting/prompt-library/seedance-2-ugc-v2.md) as well — for structure and
@@ -496,10 +496,10 @@ Then:
   `perfect`. Nothing on the API rejects them and the estimate names only three: this is craft advice, and the
   reason to drop them is the render. Describe the real thing instead: the light source,
   the surface, the flaw.
-- **Write it in the source's language** if that is what the user wants rendered. Nothing on
+- **Write it in the source's language** if that is what the user wants rendered (on `omni-flash` the frame may stay in English with only the quoted line in that language: the [Omni guide](../../shared/skills/gemini-omni-flash/prompting/guide.md)). Nothing on
   the API pushes back on a Spanish or Portuguese prompt.
 
-**Duration:** a talking scene on `omni-flash`: 4, 6, 8 or 10, the shortest that holds its line. Elsewhere: source ≤ 15s → match it, rounded to an integer in 4–15. Source > 15s → whichever
+**Duration:** a talking scene on `omni-flash`: 4, 6, 8 or 10, the shortest that holds its line. Elsewhere: that part ≤ 15s → match it, rounded to an integer in 4–15. Longer → whichever
 route the user picked in step 5: one ≤15s render for a compression, or one duration per clip
 for a series. Never re-decide it here. Validate against the spoken word count; `SKILL.md`
 carries the table.
@@ -603,7 +603,7 @@ against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio
 - **Warn when the total exceeds `balance`**, and quote `shortBy` and `topUpUrl` when they
   come back. `sufficient` is a snapshot, not a reservation.
 
-Show the number, the count, the total and the balance. Get **one** yes covering the whole
+Show the number, the count, the total and the balance, and say that a stitched ad's join is one more charge, priced once its clips exist. Get **one** yes covering the whole
 set. Then generate.
 
 ### Step 10: Resolve the product and upload the references
@@ -764,7 +764,7 @@ Then:
    comparison that decides whether this worked is against the original, not among the
    variants — and after item 2 the source is sitting in the same folder.
 6. For a series, or a talking part split across clips, offer to stitch through `POST /v1/assemblies` (the
-   `novoads-api` skill's *Splitting a long script*), or with ffmpeg using **absolute paths** where every clip came from one model and has sound:
+   `novoads-api` skill's *Splitting a long script*; a silent beat or a held reaction inside a talking clip needs `cutPauses: false`), or with ffmpeg using **absolute paths** where every clip came from one model and has sound:
 
    ```bash
    printf "file '%s'\n" "$(pwd)/clip1.mp4" "$(pwd)/clip2.mp4" "$(pwd)/clip3.mp4" > /tmp/stitch-list.txt

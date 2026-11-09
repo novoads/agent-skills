@@ -392,12 +392,12 @@ person and the speech in one call, lip-synced, and fewer words come out wrong (m
   the person's face to keep.` and end with `Nothing else is spoken, nothing after the last word. No
   captions, no added text.` The frame may stay in English with only the quoted line in the ad's
   language: the ads behind this section were written so.
-- **One voice across clips.** The same voice words, such as `Voice: female, late twenties, crisp and
-  bright. Accent: Mexican Spanish, natural and casual.`, and the same person's picture in every clip
+- **One voice across clips.** The same voice words, such as `Her voice is female, late twenties, crisp and
+  bright, with a natural, casual Mexican Spanish accent.`, and the same person's picture in every clip
   (none to hand: make one with `POST /v1/images`, shown for a yes, before the first clip). Have the
   person listen at each join of the stitched ad: speaker models and pitch can rank clips, but only an
   ear can say they sound like one person. A listening pass of 7 ads of ours, 3 clips each, each clip
-  from its own start picture and joined with the quiet cut, passed them (2026-10-30). If a join sounds
+  from its own start picture and joined with the quiet cut and a small speed-up, passed them (2026-10-30). If a join sounds
   like another person, say so and offer a priced redo of that clip; change-voice on the stitched ad
   is the other route, and nothing here has measured it for this.
 - **No `audioEnabled` and no mini draft.** The field is a `400` on this model, and a draft on

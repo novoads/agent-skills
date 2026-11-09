@@ -53,7 +53,7 @@ the same payload three times.
 
 ---
 
-## E2 — Over 15 seconds is a choice, never a default
+## E2 — Over 15 seconds on Seedance is a choice, never a default
 
 The one scenario no acceptance run with a ≤15s source can reach, which is why it is here:
 this eval is its only regression net.
@@ -269,7 +269,8 @@ from the expiring URL.
   listen at each join.
 - No picture of the person given: the agent offers one from `POST /v1/images`, shown for a yes,
   before the first clip.
-- The finished ad goes through `POST /v1/assemblies`, or a local stitch that re-encodes a mix.
+- The finished ad goes through `POST /v1/assemblies`, or a local stitch that re-encodes a mix. A clip
+  that acts after its last word states its `outSeconds`.
 - A scene that ends `blocked`, or `failed` with `reasonCode` `moderation`, goes to `seedance-2.5`
   at the same length and shape, priced first and shown for a yes, and the agent says its voice can
   differ. No other failure goes there.

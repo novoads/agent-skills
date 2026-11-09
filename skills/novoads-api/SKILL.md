@@ -104,14 +104,14 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 | Kling, or Wan by name | `kling-v3-pro` where `GET /v1/models` lists it (API 2.38.0): any integer 3 to 15 seconds, `16:9`, `9:16` or `1:1`, one resolution, `audioEnabled` on or off, a text prompt or `startImageAssetId` as the first frame, and since API 2.44.0 `lastFrameAssetId` as the last frame beside it, **no `referenceAssetIds`**. Read the grid from `GET /v1/models`. [kling-3.md](prompting/prompt-library/kling-3.md) is vendor prompt craft whose field names belong to another API, so take the body from [reference.md](reference.md#kling-v3-pro-api-2380). Nothing in this repo has measured a Kling render: quote its wait as unknown. `wan-3.0` where `GET /v1/models` lists it (API 2.53.0): any integer 4 to 15 seconds, `9:16` (default) `16:9` `1:1` `4:3` `3:4`, `480p` `720p` `1080p`, a 20,000-character prompt, text alone, a start frame with an optional end frame, or up to 9 `referenceAssetIds` (never with a start frame); nothing measured, so quote its wait as unknown |
 | A library actor holding their product, or moving like a clip they have (a dance, a gesture) | Both cast an actor from `GET /v1/actors`, never an uploaded face. **Holding the product:** `productSwap: { actorId, productAssetId }` on a Seedance-family `POST /v1/videos` (API 2.42.0), the product photo from `POST /v1/uploads`, not combinable with `startImageAssetId`, priced with `productSwap: true` on the estimate ([reference.md](reference.md#productswap-an-actor-holds-your-product-api-2420)); a talking scene then stays on Seedance, with more words wrong and more credits. **Moving like a clip:** `POST /v1/videos/animate-actor` (API 2.43.0) with the driving clip from `POST /v1/uploads`, whose measured length is the output's length and the price ([reference.md](reference.md#post-videosanimate-actor)) |
 | A video's background removed, one rendered here or their own | `POST /v1/background-removals` (API 2.41.0) with a `jobId` or an uploaded `assetId`, up to 30 seconds, a longer source refused and charged nothing ([reference.md](reference.md#post-background-removals)) |
-| To edit an existing MP4 they already have | Not this skill, except captions (row above) — and note that `POST /v1/captions` accepts an uploaded `assetId`, so burning subtitles into *their own* file is a supported first-party call, not just a local one. Everything else (trims, cuts, overlays, music) is out of scope. Say so |
+| To edit an existing MP4 they already have | Not this skill, except captions (row above) and a join — `POST /v1/captions` accepts an uploaded `assetId`, so burning subtitles into *their own* file is a supported first-party call, not just a local one, and `POST /v1/assemblies` joins and trims uploaded clips and lays a voice-over and music, where the deployment offers it. Everything else (overlays, other cuts) is out of scope. Say so |
 | To publish the result as an ad on Meta or TikTok | Not this skill. The output is a file. The `meta-ad-builder` skill takes it from there |
 
 Prefer the **shortest** path. If one model answers the request, do not build a pipeline around it.
 
 ## Step 0: classify before you call anything
 
-Refusing is a successful result. If the request is to edit a file the user already has, or to publish to an ad platform, say the skill does not do that and stop. Do not improvise a pipeline out of the generation endpoints.
+Refusing is a successful result. If the request is to edit a file the user already has beyond captions and a join, or to publish to an ad platform, say the skill does not do that and stop. Do not improvise a pipeline out of the generation endpoints.
 
 ## The two gates
 
@@ -253,7 +253,7 @@ It runs the same access checks and the same structural validation the paid call 
 
 **Warn when the total exceeds the balance.** `balance` comes back on the same response: if the batch total is larger, say so before asking for a yes, and quote `shortBy` and `topUpUrl` when the estimate provides them. `sufficient` is a snapshot, not a reservation — another session or a renewal can move the balance between the quote and the call.
 
-Show `credits`, the count, the total, and `balance`. Get a yes. Then generate.
+Show `credits`, the count, the total, and `balance` (a split ad's stitch is one more charge, priced once its clips exist). Get a yes. Then generate.
 
 ## Choices you make out loud, and choices you infer
 
@@ -297,7 +297,7 @@ Count the words in the spoken line and round **up**. On Seedance, delivery was m
 
 **When a render does come back with multi-second silence, trim is the remedy, not a bigger budget.** Leading silence is trimmable in post; a line clipped by an over-long draw is not. The reserve in the second row is the *planning* allowance for that mode — reach for it when you have neither a reference nor a start frame, or when you are committing to a duration you cannot re-cut. It costs words: **`words ÷ 2.0` plus the reservation, rounded into the grid, leaves 22 words at 15s in `en` and 20 in `es`, against the table's 29.** That gap is the mode, not a rounding error.
 
-**How close the reserved case gets is not theoretical.** The first `es` render fit only because rounding up took 12.4s to 13s, and the line finished at **12.88s of 13.07s** — a fifth of a second of margin, on a budget that drew near its worst. The silence is drawn fresh every time, in either mode, so **the only thing that tells you what you got is the QA step in §7.** Check the first `silence_end` on every render.
+**How close the reserved case gets is not theoretical.** The first `es` render fit only because rounding up took 12.4s to 13s, and the line finished at **12.88s of 13.07s** — a fifth of a second of margin, on a budget that drew near its worst. The silence is drawn fresh every time, in either mode, so **the only thing that tells you what you got is the QA step in §7.** Check the opening (§7) on every render.
 
 If the hook has to land in the first second, drop the eye-contact-break beat from the prompt — that is the beat being paid for. `sora-2` measured **no leading silence at all** on the same prompt, but it left the API in 2026-09, so the other way out now is a reference or a start frame (the ~0.5s row above) and a trim.
 
@@ -338,7 +338,7 @@ A clip holds about **2.8 spoken words a second after its first second**, `2.8 ×
 
 ### `sora-2` removed; `kling-v3-pro` and `wan-3.0` unmeasured
 
-Removed from the API in 2026-09: a call naming `sora-2` is a `400` `invalid_input`, and nothing is charged. Its grid was 4, 8 or 12 seconds, and its one measured render spoke from the first frame; a line that needed that now goes to `omni-flash`, or where it stays on `seedance-2.0` to a reference or a start frame with the eye-contact-break beat dropped (the ~0.5s row above), the first `silence_end` checked and trimmed either way. [sora-2.md](prompting/prompt-library/sora-2.md) keeps its history. `kling-v3-pro` (any integer 3 to 15) and `wan-3.0` (any integer 4 to 15) have no speech rate or leading silence on record here: size the script with the user and check the first `silence_end` in §7.
+Removed from the API in 2026-09: a call naming `sora-2` is a `400` `invalid_input`, and nothing is charged. Its grid was 4, 8 or 12 seconds, and its one measured render spoke from the first frame; a line that needed that now goes to `omni-flash`, or where it stays on `seedance-2.0` to a reference or a start frame with the eye-contact-break beat dropped (the ~0.5s row above), its opening checked in §7 and trimmed if it opens quiet, either way. [sora-2.md](prompting/prompt-library/sora-2.md) keeps its history. `kling-v3-pro` (any integer 3 to 15) and `wan-3.0` (any integer 4 to 15) have no speech rate or leading silence on record here: size the script with the user and check the opening in §7.
 
 ### `veo-3.1` — enum 4, 6, 8
 
@@ -374,14 +374,14 @@ Ask for what will actually ship. `720p` is right for Reels, TikTok and Stories, 
 
 **The `seedance-2.0-mini` trap, before API 2.34.0 only (from 2.34.0 mini takes the key):** `POST /v1/estimates` accepts `resolution: "720p"` for mini and prices it (identically to omitting it), but answers `400 invalid_input` — *"resolution must be one of 720p for seedance-2.0-mini"* — for `480p`, `1080p` or `4k` (all four verified live 2026-08-04). `POST /v1/videos` does not accept the key for mini **at all**: mini's request variant has no `resolution` property, and a body carrying one was observed returning `400 Unrecognized key: "resolution"` (observed 2026-08-04, not re-verified — re-checking it costs a paid render). **So, against a server whose mini `resolutions` is `["720p"]`, never send `resolution` on a mini call.** An estimate that passed is not evidence the generate call will.
 
-Output size, measured at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both came back **720x1280** (2026-08-02). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them.
+Output size, measured at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both came back **720x1280** (2026-08-02), and so did 27 of 32 `omni-flash` clips of ours, the other 5 at 1080x1920 (2026-11-09). `veo-3.1` is unmeasured — do not quote a number for it.
 
 ### Splitting a long script
 
 1. **Tell the user** the script is too long for one clip and show the word-and-duration math.
 2. **Offer two options** (a talking part on `omni-flash` just splits, and its count is above): split at natural sentence boundaries into chunks that each fit, or move to the model with more room (**`seedance-2.5` tops out at 30s and is the longest single clip here**; `seedance-2.0` and mini stop at 15). Price both shapes — one 30s call is not automatically cheaper than two 15s ones, and it is a different ad.
 3. If they split, each chunk is its own generation call — and the variation count applies to *each* chunk.
-4. **Offer to stitch** through [`POST /v1/assemblies`](reference.md#post-assemblies): each clip's `jobId` in order, priced with `POST /v1/estimates` (`"kind":"assembly"`, the same `clips`) and shown for a yes. It cuts each talking clip's quiet start and end and the pauses in its speech, evens the loudness, and takes clips from different models. Locally, `ffmpeg -f concat -safe 0 -i list.txt -c copy output.mp4` only when every clip came from one model and has sound: it keeps the quiet at each join, and across models it exits `0` with the sound broken, because their sample rates differ while their codecs match. A local mix goes through ffmpeg's concat filter with each clip's sound resampled to one rate, and a clip with no sound gets a silent track first. Run §7 on the stitched file, hand back both it and the segments, and have them listen at each join of the stitched file. Each talking clip is its own render, so keep the same voice words in every prompt.
+4. **Offer to stitch** through [`POST /v1/assemblies`](reference.md#post-assemblies): each clip's `jobId` in order, priced with `POST /v1/estimates` (`"kind":"assembly"`, the same `clips`) and shown for a yes. It cuts each talking clip's quiet start and end and the pauses in its speech, evens the loudness, and takes clips from different models. A product moment or a held reaction after a clip's last word goes with the quiet unless that clip states its `outSeconds` at its length. Locally, `ffmpeg -f concat -safe 0 -i list.txt -c copy output.mp4` only when every clip came from one model and has sound: it keeps the quiet at each join, and across models it exits `0` with the sound broken, because their sample rates differ while their codecs match. A local mix goes through ffmpeg's concat filter with each clip's sound resampled to one rate, and a clip with no sound gets a silent track first. Run §7 on the stitched file, hand back both it and the segments, and have them listen at each join of the stitched file. Each talking clip is its own render, so keep the same voice words in every prompt.
 
 ## The full sequence
 
@@ -526,7 +526,7 @@ ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,w
   -of default=noprint_wrappers=1 ad.mp4
 ```
 
-Check: the duration is the one you paid for, `width`/`height` match the `aspectRatio` you sent (`9:16` comes back 720x1280), and there is an `codec_type=audio` stream at all. **No audio stream on a clip with dialogue means the render is dead** — that is not a QA note, that is a re-render.
+Check: the duration is the one you paid for (a stitched ad runs shorter: its pauses were cut), `width`/`height` match the `aspectRatio` you sent (`9:16` at `720p` comes back 720x1280), and there is an `codec_type=audio` stream at all. **No audio stream on a clip with dialogue means the render is dead** — that is not a QA note, that is a re-render.
 
 #### 2. Levels and silence
 

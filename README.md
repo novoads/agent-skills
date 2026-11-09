@@ -127,8 +127,8 @@ first ad needs nothing from the optional table.
 Captions, transcripts and music are generated server-side and need **no local
 tools**: `POST /v1/captions` burns captions in (30 presets), `POST /v1/transcripts`
 returns text, word timings and an SRT, and `POST /v1/music` generates the
-soundtrack. Only laying that soundtrack under a finished cut is local, and that
-is the `music-mix` step in the `ffmpeg` row above.
+soundtrack. Laying that soundtrack under a finished cut is `POST /v1/assemblies`
+where the deployment offers it, or the local `music-mix` step in the `ffmpeg` row above.
 
 **Optional, per workflow.** Each skill tells you when it needs one; nothing
 here blocks your first ad:

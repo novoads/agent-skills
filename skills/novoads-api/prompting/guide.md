@@ -10,7 +10,7 @@ Use this **before** opening a formula in `prompting/prompt-library/`. It turns a
 - **Hook:** the first 1–2 seconds — pattern interrupt, curiosity, or a relatable moment.
 - **CTA:** the exact words, if spoken or on screen ("Shop the drop", "Book a demo").
 - **Constraints:** length, aspect ratio, banned topics, brand words to avoid.
-- **Language:** the language the ad ships in. Write the prompt in it; do not translate a Spanish ad into English.
+- **Language:** the language the ad ships in. Write the prompt in it; do not translate a Spanish ad into English (on `omni-flash` the frame may stay in English with only the quoted line in the ad's language: [its guide](../../../shared/skills/gemini-omni-flash/prompting/guide.md)).
 
 Check `references/` at the repo root before asking for anything visual. Product shots, actor stills and style boards live there (`references/products/`, `references/influencers/`, `references/aesthetics/`), it is gitignored, and a file already sitting in it beats a file you asked for twice.
 
@@ -40,7 +40,7 @@ If `MASTER_CONTEXT.md` at the repo root carries brand voice, banned phrases, or 
 - [ ] Required fields present for the chosen model, per [reference.md](../reference.md) — and nothing extra: the request bodies are strict and an unknown key is a `400`.
 - [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults differ by model (on `seedance-2.0`, 5 seconds and `16:9`) and are almost never what an ad wants.
 - [ ] One reference mode only: `startImageAssetId` **or** `referenceAssetIds`, never both. Every `@ImageN` token points at an id you actually send.
-- [ ] The prompt matches the formula's structure, in the ad's own language.
+- [ ] The prompt matches the formula's structure, in the ad's own language (on `omni-flash`, at least the quoted line).
 - [ ] No secrets in the request body — ids and creative text only.
 - [ ] **Priced live** at `POST /v1/estimates` in this session, the number shown to the user, and the user said yes. Never quote a credit number from memory, from the logs, or from `MASTER_CONTEXT.md`.
 - [ ] For any video where someone speaks: the spoken line approved on its own first, per gate 1 in [SKILL.md](../SKILL.md).

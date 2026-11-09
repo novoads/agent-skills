@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.5.0 — 2026-11-09
+
 ### Changed
 
 **A scene where someone talks on camera goes on `omni-flash` (API 2.60.2).** Fewer words come out wrong

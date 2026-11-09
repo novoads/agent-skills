@@ -361,7 +361,8 @@ Prompt: Show me in this story. Follow the story exactly in order starting top le
 
 > **Reachable since API 2.30.0.** Send the character, object or setting in `omni-flash`'s
 > `referenceAssetIds` and name it by its `@ImageN` token. Nothing in this pack has measured how
-> well Omni holds a face across separate clips; the documented route for a series is Seedance's.
+> well Omni holds a face across separate clips; the documented route for a series is Seedance's,
+> except a talking part split across clips: see *A scene where someone talks*.
 
 To hold a character, object, or environment steady, **add a reference** — from real life or
 generated with Nano Banana — and Omni will carry it across the scene.
@@ -371,6 +372,35 @@ Prompt: Change the ships to be made from white origami paper.
 Prompt: Change the astronaut to a sea anemone.
 Prompt: Change the small ships to stingrays.
 ```
+
+---
+
+## A scene where someone talks
+
+On this API `omni-flash` is the model for a scene where someone talks on camera: it makes the
+person and the speech in one call, lip-synced, and fewer words come out wrong (measured 2026-11-08, videos with a word wrong: in Spanish 12% against about half on Seedance; in English, on our own renders, 12% against about 20%).
+
+- **One clip, a line that fits.** `durationSeconds` is the shortest of 4, 6, 8 or 10 that holds the
+  line: about 2.8 words a second after the first second, so 8 words in 4, 14 in 6, 19 in 8 and 25
+  in 10, with a number counted as the words it takes to say. A line past that can be cut mid-word.
+  A short line reads slow.
+- **A longer part splits where the line splits**, at a sentence's end, each clip its own call: 15
+  seconds of speech is 10 + 6, never one scene. Stitch them afterwards.
+- **Quote only the spoken line.** Any other quoted word can be drawn on screen, so say when a
+  gesture lands in plain words.
+- **Name the pictures once, and close the prompt.** Open with `@Image1 is the product, @Image2 is
+  the person's face to keep.` and end with `Nothing else is spoken, nothing after the last word. No
+  captions, no added text.`
+- **One voice across clips.** The same voice words and the same person's picture in every clip, and
+  have the person listen at each join: speaker models and pitch can rank clips, but only an ear can
+  say they sound like one person. A listening pass of 7 joined ads of ours, 3 clips each, passed them
+  (2026-10-30).
+- **No `audioEnabled` and no mini draft.** The field is a `400` on this model, and a draft on
+  `seedance-2.0-mini` would show neither this model's look nor its voice.
+- **What stays on Seedance:** a square ad, a scene with `productSwap`, and animated characters,
+  which nobody has checked on this model.
+- **When Google's safety check stops the job** (it ends `blocked`, or `failed` with `reasonCode`
+  `moderation`, and its credits come back): That scene goes to `seedance-2.5`: same prompt and pictures (`firstFrameAssetId` as `startImageAssetId`, and a prompt over its 4,000-character ceiling cut down first), a new `idempotencyKey`, priced with `POST /v1/estimates` and shown for a yes first. Say its voice can differ. Refused there too: rewrite or stop. No other failure goes there.
 
 ---
 

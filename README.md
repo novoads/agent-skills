@@ -86,7 +86,7 @@ billing API:
 - **No price is ever quoted from memory.** Every credit number comes from a live
   `POST /v1/estimates` call in the session that is about to spend, shown to you and approved first.
   That call charges nothing, and there is no rate table anywhere in this repo to fall back on.
-- **The spoken line is approved on its own**, before the cost gate. Seedance renders the dialogue
+- **The spoken line is approved on its own**, before the cost gate. The video model renders the dialogue
   and the lip-sync in the same call, so the sentence in the prompt is the sentence in the finished
   ad. Approving a concept is not approving a sentence, and approving a sentence is not approving
   a spend.
@@ -281,6 +281,10 @@ Five prompt formulas ship, each with a worked example that has been priced live:
 | **Studio lookbook** | Polished multi-look editorial with voiceover | [seedance-2-studio-lookbook.md](skills/novoads-api/prompting/prompt-library/seedance-2-studio-lookbook.md) |
 | **Feature walkthrough** | Fast-paced demo cuts, one person held across clips | [seedance-2-feature-walkthrough.md](skills/novoads-api/prompting/prompt-library/seedance-2-feature-walkthrough.md) |
 
+A scene where someone talks goes on Omni Flash (below) unless the ad is square, the scene needs a
+product swap or has animated characters, or you name a model. The UGC formula's person, setting and
+flaw layers carry over to it.
+
 > "Make a 12-second Seedance UGC video — woman in a kitchen holding the product, says she stopped
 > buying the drugstore version"
 
@@ -312,7 +316,14 @@ of it at `1080p` is the dearest cell the video schedules publish. Price it, like
 A longer clip wants **more beats**, not slower delivery. If the script only fills 15 seconds, render
 15 seconds on `seedance-2.0`, which is cheaper at that length from `720p` up.
 
-### 🎬 Omni Flash — fast vertical clips
+### 🎬 Omni Flash — where someone talks, and fast vertical clips
+
+> "Make a 15-second UGC ad in Spanish: a woman tells the camera she stopped buying the drugstore version"
+
+**A scene where someone talks on camera goes here.** Fewer words come out wrong (measured 2026-11-08, videos with a word wrong: in Spanish 12% against about half on Seedance; in English, on our own renders, 12% against about 20%), and at
+`720p` it costs less than `seedance-2.0`. A clip holds about 25 words in 10 seconds, so a longer part
+goes across clips, split where the line splits. If Google's safety check stops a scene, `seedance-2.5`
+takes it, priced first. Square ads, animated characters and product swaps stay on Seedance.
 
 > "Give me a fast 8-second vertical clip of the product on a kitchen counter, no dialogue"
 
@@ -470,7 +481,7 @@ is the current answer, this table is a map.
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
 | **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
 | **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, about a fifth of the price, back in 2–3 min. The drafting tier. |
-| **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. Best for long structured briefs and silent b-roll. |
+| **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` and 8s. The model for a scene where someone talks, and for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
 | **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | 2,500 chars | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |

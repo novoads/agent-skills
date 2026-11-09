@@ -4,6 +4,8 @@
 
 **Model guide:** Read [seedance-2.md](seedance-2.md) first for platform rules, API parameters, and the adaptation checklist.
 
+**Model:** a talking scene goes on `omni-flash` unless the ad is square, the scene needs `productSwap` or has animated characters, or the user names a model ([SKILL.md](../../SKILL.md)). This formula's person, setting, tone and flaw layers carry over to it; its beats and duration lines are Seedance's.
+
 **Mode:** this formula's `@Image1` is the product photo, sent first in `referenceAssetIds`. With `startImageAssetId` instead, write the product by name where the formula writes `@Image1`: a start frame takes no token.
 
 ## The anatomy of a UGC video prompt

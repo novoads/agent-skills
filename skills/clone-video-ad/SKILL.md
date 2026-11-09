@@ -5,7 +5,7 @@ description: >-
   Clones a VIDEO ad end to end for a different product or offer, on the Novoads API. The
   deliverable is a finished rendered MP4 — the WHOLE ad, not its opening, and not a
   template. Reads the source's style, pacing, camera work, dialogue and tone, adapts it
-  into a Seedance 2.0 prompt, prices it, renders it, files the source beside the clones and
+  into a prompt for each scene's model, prices it, renders it, files the source beside the clones and
   diffs each clip's transcript against the approved script. Use for "clone this video ad",
   "recreate this video for my brand", "make this ad but for my product" when the source is
   a video, "clone my competitors' VIDEO ads", or a video ad handed over with a product
@@ -15,11 +15,11 @@ description: >-
   clone the whole ad and cut. If it does not move, wrong skill.
 ---
 
-# Clone ad — Seedance 2.0
+# Clone ad
 
 Clone an existing video ad for a different product. You analyze the source frame by frame,
 transcribe the dialogue, extract the visual style and beat structure, then generate a new
-`seedance-2.0` video adapted for the user's product.
+video adapted for the user's product: `omni-flash` where someone talks on camera, `seedance-2.0` for the rest.
 
 **How this differs from analyze-video:**
 
@@ -44,7 +44,7 @@ open these four directly, in order. Everything else is lookup.
 
 1. **This file** — workflow, gates, the constraints that bite.
 2. `../novoads-api/prompting/prompt-library/seedance-2.md` — fields, grid, prompt craft, what
-   the estimate flags. Before composing a prompt, not when one fails.
+   the estimate flags. Before composing a prompt, not when one fails. A source that talks: also *A scene where someone talks* in `../../shared/skills/gemini-omni-flash/prompting/guide.md`.
 3. **One** formula matched to the source, not all: `seedance-2-ugc.md` talking-head,
    `-feature-walkthrough` demo, `-premium-reveal` / `-product-hero` product-only,
    `-studio-lookbook` polished. Same directory as (2).
@@ -348,16 +348,19 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
 ### Step 5: Decide the generation mode
 
 ```
-┌─ Source ≤ 15 seconds?
-│   YES → one clip. durationSeconds = the source duration, rounded to an integer in 4–15.
-│   NO  → two routes, and the USER picks between them.
-│         See "Over 15 seconds is a choice" below. Do not default to either.
+┌─ Does someone talk on camera in this scene?
+│   YES → omni-flash: 4, 6, 8 or 10 s a clip, the shortest that holds its line (step 6). A part
+│         over 10 s splits into clips where the line splits: 15 s is 10 + 6, never one scene.
+│         Stays on seedance-2.0: square, productSwap, animated characters, a model they name.
+│   NO, or it stays → source ≤ 15 s: one clip, durationSeconds = its length, an integer in 4–15.
+│         Longer: two routes, and the USER picks. See "Over 15 seconds is a choice" below.
+│         Do not default to either.
 │
 ├─ Do you have a product image — theirs, or one you generated?
 │   YES → upload it (or reuse the assetId POST /v1/images already returned), then pick
 │         one mode:
 │           startImageAssetId  — the ad opens ON the product, held up or on a surface.
-│                                It animates that photo as the literal first frame.
+│                                It animates that photo as the literal first frame (omni-flash: firstFrameAssetId).
 │           referenceAssetIds  — the ad builds a scene the product was never photographed
 │                                in. It composites the references instead, and the prompt
 │                                addresses them as @Image1, @Image2 … by array position.
@@ -366,7 +369,7 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
 │         Seedance invents a design, renders it, charges for it, and re-invents it on
 │         every clip of a series.
 │
-├─ Is it a series (the >15s route the user picked, not every >15s source)?
+├─ Is it a series (the >15s route the user picked, or a talking part split across clips)?
 │   YES → referenceAssetIds, and pass the SAME ids to every clip:
 │           @Image1 = the product, @Image2 = the person if one is on screen.
 │         Repeat the actor tag verbatim in every clip. Never "the same woman".
@@ -395,12 +398,8 @@ each clip with `startImageAssetId`, a different mechanism from the shared-`refer
 series described below, so it does not measure this route at all.
 
 **A series is held by references, not by chaining.** The old pattern — render clip 1, feed
-its output in as clip 2's reference video — is not how this skill holds a series: it passes the same image references to every clip.
-That is not a downgrade. This repo's own animation rule says the same thing on its own
-merits: *"Don't chain by using an animated end-frame as the next beat's anchor — drift
-compounds"* (`skills/claymation-ad/references/formulas.md`). Every clip
-anchoring to the same approved stills is the more stable pattern, and because the `assetId`
-**can be reused across calls and models**, it costs one upload for the whole series.
+its output in as clip 2's reference video — drifts (`skills/claymation-ad/references/formulas.md`), so this skill passes the same image references to every clip.
+The `assetId` **can be reused across calls and models**, so it costs one upload for the whole series.
 Re-uploading the same bytes only mints a second id for the same picture.
 
 **Fire the clips of a series concurrently, not sequentially** — nothing downstream depends
@@ -408,7 +407,7 @@ on an earlier clip's output any more. Ten generations per organization may be in
 once; an eleventh comes back `429` with `details.reason` of `concurrency_limit`, which is
 solved by waiting for a slot and not by backing off harder.
 
-**Offer the mini draft.** `seedance-2.0-mini` is the same grid and the same prompt at about a
+**Offer the mini draft, for `seedance-2.0` scenes** (none for `omni-flash`: it would show neither its look nor its voice). `seedance-2.0-mini` is the same grid and the same prompt at about a
 fifth of the price, back in 2–3 minutes instead of 3–8. Its fields are the same **except
 `resolution`**: send it only where `GET /v1/models` lists more than one tier (API 2.34.0 on;
 before it Mini rendered 720p only and the key was a `400`). A clone is exactly the case
@@ -439,8 +438,8 @@ The creative core. Working from step 3:
 - Keep the **same energy arc**: excited → calm, flat, or building.
 - Replace product-specific references with the user's product name, features and claims.
 - Match each line's **word count within about ±3 words** so the pacing survives.
-- Read it back at a natural pace against the target duration: **2.0 words per second** measured
-  (~13 chars/sec with spaces), so a `D`-second clip holds about `2.0 × (D − 0.5)` words.
+- Read it back at a natural pace against the target duration. On `omni-flash`, about 2.8 words a second after its first second: 8 words in 4 s, 14 in 6, 19 in 8, 25 in 10, and a longer line splits across clips at a sentence's end.
+  On Seedance, **2.0 words per second** measured (~13 chars/sec with spaces), so a `D`-second clip holds about `2.0 × (D − 0.5)` words.
 - **Script variants.** If they asked for N *script variants* rather than N renders of one
   script (step 5), write N distinct adaptations that share the beat structure, the
   silent-beat placement and the per-line word counts, and differ in the hook angle, the
@@ -456,14 +455,14 @@ The creative core. Working from step 3:
 - Keep the technical-flaw cues — phone quality, mic character, imperfect light. They are
   what makes it read as real.
 
-**Prompt composition.** Read [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) before
+**Prompt composition.** A talking scene on `omni-flash`: read *A scene where someone talks* in [its guide](../../shared/skills/gemini-omni-flash/prompting/guide.md), and the talking-head formula below for the person, setting and flaws. Otherwise read [seedance-2.md](../novoads-api/prompting/prompt-library/seedance-2.md) before
 composing, and the closest formula for structure —
 [seedance-2-ugc.md](../novoads-api/prompting/prompt-library/seedance-2-ugc.md) for a talking-head source,
 [seedance-2-feature-walkthrough.md](../novoads-api/prompting/prompt-library/seedance-2-feature-walkthrough.md) for
 a fast demo, [seedance-2-premium-reveal.md](../novoads-api/prompting/prompt-library/seedance-2-premium-reveal.md)
 or [seedance-2-product-hero.md](../novoads-api/prompting/prompt-library/seedance-2-product-hero.md) for a
 product-only source, [seedance-2-studio-lookbook.md](../novoads-api/prompting/prompt-library/seedance-2-studio-lookbook.md)
-for a polished voiceover source. Cloning onto a different model reads that model's own grid first, never a Seedance formula carried across: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo — it takes no `referenceAssetIds`, so a clone carrying both the actor and the product stays on Seedance. A source whose hook speaks from frame one stays on `seedance-2.0` too: with a reference or a start frame (measured at about 0.5s of leading silence, where a render with neither front-loads 3–5s of it), the eye-contact-break beat dropped from the prompt, and the first `silence_end` checked and trimmed. `sora-2`, which measured no leading silence, was removed from the API in 2026-09; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) is kept as history. [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) is the cross-model UGC guide: its *Core principles* transfer, its per-model formulas do not.
+for a polished voiceover source. Cloning onto a different model reads that model's own grid first, never a Seedance formula carried across: [veo-3-1.md](../novoads-api/prompting/prompt-library/veo-3-1.md) when the user names Veo — it takes no `referenceAssetIds`, so a clone carrying both the actor and the product stays on Seedance. A source whose hook speaks from frame one goes on `omni-flash` like any talking scene, the first `silence_end` checked and trimmed; where it stays on `seedance-2.0`: a reference or a start frame (measured at about 0.5s of leading silence, where a render with neither front-loads 3–5s of it), the eye-contact-break beat dropped from the prompt, and the same check. `sora-2`, which measured no leading silence, was removed from the API in 2026-09; [sora-2.md](../novoads-api/prompting/prompt-library/sora-2.md) is kept as history. [ugc-selfie-style.md](../novoads-api/prompting/prompt-library/ugc-selfie-style.md) is the cross-model UGC guide: its *Core principles* transfer, its per-model formulas do not.
 
 **If the mode is a one-shot compression, read
 [seedance-2-ugc-v2.md](../novoads-api/prompting/prompt-library/seedance-2-ugc-v2.md) as well — for structure and
@@ -571,7 +570,7 @@ came from a live call in this session.** There are no rate tables in this repo, 
 curl -sS -X POST https://api.novoads.ai/v1/estimates \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"kind":"video","model":"seedance-2.0","durationSeconds":14,"language":"en","prompt":"<the adapted prompt>"}'
+  -d '{"kind":"video","model":"omni-flash","durationSeconds":10,"language":"en","prompt":"<the adapted prompt>"}'
 ```
 
 Add `"resolution":"1080p"` to that body when the clone is going above the model's default —
@@ -595,7 +594,7 @@ against `CreateEstimateRequestVideo` in spec `2.12.0` (2026-08-06). `aspectRatio
 - **The `warnings` are advice, never a verdict.** Nothing here can refuse or reprice a
   call, so a weak clone prices, charges and renders exactly like a good one. They are
   substring matches and they **do false-positive** — read each against the prompt, and say
-  so when you override one. Step 6's checklist is what actually stands between the two.
+  so when you override one. Step 6's checklist is what actually stands between the two. On `omni-flash`, `omni_line_too_long` (API 2.60.2) says the quoted words run past the clip.
 - **Price every clip and every variant, each with its own call.** A 3-clip series at 2
   script variants is 6 estimates and 6 charges. The estimates charge nothing and fire
   concurrently, and they are also the per-model length check and the prompt lint — a prompt
@@ -679,9 +678,9 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "seedance-2.0", "idempotencyKey": "<a new one per render>",
+    "model": "omni-flash", "idempotencyKey": "<a new one per render>",
     "prompt": "<the adapted prompt>",
-    "durationSeconds": 14,
+    "durationSeconds": 10,
     "aspectRatio": "9:16",
     "language": "en",
     "referenceAssetIds": ["<product assetId>"],
@@ -689,7 +688,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   }'
 ```
 
-`startImageAssetId` instead of `referenceAssetIds` when that is the mode. Never both.
+`startImageAssetId` (on `omni-flash`, `firstFrameAssetId`) instead of `referenceAssetIds` when that is the mode. Never both.
 
 - Returns `202` with `jobId`, `status`, `creditsCharged` and `model`. **No `warnings` here** —
   but the **estimate does** return them (verified live 2026-08-05). Collect the craft advice at
@@ -723,7 +722,7 @@ curl -sS https://api.novoads.ai/v1/generations/$JOB_ID \
   — not until `succeeded`. A loop waiting only for success never returns on a job that
   already died. `queued` means charged and submitted but not yet rendering; it is normal.
 - Tell the user the wait up front: `seedance-2.0` is usually **3 to 8 minutes**, most often
-  around 5. `seedance-2.0-mini` is **2 to 3**.
+  around 5. `seedance-2.0-mini` is **2 to 3**. `omni-flash` has no measured wait: say it is unknown.
 - Update each job's log line with the terminal status and elapsed time, carrying `creditsCharged`
   over from the `202`; if that is lost, read it off the job. Never reconstruct it from a rate.
 
@@ -764,8 +763,8 @@ Then:
 5. **Open the source video beside them**, then present the clones as a numbered list. The
    comparison that decides whether this worked is against the original, not among the
    variants — and after item 2 the source is sitting in the same folder.
-6. For a series, present each clip, then offer to stitch with ffmpeg using **absolute
-   paths**:
+6. For a series, or a talking part split across clips, present each clip and have them listen at
+   each join (each clip is its own render), then offer to stitch with ffmpeg using **absolute paths**:
 
    ```bash
    printf "file '%s'\n" "$(pwd)/clip1.mp4" "$(pwd)/clip2.mp4" "$(pwd)/clip3.mp4" > /tmp/stitch-list.txt
@@ -784,7 +783,7 @@ makes no Novoads call and costs no credits.
 
 ## Seedance 2.0 constraints that bite during a clone
 
-Full detail in [reference.md](../novoads-api/reference.md).
+Full detail in [reference.md](../novoads-api/reference.md). A talking scene on `omni-flash` has its own narrower grid: `durationSeconds` 4, 6, 8 or 10, `aspectRatio` `9:16` or `16:9`, no `audioEnabled`, and `startImageAssetId` is a reference there, not a first frame.
 
 | Constraint | What it means here |
 |---|---|
@@ -820,7 +819,8 @@ quote when reporting a problem.
 | `429 rate_limited` | Several causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
 | `500 internal_error` | Possibly charged | **Do not retry blindly.** `GET /v1/generations` first: if the job is there, poll it instead of resubmitting |
 | `502 provider_failed` | The model provider failed | Credits are refunded automatically |
-| Job `status: failed` or `blocked` | Read `reasonCode` and the `error` on the job | Credits are already refunded. `moderation`: rewrite. Any other reason: see Status lifecycle in the `novoads-api` skill's `reference.md` |
+| An `omni-flash` job ends `blocked`, or `failed` with `reasonCode` `moderation` | Google's safety check stopped it. Its credits came back | That scene goes to `seedance-2.5`: same prompt and pictures (`firstFrameAssetId` as `startImageAssetId`, and a prompt over its 4,000-character ceiling cut down first), a new `idempotencyKey`, priced with `POST /v1/estimates` and shown for a yes first. Say its voice can differ. Refused there too: rewrite or stop. No other failure goes there |
+| Any other job with `status: failed` or `blocked` | Read `reasonCode` and the `error` on the job | Credits are already refunded: leave it out of the total. `moderation`: rewrite. `vendor_error` or `vendor_timeout`: send it once more with a new `idempotencyKey`. Any other reason: see Status lifecycle in the `novoads-api` skill's `reference.md` |
 | The clone looks nothing like the source | The reading was wrong, not the render | Go back to the beat map with the user before spending again. Change **one** element per iteration — framing, or pacing, or the anchor — never three |
 | The label came back garbled | Seedance preserves logos and destroys printed text | Say in the prompt that the label stays sharp and unchanged, and check the reference photo actually shows it sharp |
 | The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only, under a new `idempotencyKey`. The label being perfect tells you nothing about the audio |

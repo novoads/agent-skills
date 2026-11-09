@@ -86,7 +86,8 @@ trim offset back to every timestamp, so the numbers describe the original timeli
 ffmpeg -hide_banner -i source.mp4 -af silencedetect=noise=-40dB:d=0.3 -f null - 2>&1 \
   | grep silence_
 
-# Read the first "silence_end" — that is where speech actually starts.
+# Read the first silence. If its silence_start is at 0, its silence_end is where speech starts.
+# If it starts later, or there is none, the clip opens on speech: LEAD=0, skip this section.
 # Verify by ear before trusting it; music under the VO can move the threshold.
 LEAD=3.16
 

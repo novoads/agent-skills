@@ -244,9 +244,8 @@ where `-v error` is correct because `-show_entries` writes to stdout.
   line approved at gate 1** — the brand name, the words, the language.
 - `-v error` never appears on `volumedetect` or `silencedetect`. A check that printed
   nothing is treated as **not run**, not as passed.
-- The first `silence_end` is read on every render and compared against the budget. The
-  silence is drawn fresh each time, so the reservation holding is confirmed, never
-  assumed.
+- The first silence is read on every render as §7 says, and a late first word compared against the
+  budget. The silence is drawn fresh each time, so the reservation holding is confirmed, never assumed.
 - An audio stream is confirmed to exist at all. No audio stream on a talking clip is a
   re-render, not a note.
 - A mispronounced invented brand name is fixed with the **phonetic spelling for that
@@ -370,6 +369,26 @@ with no `output`, one with `"output":"video"` on a workspace that has video out 
 
 **Fails if:** the agent reads `reference.md` as "voice changes are always synchronous" and
 treats the `202` as an error, or polls a `200`.
+
+---
+
+## NA10 — What an agent picks moved, and the default did not
+
+**Untested: written with the change, before any run.**
+
+**Scenario.** "Make a talking UGC ad" with no model named, then a question about what a call with no
+`model` renders.
+
+**Assertions.**
+
+- The body the agent writes for a talking scene names `"model":"omni-flash"`, and a `durationSeconds`
+  that model renders. It does not lean on a default.
+- Asked about the default, it answers `seedance-2.0`: a body with no `model` still renders there.
+- A square ad, a scene with `productSwap`, animated characters and a model the user names do not go
+  on `omni-flash`, and a scene where nobody talks takes the silent-clip rows, not this rule.
+
+**Fails if:** the agent reads the advice as "the default is `omni-flash`" and leaves `model` out; or
+it sends `omni-flash` a length or shape the model does not render and treats the `400` as a fault.
 
 ---
 

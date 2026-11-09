@@ -34,6 +34,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
   - [Pricing](#pricing-3) · [Failure modes](#failure-modes-5) · [What it does not do](#what-it-does-not-do-3)
 - [POST /background-removals](#post-background-removals)
 - [POST /videos/animate-actor](#post-videosanimate-actor)
+- [POST /assemblies](#post-assemblies)
 - [GET /generations](#get-generations)
 - [GET /generations/{jobId}](#get-generationsjobid)
 - [GET /generations/{jobId}/watch](#get-generationsjobidwatch)
@@ -91,6 +92,7 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `POST` | `/estimates` | Price a generation. Spends nothing. The only source of a credit number. |
 | `POST` | `/videos` | Submit a video. `202`, charged, asynchronous. |
 | `POST` | `/videos/animate-actor` | Motion control: a library actor moved by a clip you upload. `202`, charged, asynchronous (API 2.43.0). Where the deployment offers it. |
+| `POST` | `/assemblies` | Put one finished ad together from clips you already have. `202`, charged, asynchronous (API 2.56.0). Where the deployment offers it. |
 | `POST` | `/background-removals` | Remove the background of a video up to 30 s, by `jobId` or uploaded `assetId`. `202`, charged, asynchronous (API 2.41.0). |
 | `POST` | `/videos/{jobId}/background-removal` | Same operation, the job in the path. |
 | `POST` | `/images` | Generate images, or run a `preset` (image to ad, product to ad, upscale; API 2.40.0) on one photo. `200` with the images, or, for a render still going after about 105 s, `200` with `status: "running"` and no images: poll the job (API 2.39.0). |
@@ -150,7 +152,7 @@ Response `201`:
 
 Discriminated on `kind`, and strict. Any field not listed is a 400.
 
-**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the minimum charge on the three that read the length of an optional source. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
+**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0), `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) and `kind: "assembly"` prices [`POST /assemblies`](#post-assemblies) — see those sections for their fields and for the reason a sourceless quote is the minimum charge on the three that read the length of an optional source. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
 
 **An arm's `kind` names the OPERATION, and the job it prices names its OUTPUT.** You estimate `voiceover` and `voice-change`; you poll a job whose `kind` is `"audio"`, exactly as with `music`. Neither is a typo to be fixed. `motion-control` works the same way: its job polls as `kind: "video"`.
 
@@ -347,7 +349,7 @@ Those are ratios, not a rate card — they exist so you can warn a user that `4k
 
 **So an estimate that accepted `resolution` is not a licence to send it to `POST /videos`.** Against a server older than 2.34.0, never send the key on mini; from 2.34.0 the general rule applies: send it only when `GET /models` lists more than one tier.
 
-Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both returned **720x1280** (2026-08-02, ffprobe). `omni-flash` and `veo-3.1` are unmeasured — do not quote a number for them, and do not generalise 720p across the set now that Veo is on it.
+Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default and `sora-2` (since removed from the API) both returned **720x1280** (2026-08-02, ffprobe), and so did 27 of 32 `omni-flash` clips of ours, the other 5 at 1080x1920 (2026-11-09, ffprobe). `veo-3.1` is unmeasured — do not quote a number for it, and do not generalise 720p across the set now that Veo is on it.
 
 **`idempotencyKey`** (API 2.52.0, optional, 1 to 255 characters): the same key within 24 hours returns the first submission (`202`, the same `jobId` and `creditsCharged`), whatever the new body says, instead of rendering and charging again, and answers `409` `conflict` while that first one is still being accepted. Scoped to your organization. So a key belongs to one render, not to a clip: reuse it only to retry the identical call, and send a new key for every new or corrected render, a job that failed after its `202` included. See the 500 note below.
 
@@ -965,6 +967,23 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 - **The server measures the clip; a duration you send is never read.** Quote with `POST /estimates` and `kind: "motion-control"` with the same inputs, and the charge equals the quote.
 - Every refusal (an actor you cannot use, a clip that is not MP4 or MOV, size, the length bounds per orientation, aspect ratio, prompt length) happens before the charge. Send MP4 or MOV only: a WebM clip does not render, so convert it to MP4 before uploading it.
 
+## POST /assemblies
+
+Puts one finished ad together from parts you already have (API 2.56.0). It joins the clips in order, cuts the pauses in the middle of speech and a talking clip's quiet start and end, lays a voice-over, lays music under it and lowers it while someone talks, burns captions and evens the loudness. Nothing new is rendered. This is the join for clips from different models: every part comes out at one picture and sound format, and a clip with no sound gets silence of its length. `202` + `jobId`, polled at `GET /generations/{jobId}` and downloaded through `/watch`, exactly as for `POST /videos`.
+
+| Field | What it takes |
+|---|---|
+| `clips` | Required, in the order they play: up to 20, and up to 180 seconds in all. Each is `{ "jobId": ... }` for a video this API made, or `{ "assetId": ... }` for a video you uploaded or a picture (a picture takes `seconds`, required unless that clip has its own `voiceOver`). `inSeconds` and `outSeconds` trim a video, and a number stated stays as given. A clip can carry its own `voiceOver` and `ownSound` |
+| `voiceOver` | One for the whole ad, or one on each clip that has its own, never both. The `jobId` of a voice-over job, or the `assetId` of an MP3 or WAV you uploaded |
+| `music` | The same two forms, and `take: 2` picks a music job's second take. Played once from the start, lowered while someone talks, faded at the end |
+| `captions` | `{ "preset": ... }`, read from the finished ad's own sound. Moves the price |
+| `aspectRatio` | The ad's shape: `9:16`, `16:9`, `1:1` or `4:5`. Unset: the first video's own shape, and clips of another shape are fitted inside it. Required when every clip is a picture |
+| `cutPauses` | True when unset. A clip with its own speech and no voice-over loses the middle of each pause of about 0.3 s or more, and the quiet before its first heard word and after its last. Quiet there includes whatever the same shot shows, so a product used or held up, or a reaction held, after the last word goes with it: state that clip's `outSeconds` at its length to keep it (`inSeconds: 0` for an action before the first word). A stated `inSeconds` or `outSeconds` stays as given. A clip with no speech stays whole. False keeps the pauses and both ends: send it when the pauses are the ad's rhythm, or the clip is already a finished cut |
+| `productId` | Files the job under a product. Organizational only |
+| `idempotencyKey` | The same key within 24 hours returns the first job instead of charging again |
+
+Price it first: `POST /estimates` with `{ "kind": "assembly", ... }` and the same fields, leaving out `productId` and `idempotencyKey`, which the estimate refuses. A part that cannot be read answers `400` and a job you name that has not finished answers `409`, both with nothing charged, and a job that fails gives its credits back. Assemblies have their own concurrency ceiling (`429`, `details.reason` `assembly_concurrency_limit`). Where a deployment does not offer the path, it is absent from `GET /v1/openapi.json`: read the live spec for every field above.
+
 ## GET /generations
 
 | Param | Values |
@@ -1064,7 +1083,7 @@ queued -> running -> finalizing -> succeeded
 
 **Poll for terminal, not for `succeeded`.** A loop waiting only on `succeeded` never exits on a failed job.
 
-**A job that stopped says why in `reasonCode`, where that is known, and its `error` can be one general line, so read the field before you send anything again.** `moderation` is a content refusal: change the prompt or the picture. `input_image_size`, `input_image_format` and `input_image_shape` mean the model refused a picture for that reason: a new upload of the same bytes has the same size, format and shape, so send a file that fixes it. `input_image_unreadable` means the model could not open a picture the job sent it, and sending the same id fails the same way: upload the picture again or use another. `vendor_error`, `vendor_timeout` or no `reasonCode` at all name no other cause: the render failed or never came back, and another try may work (on a video call, under a new `idempotencyKey`), so on a job built on an old id make that try with a new upload. On `POST /images` a job that fails inside the call answers `502` `provider_failed` with `details.jobId` and, where the reason is known, the same field at `details.reasonCode`.
+**A job that stopped says why in `reasonCode`, where that is known, and its `error` can be one general line, so read the field before you send anything again.** `moderation` is a content refusal: change the prompt or the picture. The one exception is an `omni-flash` job, where it means Google's safety check stopped the scene: that scene goes to `seedance-2.5` first, as a new paid job priced at `POST /v1/estimates` (the skill's *Download and hand it over* step has the rule), and a refusal there is the one to rewrite. `input_image_size`, `input_image_format` and `input_image_shape` mean the model refused a picture for that reason: a new upload of the same bytes has the same size, format and shape, so send a file that fixes it. `input_image_unreadable` means the model could not open a picture the job sent it, and sending the same id fails the same way: upload the picture again or use another. `vendor_error`, `vendor_timeout` or no `reasonCode` at all name no other cause: the render failed or never came back, and another try may work (on a video call, under a new `idempotencyKey`), so on a job built on an old id make that try with a new upload. On `POST /images` a job that fails inside the call answers `502` `provider_failed` with `details.jobId` and, where the reason is known, the same field at `details.reasonCode`.
 
 `queued` means charged and submitted but not yet rendering. It is normal, not a stall. A video-out voice change is different: it is charged once the job finds speech in the source, not at `queued` ([Video out](#video-out)).
 

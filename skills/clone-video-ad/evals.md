@@ -40,7 +40,7 @@ submit time.
 - N variants means N distinct dialogue adaptations — same beat structure, same silent-beat
   placement, per-line word counts within about ±3 of the source.
 - All N are presented in **one** gate-1 block (step 7), not one gate per variant.
-- One `POST /v1/estimates` **per variant prompt**, fired concurrently, before any render.
+- One `POST /v1/estimates` **per clip of each variant**, fired concurrently, before any render.
 - Each variant's `warnings` array is read and judged out loud. Overriding one is also said
   out loud — they are substring matches and they do false-positive.
 - One consolidated consent line: per-call number, count, total, balance. One yes covers
@@ -53,14 +53,15 @@ the same payload three times.
 
 ---
 
-## E2 — Over 15 seconds is a choice, never a default
+## E2 — Over 15 seconds on Seedance is a choice, never a default
 
 The one scenario no acceptance run with a ≤15s source can reach, which is why it is here:
 this eval is its only regression net.
 
-**Scenario.** A 24s talking-head source, product photo given.
+**Scenario.** A 24s source that stays on Seedance (a square talking ad, or a demo where nobody
+talks), product photo given. A vertical talking source no longer reaches this choice: see E7.
 
-**Observed risk.** Step 5 as written prescribes *"split at natural beat boundaries"* as the
+**Observed risk.** Step 5 once prescribed *"split at natural beat boundaries"* as the
 only path. #13 measured the alternative — one render carrying the beats as jump cuts inside
 it — at roughly half the spend with the voice present throughout, against a stitched arm
 whose voice was absent for half its runtime. That makes one-shot **viable**. It does not
@@ -73,7 +74,7 @@ this skill exists to preserve.
 
 - Both routes are named before either is picked.
 - Each carries its tradeoff in one line: one-shot is the cheaper route with continuous
-  voice, but the clone no longer matches the source's runtime or pacing; the series
+  voice where someone talks, but the clone no longer matches the source's runtime or pacing; the series
   preserves both at more spend, in step with its total seconds, and pays any resolution
   multiplier per clip.
 - **No default.** The agent presents the choice and waits. It does not pick one and mention
@@ -84,7 +85,7 @@ this skill exists to preserve.
 - clone-video-ad's **source beat map wins** over v2's beat doctrine. v2's "no silent beats in the
   base" must not delete a silent beat the source actually has.
 
-**Fails if:** the agent splits silently (today's text); or compresses silently (v2's
+**Fails if:** the agent splits silently (the old text); or compresses silently (v2's
 doctrine imported wholesale); or cites the A/B as proof the series is worse; or a silent
 beat present in the beat map goes missing from the adapted prompt without anyone being
 asked.
@@ -245,6 +246,39 @@ free. **There is no download-and-reupload hop.**
 **Fails if:** the skill still presents "no photo" as a binary between a user-supplied file
 and an invented design; or it generates a still and then re-uploads its bytes; or it chains
 from the expiring URL.
+
+---
+
+## E7 — A talking source goes on `omni-flash`, and splits where the line splits
+
+**Untested: written with the change, before any run.** The reasons are in step 5 and in the
+`novoads-api` skill's decision tree.
+
+**Scenario.** A 24s vertical talking-head source, one person, product photo given, no model named.
+
+**Assertions.**
+
+- Every talking part's body carries `"model":"omni-flash"`, and a `durationSeconds` of 4, 6, 8 or 10,
+  the shortest that holds its line. No body leaves `model` out.
+- A part over 10 seconds splits at a sentence's end, each clip its own call. The agent does not ask
+  which route to take: the "Over 15 seconds" choice is for what stays on Seedance.
+- Each line fits `2.8 × (D − 1)` words, counted as spoken. An `omni_line_too_long` warning is read
+  and judged out loud.
+- No `audioEnabled` on those clips, and no `seedance-2.0-mini` draft of them.
+- The same voice words and the same person's picture in every clip, and the person is asked to
+  listen at each join.
+- No picture of the person given: the agent offers one from `POST /v1/images`, shown for a yes,
+  before the first clip.
+- The finished ad goes through `POST /v1/assemblies`, or a local stitch that re-encodes a mix. A clip
+  that acts after its last word states its `outSeconds`.
+- A scene that ends `blocked`, or `failed` with `reasonCode` `moderation`, goes to `seedance-2.5`
+  at the same length and shape, priced first and shown for a yes, and the agent says its voice can
+  differ. No other failure goes there.
+- A clip that fails with `vendor_error`, `vendor_timeout` or no `reasonCode` gets one more try under
+  a new `idempotencyKey`, and a second failure stops and says so.
+
+**Fails if:** a talking scene goes out on the API default; or the agent sends one long take to
+`seedance-2.0` for a vertical talking source; or it says it listened at a join itself; or `-c copy` runs across clips from different models.
 
 ---
 

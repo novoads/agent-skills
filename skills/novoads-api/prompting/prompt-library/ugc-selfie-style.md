@@ -106,7 +106,7 @@ procrastination.' No subtitles, no captions, no text overlays.
 
 ### Sora 2 — narrative director · **removed from the API in 2026-09**
 
-Removed from the API in 2026-09, so this section is history, kept for its craft: the grid was `durationSeconds` 4/8/12 only, `aspectRatio` `9:16` or `16:9`, `startImageAssetId` yes, **no `referenceAssetIds`**, and [sora-2.md](sora-2.md) keeps the body it took. Measured here: no leading silence, and `Medium selfie shot` came back a **tight close-up** — name the framing concretely. A talking clip whose first word must land at once now goes to `seedance-2.0` with a reference or a start frame, the eye-contact-break beat dropped, and the first `silence_end` checked and trimmed.
+Removed from the API in 2026-09, so this section is history, kept for its craft: the grid was `durationSeconds` 4/8/12 only, `aspectRatio` `9:16` or `16:9`, `startImageAssetId` yes, **no `referenceAssetIds`**, and [sora-2.md](sora-2.md) keeps the body it took. Measured here: no leading silence, and `Medium selfie shot` came back a **tight close-up** — name the framing concretely. A talking clip whose first word must land at once now goes to `omni-flash` like any talking clip, with its opening checked and trimmed if it opens quiet.
 
 **Formula:** Structure with headers: `Format & Style`, `Camera`, `Main Subject`, `Location`, `Lighting`, `Actions & Camera Beats`
 

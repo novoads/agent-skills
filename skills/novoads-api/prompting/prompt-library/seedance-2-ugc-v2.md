@@ -4,6 +4,10 @@
 nine-layer formula is the craft and is still the authority on *how a UGC prompt is
 written* — person, setting, skin realism, technical flaws, vibe. Read it first.
 
+**This shape is Seedance's:** a talking scene goes on `omni-flash` unless the ad is square, the
+scene needs `productSwap` or has animated characters, or the user names a model
+([SKILL.md](../../SKILL.md)).
+
 v2 answers a different question: **what shape should the ad be, and how many API calls
 does it take?** Everything here is about structure and mode. Where the two disagree —
 and they disagree in exactly one place, silent beats — v2 wins **inside the base video**

@@ -12,6 +12,40 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**A scene where someone talks on camera goes on `omni-flash` (API 2.60.2).** Fewer words come out wrong
+(measured 2026-11-08, videos with a word wrong: in Spanish 12% against about half on Seedance; in English, on our own renders, 12% against about 20%), and at `720p` it costs less than `seedance-2.0`. The API's default stays `seedance-2.0`:
+this changes what an agent picks, not what a call with no `model` renders. For an agent:
+
+- **`novoads-api`'s decision tree and `clone-video-ad`'s step 5 route a talking scene to `omni-flash`**:
+  4, 6, 8 or 10 seconds a clip, the shortest that holds the line, and a part over 10 seconds splits
+  where the line splits. A square ad, a scene with `productSwap`, animated characters and a model the
+  user names stay as they were, and so does every scene where nobody talks.
+- **The word count on `omni-flash` is now 8, 14, 19 and 25**, from about 2.8 words a second after the
+  first second, in place of the flat `2.0 × duration`; the estimate warns past it (`omni_line_too_long`).
+- **A scene Google's safety check stops goes to `seedance-2.5`**, priced first and shown for a yes. It
+  is the one failure that moves a scene to another model.
+- **`clone-video-ad` offers the mini draft for Seedance scenes only**, because a draft on mini would
+  show an `omni-flash` scene neither its look nor its voice.
+- **A hook that must land at once no longer needs Seedance**: on 32 of our own Omni clips the first
+  speech came at a median of 0.15s (25 under half a second, 4 past a second), by voice detection.
+- **Clips from different models are stitched through `POST /v1/assemblies`**, now in `reference.md`.
+  A split talking ad is often a mix, and `-c copy` across models exits 0 with the sound broken: their
+  sample rates differ while their codecs match, which "re-encode if the codecs differ" never caught.
+- **The first `silence_end` is the first word only when the first silence starts at 0.** On 22 of 32
+  of our Omni clips it sat inside the line, 1.7 to 7s in, and read as a false alarm. `caption-video`'s
+  transcribe step reads it the same way now: the old read trimmed its copy past the first speech on 16
+  of those 32, by voice detection.
+- **`analyze-video`'s pasted block carries the rule**, so a template where someone talks does not send
+  its renders to Seedance past the router.
+- **`novoads-api` no longer refuses a join of clips the user already has**: `POST /v1/assemblies` does it
+  where the deployment offers it.
+- **A failed job's one more try:** `vendor_error`, `vendor_timeout` or no `reasonCode` gets one under a
+  new `idempotencyKey`, and a second failure stops and says so.
+- **A talking part over 10 seconds needs one person's picture**: `clone-video-ad` and the router now say
+  to make one with `POST /v1/images`, shown for a yes, when there is none to hand.
+
 ## v1.4.1 — 2026-11-07
 
 ### Changed

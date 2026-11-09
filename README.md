@@ -428,8 +428,8 @@ skill.
 - **[clone-video-ad](skills/clone-video-ad/SKILL.md)** — the same local analysis, but the
   output is a rendered clip, so both gates apply. There is no video-to-video on this API: a source
   longer than the chosen model's ceiling becomes a series of clips held together by passing the same
-  reference images to each one — though `seedance-2.5` reaches 30s in one call, so some sources that
-  used to need two clips now need one.
+  reference images to each one — though where nobody talks `seedance-2.5` reaches 30s in one call, so
+  some sources that used to need two clips now need one; a talking source splits on `omni-flash`.
 
 ### 📤 Publish as a paused Meta ad
 

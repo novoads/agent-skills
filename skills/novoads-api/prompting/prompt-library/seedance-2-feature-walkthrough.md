@@ -4,6 +4,8 @@
 
 **Model guide:** read [seedance-2.md](seedance-2.md) first for the request fields, the grid, and the platform rules.
 
+**Model:** a talking scene goes on `omni-flash` unless the ad is square, the scene needs `productSwap` or has animated characters, or the user names a model ([SKILL.md](../../SKILL.md)). This file's beats carry over to it; its durations are Seedance's.
+
 **Mode:** `referenceAssetIds` — `@Image1` the product, `@Image2` the person. Up to 9, images only, resolved by array position. This style almost always ships as a 2–3 clip series, and the person reference is what keeps it the *same* person across clips. Not `startImageAssetId`; the two fields are mutually exclusive and sending both is a `400`.
 
 ## What defines this style

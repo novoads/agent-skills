@@ -4,9 +4,8 @@
 > `POST /v1/videos`, `POST /v1/estimates` and `GET /v1/models`: a call naming it is a `400`
 > `invalid_input`, and nothing is charged. This page is kept as history, so an old link still
 > lands on a page that says what happened; nothing below is a live route. A talking clip whose
-> first word must land at once now goes to `seedance-2.0` with a reference or a start frame
-> (measured at about 0.5s of leading silence), the eye-contact-break beat dropped from the
-> prompt, and the first `silence_end` checked and trimmed: see the model router and
+> first word must land at once now goes to `omni-flash` like any talking clip, with its
+> opening checked and trimmed if it opens quiet: see the model router and
 > *Script length → duration* in [SKILL.md](../../SKILL.md).
 
 Was on this API from spec `2.1.0` until 2026-09, as `POST /v1/videos` with `"model": "sora-2"`.

@@ -142,7 +142,7 @@ that brand has no fetchable video ads running — not a reason to re-sweep or to
 | **Source video** | yes | The ad to clone. `.mp4`, `.mov`, `.webm`. Handed over, or swept for above |
 | **Product photo** | strongly recommended | Becomes `startImageAssetId` or `@Image1` in `referenceAssetIds`. Without one, see "no photo" below — the answer is not "let Seedance invent it" |
 | **Product / offer description** | if no photo | Features, audience, selling points. Used to rewrite the dialogue and the product references, and to generate a still if they want one |
-| **A photo of the person** | optional | Only if the clone is a series — it is what holds one face across clips |
+| **A photo of the person** | for a series | It holds one face across clips, and a talking part over 10 seconds is a series. None to hand: make a casting picture of a new person of the source's type with `POST /v1/images`, priced and shown for a yes, before any clip uses it |
 | **Brand voice** | optional | Check `MASTER_CONTEXT.md` first. If its brand blocks are empty, ask for tone and audience |
 
 **Check `references/` at the repo root before asking.** `references/products/` for product
@@ -335,7 +335,7 @@ What gets swapped:
   🔄 [source brand mention] → your brand
 
 What that means for the call:
-  • 13.6s ≤ 15s          → single clip, durationSeconds: 14
+  • 13.6s, someone talks → omni-flash, split where the line splits: 8s + 6s (nobody talks, or it stays on Seedance: one clip, durationSeconds: 14)
   • vertical source       → aspectRatio: "9:16"
   • speech detected (en)  → language: "en", dialogue gate applies
   • product photo given   → referenceAssetIds: ["@Image1 = your product"]
@@ -353,14 +353,14 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
 │         over 10 s splits into clips where the line splits: 15 s is 10 + 6, never one scene.
 │         Stays on seedance-2.0: square, productSwap, animated characters, a model they name.
 │   NO, or it stays → source ≤ 15 s: one clip, durationSeconds = its length, an integer in 4–15.
-│         Longer: two routes, and the USER picks. See "Over 15 seconds is a choice" below.
+│         Longer: two routes, and the USER picks. See "Over 15 seconds on Seedance" below.
 │         Do not default to either.
 │
 ├─ Do you have a product image — theirs, or one you generated?
 │   YES → upload it (or reuse the assetId POST /v1/images already returned), then pick
 │         one mode:
 │           startImageAssetId  — the ad opens ON the product, held up or on a surface.
-│                                It animates that photo as the literal first frame (omni-flash: firstFrameAssetId).
+│                                It animates that photo as the literal first frame (omni-flash: firstFrameAssetId, where the server publishes it).
 │           referenceAssetIds  — the ad builds a scene the product was never photographed
 │                                in. It composites the references instead, and the prompt
 │                                addresses them as @Image1, @Image2 … by array position.
@@ -382,8 +382,8 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
           prose is what stops the model staging a talking shot. See step 8.
 ```
 
-**Over 15 seconds is a choice, not a default.** A source longer than one clip's ceiling has
-two routes, and which one is right depends on what the user is buying. Present both with
+**Over 15 seconds on Seedance is a choice, not a default.** A source that stays on Seedance and runs
+past its ceiling has two routes, and which one is right depends on what the user is buying. Present both with
 the tradeoff and let them pick — do not choose one and mention the other in passing.
 
 | Route | What survives | What it costs |
@@ -499,7 +499,7 @@ Then:
 - **Write it in the source's language** if that is what the user wants rendered. Nothing on
   the API pushes back on a Spanish or Portuguese prompt.
 
-**Duration:** source ≤ 15s → match it, rounded to an integer in 4–15. Source > 15s → whichever
+**Duration:** a talking scene on `omni-flash`: 4, 6, 8 or 10, the shortest that holds its line. Elsewhere: source ≤ 15s → match it, rounded to an integer in 4–15. Source > 15s → whichever
 route the user picked in step 5: one ≤15s render for a compression, or one duration per clip
 for a series. Never re-decide it here. Validate against the spoken word count; `SKILL.md`
 carries the table.
@@ -688,7 +688,7 @@ curl -sS -X POST https://api.novoads.ai/v1/videos \
   }'
 ```
 
-`startImageAssetId` (on `omni-flash`, `firstFrameAssetId`) instead of `referenceAssetIds` when that is the mode. Never both.
+`startImageAssetId` (on `omni-flash`, `firstFrameAssetId`, where the server publishes it) instead of `referenceAssetIds` when that is the mode. Never both.
 
 - Returns `202` with `jobId`, `status`, `creditsCharged` and `model`. **No `warnings` here** —
   but the **estimate does** return them (verified live 2026-08-05). Collect the craft advice at
@@ -763,18 +763,18 @@ Then:
 5. **Open the source video beside them**, then present the clones as a numbered list. The
    comparison that decides whether this worked is against the original, not among the
    variants — and after item 2 the source is sitting in the same folder.
-6. For a series, or a talking part split across clips, present each clip and have them listen at
-   each join (each clip is its own render), then offer to stitch with ffmpeg using **absolute paths**:
+6. For a series, or a talking part split across clips, offer to stitch through `POST /v1/assemblies` (the
+   `novoads-api` skill's *Splitting a long script*), or with ffmpeg using **absolute paths** where every clip came from one model and has sound:
 
    ```bash
    printf "file '%s'\n" "$(pwd)/clip1.mp4" "$(pwd)/clip2.mp4" "$(pwd)/clip3.mp4" > /tmp/stitch-list.txt
    ffmpeg -y -f concat -safe 0 -i /tmp/stitch-list.txt -c copy stitched-clone.mp4
    ```
 
-   Re-encode if the codecs differ. Hand back both the stitched file and the individual clips.
+   Clips from different models, or one with no sound: `-c copy` exits 0 with the sound broken, so re-encode (same section). Hand back both the stitched file and the clips, and have them listen at each join of the stitched file.
 7. Report the total spend by summing the `creditsCharged` values the API returned — those,
    never a number you calculated from a rate.
-8. If a job came back `failed` or `blocked`, say which, quote the `error` it carries, and give its `reasonCode` where it has one.
+8. If a job came back `failed` or `blocked`, say which, quote the `error` it carries, and give its `reasonCode` where it has one. Then the failure table below.
 
 Next steps worth offering: iterate the one beat that missed rather than re-firing the whole
 set, hand the file to the `meta-ad-builder` skill to publish it as a Meta creative, or burn
@@ -819,12 +819,12 @@ quote when reporting a problem.
 | `429 rate_limited` | Several causes; branch on `details.reason` | `concurrency_limit` → wait for a slot. `key_limit` (60/min) and `organization_limit` (180/min) → honour `Retry-After`. `client_limit` → pre-auth ceiling |
 | `500 internal_error` | Possibly charged | **Do not retry blindly.** `GET /v1/generations` first: if the job is there, poll it instead of resubmitting |
 | `502 provider_failed` | The model provider failed | Credits are refunded automatically |
-| An `omni-flash` job ends `blocked`, or `failed` with `reasonCode` `moderation` | Google's safety check stopped it. Its credits came back | That scene goes to `seedance-2.5`: same prompt and pictures (`firstFrameAssetId` as `startImageAssetId`, and a prompt over its 4,000-character ceiling cut down first), a new `idempotencyKey`, priced with `POST /v1/estimates` and shown for a yes first. Say its voice can differ. Refused there too: rewrite or stop. No other failure goes there |
-| Any other job with `status: failed` or `blocked` | Read `reasonCode` and the `error` on the job | Credits are already refunded: leave it out of the total. `moderation`: rewrite. `vendor_error` or `vendor_timeout`: send it once more with a new `idempotencyKey`. Any other reason: see Status lifecycle in the `novoads-api` skill's `reference.md` |
+| An `omni-flash` job ends `blocked`, or `failed` with `reasonCode` `moderation` | Google's safety check stopped it. Its credits came back: leave it out of the total | That scene goes to `seedance-2.5`: same prompt and pictures, same length and shape (`firstFrameAssetId` as `startImageAssetId`, no `lastFrameAssetId` or `seed`, and a prompt over its 4,000-character ceiling cut down first), a new `idempotencyKey`, priced with `POST /v1/estimates` and shown for a yes first. Say its voice can differ. Refused there too: rewrite or stop. No other failure goes there |
+| Any other job with `status: failed` or `blocked` | Read `reasonCode` and the `error` on the job | Credits are already refunded: leave it out of the total. `moderation`: rewrite. `vendor_error`, `vendor_timeout` or no `reasonCode`: send it once more with a new `idempotencyKey`; failed again, stop and say so. Any other reason: see Status lifecycle in the `novoads-api` skill's `reference.md` |
 | The clone looks nothing like the source | The reading was wrong, not the render | Go back to the beat map with the user before spending again. Change **one** element per iteration — framing, or pacing, or the anchor — never three |
 | The label came back garbled | Seedance preserves logos and destroys printed text | Say in the prompt that the label stays sharp and unchanged, and check the reference photo actually shows it sharp |
 | The clip **says** the wrong brand name | The reference image pinned the label, not the voice. There is no audio equivalent of a reference asset, so a coined name resolves to the nearest ordinary word — and the render still returns `succeeded` and still charges | Catch it with the transcript diff in step 12.3, never by ear on one playback. Respell the name phonetically inside the quoted line and re-render that clip only, under a new `idempotencyKey`. The label being perfect tells you nothing about the audio |
-| Source longer than 15s | Not a failure | Present the two routes from step 5 and let the user pick. Do not split on your own initiative |
+| Source longer than 15s | Not a failure | A talking source splits (step 5). One that stays on Seedance: present the two routes and let the user pick; do not split on your own initiative |
 
 ## Related files
 

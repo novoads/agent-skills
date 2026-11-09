@@ -30,6 +30,15 @@ this changes what an agent picks, not what a call with no `model` renders. For a
   show an `omni-flash` scene neither its look nor its voice.
 - **A hook that must land at once no longer needs Seedance**: on 32 of our own Omni clips the first
   speech came at a median of 0.15s (25 under half a second, 4 past a second), by voice detection.
+- **Clips from different models are stitched through `POST /v1/assemblies`**, now in `reference.md`.
+  A split talking ad is often a mix, and `-c copy` across models exits 0 with the sound broken: their
+  sample rates differ while their codecs match, which "re-encode if the codecs differ" never caught.
+- **The first `silence_end` is the first word only when the first silence starts at 0.** On 22 of 32
+  of our Omni clips it sat inside the line, 1.7 to 7s in, and read as a false alarm.
+- **A failed job's one more try:** `vendor_error`, `vendor_timeout` or no `reasonCode` gets one under a
+  new `idempotencyKey`, and a second failure stops and says so.
+- **A talking part over 10 seconds needs one person's picture**: `clone-video-ad` and the router now say
+  to make one with `POST /v1/images`, shown for a yes, when there is none to hand.
 
 ## v1.4.1 — 2026-11-07
 

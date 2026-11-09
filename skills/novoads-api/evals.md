@@ -386,7 +386,7 @@ treats the `202` as an error, or polls a `200`.
   that model renders. It does not lean on a default.
 - Asked about the default, it answers `seedance-2.0`: a body with no `model` still renders there.
 - A square ad, a scene with `productSwap`, animated characters and a model the user names do not go
-  on `omni-flash`, and a scene where nobody talks does not either.
+  on `omni-flash`, and a scene where nobody talks takes the silent-clip rows, not this rule.
 
 **Fails if:** the agent reads the advice as "the default is `omni-flash`" and leaves `model` out; or
 it sends `omni-flash` a length or shape the model does not render and treats the `400` as a fault.

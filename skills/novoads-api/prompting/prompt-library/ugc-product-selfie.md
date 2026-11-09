@@ -226,7 +226,7 @@ Once the user approves a UGC still, it can start a video.
 ### Seedance + `startImageAssetId`
 
 **The video literally starts from the approved image** — face, pose, scene and product placement
-are preserved from frame one. This is the correct path for animating UGC stills.
+are preserved from frame one. This is the correct path for animating UGC stills. A talking clip goes on `omni-flash` with `firstFrameAssetId` where the server publishes it.
 
 1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
 2. `POST /v1/videos` with a Seedance model, `startImageAssetId: <assetId>`, and the dialogue in `prompt`. Note `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.

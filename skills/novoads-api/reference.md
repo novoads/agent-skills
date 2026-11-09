@@ -34,6 +34,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
   - [Pricing](#pricing-3) · [Failure modes](#failure-modes-5) · [What it does not do](#what-it-does-not-do-3)
 - [POST /background-removals](#post-background-removals)
 - [POST /videos/animate-actor](#post-videosanimate-actor)
+- [POST /assemblies](#post-assemblies)
 - [GET /generations](#get-generations)
 - [GET /generations/{jobId}](#get-generationsjobid)
 - [GET /generations/{jobId}/watch](#get-generationsjobidwatch)
@@ -150,7 +151,7 @@ Response `201`:
 
 Discriminated on `kind`, and strict. Any field not listed is a 400.
 
-**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0) and `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) — see those sections for their fields and for the reason a sourceless quote is the minimum charge on the three that read the length of an optional source. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
+**There are more than two arms.** `kind: "caption"` prices `POST /captions`, `kind: "transcript"` prices `POST /transcripts`, `kind: "voiceover"` prices `POST /voiceovers`, `kind: "voice-change"` prices `POST /voice-changes`, `kind: "background-removal"` prices [`POST /background-removals`](#post-background-removals) (a `jobId` or an `assetId`, at most one; API 2.41.0), `kind: "motion-control"` prices [`POST /videos/animate-actor`](#post-videosanimate-actor) (`drivingVideoAssetId` required, `characterOrientation` and `resolution` as on the render; API 2.43.0) and `kind: "assembly"` prices [`POST /assemblies`](#post-assemblies) — see those sections for their fields and for the reason a sourceless quote is the minimum charge on the three that read the length of an optional source. Which arms a deployment publishes is flag-dependent (`music`, `transcript`, `voiceover` and `voice-change` each have their own, and `motion-control` appears only where `POST /videos/animate-actor` is offered); read the live `openapi.json` `discriminator.mapping` rather than counting them here.
 
 **An arm's `kind` names the OPERATION, and the job it prices names its OUTPUT.** You estimate `voiceover` and `voice-change`; you poll a job whose `kind` is `"audio"`, exactly as with `music`. Neither is a typo to be fixed. `motion-control` works the same way: its job polls as `kind: "video"`.
 
@@ -964,6 +965,23 @@ Motion control (API 2.43.0): a library actor performs the movement of a driving 
 
 - **The server measures the clip; a duration you send is never read.** Quote with `POST /estimates` and `kind: "motion-control"` with the same inputs, and the charge equals the quote.
 - Every refusal (an actor you cannot use, a clip that is not MP4 or MOV, size, the length bounds per orientation, aspect ratio, prompt length) happens before the charge. Send MP4 or MOV only: a WebM clip does not render, so convert it to MP4 before uploading it.
+
+## POST /assemblies
+
+Puts one finished ad together from parts you already have (API 2.56.0). It joins the clips in order, cuts the pauses in the middle of speech and a talking clip's quiet start and end, lays a voice-over, lays music under it and lowers it while someone talks, burns captions and evens the loudness. Nothing new is rendered. This is the join for clips from different models: every part comes out at one picture and sound format, and a clip with no sound gets silence of its length. `202` + `jobId`, polled at `GET /generations/{jobId}` and downloaded through `/watch`, exactly as for `POST /videos`.
+
+| Field | What it takes |
+|---|---|
+| `clips` | Required, in the order they play: up to 20, and up to 180 seconds in all. Each is `{ "jobId": ... }` for a video this API made, or `{ "assetId": ... }` for a video you uploaded or a picture (a picture takes `seconds`, required unless that clip has its own `voiceOver`). `inSeconds` and `outSeconds` trim a video, and a number stated stays as given. A clip can carry its own `voiceOver` and `ownSound` |
+| `voiceOver` | One for the whole ad, or one on each clip that has its own, never both. The `jobId` of a voice-over job, or the `assetId` of an MP3 or WAV you uploaded |
+| `music` | The same two forms, and `take: 2` picks a music job's second take. Played once from the start, lowered while someone talks, faded at the end |
+| `captions` | `{ "preset": ... }`, read from the finished ad's own sound. Moves the price |
+| `aspectRatio` | The ad's shape: `9:16`, `16:9`, `1:1` or `4:5`. Unset: the first video's own shape, and clips of another shape are fitted inside it. Required when every clip is a picture |
+| `cutPauses` | True when unset. A clip with its own speech and no voice-over loses the middle of each pause and its quiet ends. False keeps them. A stated `inSeconds` or `outSeconds` keeps that end |
+| `productId` | Files the job under a product. Organizational only |
+| `idempotencyKey` | The same key within 24 hours returns the first job instead of charging again |
+
+Price it first: `POST /estimates` with `{ "kind": "assembly", ... }` and the same fields, leaving out `productId` and `idempotencyKey`, which the estimate refuses. A part that cannot be read answers `400` and a job you name that has not finished answers `409`, both with nothing charged, and a job that fails gives its credits back. Assemblies have their own concurrency ceiling (`429`, `details.reason` `assembly_concurrency_limit`). Where a deployment does not offer the path, it is absent from `GET /v1/openapi.json`: read the live spec for every field above.
 
 ## GET /generations
 

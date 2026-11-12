@@ -16,7 +16,7 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 **A start picture and the video's shape (API 2.65.0).** Since 2026-11-12, on `POST /v1/videos`, an
 `aspectRatio` sent with a start picture holds on every model: a picture of another shape is placed
-whole on a soft border to it, never cropped. With no `aspectRatio`, the picture's shape decides
+whole on a soft border to it. With no `aspectRatio`, the picture's shape decides
 (`kling-v3-pro` keeps the picture's own proportions; the other models take the nearest of their
 shapes), where the model's default used to. The pack said "`16:9` (default)" beside calls that
 always send a still, and `image-to-motion` said a mismatched layout "gets rebuilt". For an agent:

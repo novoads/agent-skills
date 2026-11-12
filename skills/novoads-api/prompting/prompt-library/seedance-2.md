@@ -13,7 +13,7 @@ Only `model` and `prompt` are required. The body is **strict**: a key its schema
 | `model` | `seedance-2.0`, `seedance-2.0-mini` | Mini is about a fifth of the price on the same grid. Ask once per workflow; see *Mini-draft tier* below. |
 | `prompt` | required | The video prompt. See *Length* below. |
 | `durationSeconds` | any integer **4 to 15** | Continuous range, not an enum. **Defaults to 5, and to 10 on mini**, which is never what an ad wants. Set it. Out-of-grid values are rejected, never rounded. |
-| `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9` with no start picture.** With `startImageAssetId` and no `aspectRatio` the picture's shape decides (the nearest of the six); sent, it holds, the picture placed whole on a soft border to it, never cropped. Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
+| `aspectRatio` | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | **Defaults to `16:9` with no start picture.** With `startImageAssetId` and no `aspectRatio` the picture's shape decides (the nearest of the six); sent, it holds, the picture placed whole on a soft border to it. Set `9:16` for Reels, TikTok, Stories. Free — it does not move the price. |
 | `resolution` | `480p` `720p` `1080p` `4k` | **Defaults to `720p`. This one changes the price** — see below. On `seedance-2.0-mini` only from API 2.34.0, and only the tiers `GET /v1/models` lists for it. |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi` | Recorded against the job; it does not change what the model is sent. Defaults to `en`. The spoken language comes from the quoted line, so write the prompt in it too. |
 | `startImageAssetId` | one `assetId` | Animates that image as the **first frame**. |

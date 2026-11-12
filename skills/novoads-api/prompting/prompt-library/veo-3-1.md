@@ -26,7 +26,7 @@ Read this before composing a Veo prompt. Every HTTP detail comes from [SKILL.md]
 | `model` | `"veo-3.1"` — required |
 | `prompt` | required, 1 to **4,000** characters |
 | `durationSeconds` | **4, 6, 8 only.** Defaults to **8**, which is also the maximum — the one model here that does. Out-of-grid values are rejected, never rounded |
-| `aspectRatio` | `9:16` (**default** with no start picture) or `16:9`. No other ratio. With `startImageAssetId` and no `aspectRatio`, the nearer of the two to the picture, a soft border where it is neither (a square picture, halfway, takes `9:16`); sent, it holds, the picture placed whole on a soft border to it, never cropped |
+| `aspectRatio` | `9:16` (**default** with no start picture) or `16:9`. No other ratio. With `startImageAssetId` and no `aspectRatio`, the nearer of the two to the picture, a soft border where it is neither (a square picture, halfway, takes `9:16`); sent, it holds, the picture placed whole on a soft border to it |
 | `language` | `en` `es` `pt` `fr` `de` `it` `zh` `ja` `ko` `ar` `hi`. Defaults to `en` |
 | `startImageAssetId` | one `assetId`, animated as the first frame |
 | `productId` | files the job under a product. Organizational only |

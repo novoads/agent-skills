@@ -28,10 +28,11 @@ Vague prompts produce vague motion. Specific prompts produce the shot you pictur
 > Earlier the same day, `POST /v1/videos` with `"model": "seedance-2.5"` and a
 > `startImageAssetId` failed server-side every time (isolated with nine single-variable
 > probes; credits were charged and refunded automatically). The platform fix shipped and was
-> verified live 2026-08-12: the same call that failed now renders, and a source image whose
-> shape differs from the requested `aspectRatio` is fitted to the ask server-side with
-> content-safe padding — nothing is cropped away, and the output arrives at the ratio you
-> requested. No workaround is needed; write the call as this skill documents it.
+> verified live 2026-08-12: the same call that failed now renders, the output arrives at the
+> ratio you requested, and a source image of another shape was fitted to it with content-safe
+> padding. Since API 2.68.0, AI adds background around the still instead, the still itself kept
+> whole (`aspectRatio` in Step 4 has the plain border). No workaround is needed; write the call
+> as this skill documents it.
 
 ## Before anything: this runs on a Novoads account
 
@@ -124,7 +125,7 @@ number does not.
 
 Look at it properly before writing anything. Record:
 
-- **Dimensions and ratio.** If the `aspectRatio` you send differs from the source, the still is placed whole on a soft border to that shape, never rebuilt and never cropped — say so, and write the motion for the picture as it is; a prompt that describes a new arrangement asks for one that does not happen. Leave `aspectRatio` out and the still's own shape decides.
+- **Dimensions and ratio.** If the `aspectRatio` you send differs from the source, AI adds background around the whole still to that shape, the still itself kept whole — say so (a user who wants nothing added gets a plain soft border: `aspectRatio` in Step 4). Write the motion for the picture as it is: neither the AI's background nor a border rearranges it, so a prompt that describes a new arrangement asks for one that does not happen. Aim the motion at what the still shows, not at its new margins: they are made from the still alone, without your prompt, and you do not see them before the render. Leave `aspectRatio` out and the still's own shape decides.
 - **Photographic or illustrated.** State this explicitly in the prompt. Omitting it is the most common way a painted reference comes back photoreal, or vice versa.
 - **Light direction and quality.** Hard raking light and soft ambient light imply completely different motion. Long shadows moving is a beat; flat light has nothing to reveal.
 - **Layer depth.** What sits in front of what. This is where parallax and staggered entrances come from.
@@ -233,7 +234,7 @@ cost gate did not price.
   so price the duration you actually need rather than the one the grid allows. Never rank it
   against other models from memory: which cell is dearest moves with the schedules, and
   the estimate is the only thing that knows.
-- `aspectRatio` — `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`. No default applies here, because this skill always sends a still: send the field and it holds, the still placed whole on a soft border to it, never cropped; leave it out and the still decides, the video taking the one of those six nearest its shape (a soft border when it is none of them; on a busy server, a still within 2:5 to 5:2, 6,000 px and 30 MB that is not bordered within 15 seconds goes as it was, and the video keeps the still's own shape). A still within 2% of the shape goes as it is.
+- `aspectRatio` — `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`. No default applies here, because this skill always sends a still: send the field and it holds; leave it out and the still decides, the video taking the one of those six nearest its shape. Either way, when the still is not the video's shape, AI adds background around the whole still to fit, the still itself kept whole, which changes no price and no estimate. For a plain soft border instead, send `pictureFit: "border"` (on this call only: the estimate refuses it). The border also stands in when the AI cannot run in time, and on a busy server, with `aspectRatio` left out, a still within 2:5 to 5:2, 6,000 px and 30 MB that is not bordered within 15 seconds goes as it was, and the video keeps the still's own shape. A still within 2% of the shape goes as it is. The AI's background on a still seen for the first time can add up to about 25 seconds before the answer, on top of any busy-server wait (below); the same still and shape again adds none.
 - `resolution` — `480p`, `720p` or, where `GET /v1/models` lists it (API 2.28.0), `1080p`.
   **`4k` belongs to other models** and is a `400` here.
 - `audioEnabled` — `false` unless sound is wanted.
@@ -243,10 +244,10 @@ cost gate did not price.
   may be in flight per organization; an eleventh comes back `429` with
   `details.reason: concurrency_limit`, which means wait for a slot rather than lengthen the
   backoff. With `aspectRatio` sent, or with a still past 2:5 to 5:2, 6,000 px or 30 MB, a busy
-  server can also take up to 30 seconds to prepare the still, and past that answers `503`
-  `unavailable` with `details.reason: start_picture_busy`, nothing charged: wait the seconds in
-  `Retry-After` (also `error.details.retryAfterSeconds`), then send the same request again with
-  the same `idempotencyKey`, which it gives back.
+  server can also take up to 30 seconds to prepare the still, after any wait for the AI's
+  background, and past that answers `503` `unavailable` with `details.reason: start_picture_busy`,
+  nothing charged: wait the seconds in `Retry-After` (also `error.details.retryAfterSeconds`),
+  then send the same request again with the same `idempotencyKey`, which it gives back.
 
 Submit returns `202` with `jobId` and `creditsCharged`. **Log the charge from the `202` while
 you have it**, so a crashed session still leaves it on the line. Poll

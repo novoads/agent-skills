@@ -242,10 +242,11 @@ cost gate did not price.
   which is why it belongs inside the cost gate rather than after it. At most **ten** generations
   may be in flight per organization; an eleventh comes back `429` with
   `details.reason: concurrency_limit`, which means wait for a slot rather than lengthen the
-  backoff. With `aspectRatio` sent, a busy server can also take up to 30 seconds to border the
-  still, and past that answers `503` `unavailable` with `details.reason: start_picture_busy`,
-  nothing charged: wait the seconds in `Retry-After` (also `error.details.retryAfterSeconds`),
-  then send the same request again with the same `idempotencyKey`, which it gives back.
+  backoff. With `aspectRatio` sent, or with a still past 2:5 to 5:2, 6,000 px or 30 MB, a busy
+  server can also take up to 30 seconds to prepare the still, and past that answers `503`
+  `unavailable` with `details.reason: start_picture_busy`, nothing charged: wait the seconds in
+  `Retry-After` (also `error.details.retryAfterSeconds`), then send the same request again with
+  the same `idempotencyKey`, which it gives back.
 
 Submit returns `202` with `jobId` and `creditsCharged`. **Log the charge from the `202` while
 you have it**, so a crashed session still leaves it on the line. Poll

@@ -38,7 +38,7 @@ If `MASTER_CONTEXT.md` at the repo root carries brand voice, banned phrases, or 
 ## 5. Quality check before sending
 
 - [ ] Required fields present for the chosen model, per [reference.md](../reference.md) — and nothing extra: the request bodies are strict and an unknown key is a `400`.
-- [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults differ by model (on `seedance-2.0`, 5 seconds and `16:9`) and are almost never what an ad wants.
+- [ ] `durationSeconds` and `aspectRatio` set explicitly. The defaults differ by model (on `seedance-2.0`, 5 seconds and, with no start picture, `16:9`; with `startImageAssetId` and no `aspectRatio`, the picture's shape decides) and are almost never what an ad wants.
 - [ ] One reference mode only: `startImageAssetId` **or** `referenceAssetIds`, never both. Every `@ImageN` token points at an id you actually send.
 - [ ] The prompt matches the formula's structure, in the ad's own language (on `omni-flash`, at least the quoted line).
 - [ ] No secrets in the request body — ids and creative text only.

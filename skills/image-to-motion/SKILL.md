@@ -124,7 +124,7 @@ number does not.
 
 Look at it properly before writing anything. Record:
 
-- **Dimensions and ratio.** If the requested output ratio differs from the source, the layout gets rebuilt rather than cropped — say so, and describe the new arrangement in the prompt rather than hoping for it.
+- **Dimensions and ratio.** If the `aspectRatio` you send differs from the source, the still is placed whole on a soft border to that shape, never rebuilt and never cropped — say so, and write the motion for the picture as it is; a prompt that describes a new arrangement asks for one that does not happen. Leave `aspectRatio` out and the still's own shape decides.
 - **Photographic or illustrated.** State this explicitly in the prompt. Omitting it is the most common way a painted reference comes back photoreal, or vice versa.
 - **Light direction and quality.** Hard raking light and soft ambient light imply completely different motion. Long shadows moving is a beat; flat light has nothing to reveal.
 - **Layer depth.** What sits in front of what. This is where parallax and staggered entrances come from.
@@ -233,7 +233,7 @@ cost gate did not price.
   so price the duration you actually need rather than the one the grid allows. Never rank it
   against other models from memory: which cell is dearest moves with the schedules, and
   the estimate is the only thing that knows.
-- `aspectRatio` — `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9`.
+- `aspectRatio` — `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`. No default applies here, because this skill always sends a still: send the field and it holds, the still placed whole on a soft border to it, never cropped; leave it out and the still decides, the video taking the one of those six nearest its shape (a soft border when it is none of them). A still within 2% of the shape goes as it is.
 - `resolution` — `480p`, `720p` or, where `GET /v1/models` lists it (API 2.28.0), `1080p`.
   **`4k` belongs to other models** and is a `400` here.
 - `audioEnabled` — `false` unless sound is wanted.
@@ -242,7 +242,10 @@ cost gate did not price.
   which is why it belongs inside the cost gate rather than after it. At most **ten** generations
   may be in flight per organization; an eleventh comes back `429` with
   `details.reason: concurrency_limit`, which means wait for a slot rather than lengthen the
-  backoff.
+  backoff. A busy server can also take up to 30 seconds to border the still, and past that
+  answers `503` `unavailable` with `details.reason: start_picture_busy`, nothing charged: wait
+  the seconds in `Retry-After` (also `error.details.retryAfterSeconds`), then send the same
+  request again with the same `idempotencyKey`, which it gives back.
 
 Submit returns `202` with `jobId` and `creditsCharged`. **Log the charge from the `202` while
 you have it**, so a crashed session still leaves it on the line. Poll

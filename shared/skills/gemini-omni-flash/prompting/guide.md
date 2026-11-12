@@ -32,7 +32,7 @@ headline capabilities below, and a prompt written against them wastes a paid ren
 | `seed` | an integer, 0 to 2147483647, only where the server publishes it |
 | `resolution` | read `resolutions` from `GET /v1/models`: `360p`, `720p`, `1080p` and, where the list carries it, `4k` (API 2.31.0); or `720p` alone, depending on the server. Never assume `4k`. Send the key only when the list has more than one value; otherwise it is a `400` |
 | `durationSeconds` | **enum: 4, 6, 8, 10 only.** Not the continuous 4–15 grid Seedance has. Out-of-grid values are rejected, never rounded. Defaults to 8 |
-| `aspectRatio` | **`9:16` (default) or `16:9`.** That is the whole grid — no `1:1`, no `4:3`, no `21:9`. Seedance's wider grid does not apply here |
+| `aspectRatio` | **`9:16` (default) or `16:9`.** With `firstFrameAssetId`, where the server publishes it, and no `aspectRatio`, the nearer of the two to that picture decides instead (a square one takes `9:16`); sent, it holds, the picture placed whole on a soft border to it, never cropped. That is the whole grid — no `1:1`, no `4:3`, no `21:9`. Seedance's wider grid does not apply here |
 | Prompt ceiling | **20,000, the largest of any VIDEO model here**, shared only with `wan-3.0` (`kling-v3-pro` takes 2,500, the rest 4,000). Those two are the only places the long, layered prompts below actually fit. It is not the largest on the API: since deployed spec 2.16.0 two image models are roomier still (`nano-banana-pro` 50,000, `gpt-image-2` 32,000), which is a fact about `POST /images` and changes nothing about a video call |
 | `language` | yes |
 

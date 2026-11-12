@@ -12,6 +12,24 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**A start picture and the video's shape (API 2.65.0).** Since 2026-11-12, on `POST /v1/videos`, an
+`aspectRatio` sent with a start picture holds on every model: a picture of another shape is placed
+whole on a soft border to it, never cropped. With no `aspectRatio`, the picture's shape decides
+(`kling-v3-pro` keeps the picture's own proportions; the other models take the nearest of their
+shapes), where the model's default used to. The pack said "`16:9` (default)" beside calls that
+always send a still, and `image-to-motion` said a mismatched layout "gets rebuilt". For an agent:
+
+- **`image-to-motion`, `clone-video-ad`'s start-image mode, `novoads-api` and its `reference.md`, the
+  prompting guide, the Seedance and Veo prompt files, the Omni guide and the README** now say which
+  default holds with no start picture, and what a start picture does with and without `aspectRatio`.
+  Sending the shape is still the rule: a shape sent is what binds.
+- **A `503 unavailable` row** in `novoads-api`'s two error tables and `clone-video-ad`'s, and a line
+  in `image-to-motion`: `details.reason` `start_picture_busy`, the server too busy to prepare the
+  picture within 30 seconds, nothing charged. Wait the seconds in `Retry-After` (also
+  `error.details.retryAfterSeconds`), then send the same request again with the same `idempotencyKey`.
+
 ## v1.5.0 — 2026-11-09
 
 ### Changed

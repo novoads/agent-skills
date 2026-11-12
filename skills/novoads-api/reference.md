@@ -223,7 +223,7 @@ Per-model request bodies, all `.strict()`.
 
 There is **no `styleFamily`** on any variant. It was deleted from the API in spec `2.0.0` along with the blocking prompt rules it scoped, and the variants are strict, so sending it is a `400`.
 
-| `model` | `durationSeconds` (default) | `aspectRatio` | `refs` | `audio` | Prompt max |
+| `model` | `durationSeconds` (default) | `aspectRatio` (default, with no start picture) | `refs` | `audio` | Prompt max |
 |---|---|---|---|---|---|
 | `seedance-2.0` | 4–15, any integer (**5**) | `16:9` (default) `9:16` `1:1` `4:3` `3:4` `21:9` | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
 | `seedance-2.5` | **4–30, any integer** (**5**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
@@ -233,9 +233,9 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 | `kling-v3-pro` (2.38.0) | 3–15, any integer | `16:9` `9:16` `1:1` | start frame, and an end frame beside it (2.44.0) | yes | 2,500 |
 | `wan-3.0` (2.53.0) | 4–15, any integer (**5**) | `9:16` (default) `16:9` `1:1` `4:3` `3:4` | ≤9 images, or a start frame with an optional end frame (not both) | yes | 20,000 |
 
-Defaults that bite: **the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `wan-3.0` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `wan-3.0` to 5, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
+Defaults that bite: **with no start picture, the three Seedance variants default to `16:9`**, where `omni-flash`, `veo-3.1` and `wan-3.0` default to `9:16`; read `kling-v3-pro`'s default from the OpenAPI document rather than assuming either. **With a start picture (`startImageAssetId`; on `omni-flash`, `firstFrameAssetId`) and no `aspectRatio`, the picture's shape decides** (API 2.65.0): `kling-v3-pro` keeps the picture's own proportions, from 2:5 to 5:2, and every other model takes the one of its shapes nearest the picture, with a soft border where it is none of them. Send `aspectRatio` and it holds on every model: a picture of another shape is placed whole on a soft border to it before anything is charged, never cropped. On duration, `seedance-2.0` and `seedance-2.5` default to 5 and mini to 10, `omni-flash` to 8, `wan-3.0` to 5, and **`veo-3.1` to 8, which is also its maximum** — the only model here that defaults to its ceiling. An out-of-grid `durationSeconds` is rejected, never rounded. Set both fields explicitly on any ad.
 
-**`seedance-2.5` is the only model here that renders past 15 seconds**, and its grid is the same continuous integer range Seedance has always had — 4, 5, 6 … 29, 30, with no gaps. It is otherwise shaped exactly like `seedance-2.0`: same six aspect ratios, same `16:9` default, same 9 reference images, same `audioEnabled` toggle, same 4,000-character prompt ceiling. **The one place it is narrower is `resolution`** — see that section.
+**`seedance-2.5` is the only model here that renders past 15 seconds**, and its grid is the same continuous integer range Seedance has always had — 4, 5, 6 … 29, 30, with no gaps. It is otherwise shaped exactly like `seedance-2.0`: same six aspect ratios, same `16:9` default with no start picture, same 9 reference images, same `audioEnabled` toggle, same 4,000-character prompt ceiling. **The one place it is narrower is `resolution`** — see that section.
 
 ### `audioEnabled`
 
@@ -357,7 +357,7 @@ Output size actually measured, at `9:16`: `seedance-2.0` at its `720p` default a
 
 ### `kling-v3-pro` (API 2.38.0)
 
-Kling 3.0, where `GET /models` lists it: the server publishes the model only where it can finish the job, so read the catalog before offering it. Its grid: `durationSeconds` any integer **3 to 15**, `aspectRatio` `16:9`, `9:16` or `1:1`, **one resolution** (so no `resolution` field), `audioEnabled` on or off, and a text prompt or a `startImageAssetId` that becomes **the first frame**. There is no `referenceAssetIds`. Read the durations, aspect ratios and prompt ceiling from `GET /models` at run time rather than from this paragraph. Duration moves the price; audio and aspect ratio do not. Quote the exact cell with `POST /estimates`, and the charge equals the quote.
+Kling 3.0, where `GET /models` lists it: the server publishes the model only where it can finish the job, so read the catalog before offering it. Its grid: `durationSeconds` any integer **3 to 15**, `aspectRatio` `16:9`, `9:16` or `1:1`, **one resolution** (so no `resolution` field), `audioEnabled` on or off, and a text prompt or a `startImageAssetId` that becomes **the first frame**. With that picture and no `aspectRatio`, the video keeps the picture's own proportions (2:5 to 5:2; past them, a soft border to the nearest of the three); send `aspectRatio` and it holds, the picture placed whole on a soft border to it (API 2.65.0; before it Kling followed the picture whatever was sent). There is no `referenceAssetIds`. Read the durations, aspect ratios and prompt ceiling from `GET /models` at run time rather than from this paragraph. Duration moves the price; audio and aspect ratio do not. Quote the exact cell with `POST /estimates`, and the charge equals the quote.
 
 **An end frame (API 2.44.0).** `lastFrameAssetId` is an image the clip ends on, sent beside `startImageAssetId`, the image it opens on: the dashboard's start and end mode. An end frame without a start image is a `400 invalid_input` before any charge; a video as the end frame is refused by kind, and another organization's asset is not found. The end frame does not change the price: quote the cell with `POST /estimates` as for any Kling render, and the charge equals the quote.
 
@@ -1164,6 +1164,7 @@ Envelope, on every failure:
 | `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |
 | `provider_failed` | 502 | Credits refunded automatically. On `POST /images`, `details.jobId` names the job and `details.reasonCode` says why, where that is known ([Status lifecycle](#status-lifecycle)). |
+| `unavailable` | 503 | A capacity guard refused it for now; `details.reason` names which. On `POST /videos`, `start_picture_busy`: the server was too busy to prepare the start or end picture within 30 seconds (`details.field`, `details.assetId`), nothing wrong with the request and nothing charged. Wait the seconds in `Retry-After` (also `error.details.retryAfterSeconds`), then send the same request again with the same `idempotencyKey`, which was given back. |
 
 ### The shape of a 400
 

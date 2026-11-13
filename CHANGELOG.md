@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.6.0 — 2026-11-13
+
 ### Changed
 
 **A start picture and the video's shape (API 2.65.0 and 2.68.0).** Since 2026-11-12, on

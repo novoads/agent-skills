@@ -1,6 +1,6 @@
 ---
 name: meta-ad-builder
-metadata: {packVersion: 1.5.0}
+metadata: {packVersion: 1.6.0}
 description: >-
   Publish finished creatives as live Meta (Facebook/Instagram) ads via the Meta
   Marketing API, plus research and ad-copy support. Uploads an image or video,

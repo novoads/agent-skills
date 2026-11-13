@@ -421,8 +421,8 @@ polls it, and the user approves the second still for the video.
 
 **Assertions.**
 
-- The video's `startImageAssetId` is the `assetId` beside the second still's `url` in `images[]` on the job
-  read.
+- The video's start picture, `startImageAssetId` on a Seedance model or `firstFrameAssetId` on `omni-flash`
+  where the server publishes it, is the `assetId` beside the second still's `url` in `images[]` on the job read.
 - Nothing is uploaded again.
 
 **Fails if:** the run passes the job read's `outputAssetId`, which is the first still's; or it downloads the

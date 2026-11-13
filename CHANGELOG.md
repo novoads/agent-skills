@@ -24,8 +24,12 @@ wait on an upload as if it were a render. The step-1 PUT example prints its stat
 `ugc-product-selfie` told the agent to upload the approved still before the video, and skipped the PUT. They
 now pass the still's own `assetId` from its `POST /v1/images` result, as `clone-video-ad` does.
 
-**`generate-batch.sh` reads the PUT's status.** A refused upload (a `403`) now stops the thumbnail with
-`UPLOAD PUT FAIL` instead of showing up later as a refused image call.
+**`generate-batch.sh` uploads its references whole, and stops when one is refused.** Its PUT went through
+`eval` unquoted, which cut the presigned URL at its first `&`, so storage refused every reference upload, and
+nothing read the PUT's status. The headers are now an array (no `eval`), so any file name works, and a PUT
+that does not answer `200` now stops the batch with `UPLOAD PUT FAIL` and storage's error before any image
+is generated, so nothing is charged. The monitor line in the script and `SKILL.md` now catches every
+failure line (`DONE|FAIL|ERROR|charged`).
 
 ## v1.6.0 — 2026-11-13
 

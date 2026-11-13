@@ -6,7 +6,7 @@
 #   1. Update REF_BASE and COMMON_REFS array with your reference file paths
 #   2. Replace PROMPTS array with your composed prompts
 #   3. Run: bash scripts/generate-thumbnails-vN.sh > output/run.log 2>&1 &
-#   4. Monitor: tail -F output/run.log | grep -E "DONE|FAILED|charged"
+#   4. Monitor: tail -F output/run.log | grep -E "DONE|FAIL|ERROR|charged"
 #
 # Features:
 #   - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)
@@ -49,7 +49,7 @@ TMP_DIR="$OUTPUT_DIR/.tmp"
 mkdir -p "$TMP_DIR"
 
 # ─── REFERENCE IMAGES ───────────────────────────────────────────────────────
-# Use absolute paths (filenames with spaces are fine).
+# Use absolute paths (any file name works: spaces, &, parentheses and quotes included).
 #
 # Aim for 5+ face references for good likeness alignment. nano-banana-pro takes
 # up to 14; gpt-image-2 is capped at 4.
@@ -138,17 +138,25 @@ upload_file() {
     return 1
   fi
 
-  # Replay the signed headers exactly as returned.
-  local hdr_args
-  hdr_args=$(echo "$resp" | python3 -c "
-import json,sys,shlex
-h = json.load(sys.stdin).get('headers', {})
-print(' '.join('-H ' + shlex.quote(f'{k}: {v}') for k, v in h.items()))
+  # Replay the signed headers exactly as returned, one -H each, kept in an array so
+  # nothing is parsed twice: the presigned URL carries & and a file name may carry
+  # ( or ', and an eval cut the URL at its first &, so storage refused every PUT.
+  local -a hdr_args=()
+  local hdr
+  while IFS= read -r hdr; do
+    [ -n "$hdr" ] && hdr_args+=(-H "$hdr")
+  done < <(echo "$resp" | python3 -c "
+import json,sys
+for k, v in json.load(sys.stdin).get('headers', {}).items():
+    print(f'{k}: {v}')
 ")
-  local put_code
-  put_code=$(eval curl -sS -o /dev/null -w '%{http_code}' -X PUT $hdr_args --data-binary "@$prepared" "$upload_url")
+  # The upload is done when the PUT answers 200. Anything else ends the batch here,
+  # before any image call, with storage's own error (its XML names the cause).
+  local put_code put_body="${prepared}.put.txt"
+  put_code=$(curl -sS -o "$put_body" -w '%{http_code}' -X PUT ${hdr_args[@]+"${hdr_args[@]}"} \
+    --data-binary "@$prepared" "$upload_url") || true
   if [ "$put_code" != "200" ]; then
-    echo "UPLOAD PUT FAIL: HTTP $put_code" >&2
+    echo "UPLOAD PUT FAIL: HTTP ${put_code:-000} $(head -c 300 "$put_body" 2>/dev/null | tr -d '\n')" >&2
     return 1
   fi
   echo "$asset_id"

@@ -186,7 +186,7 @@ and modify:
 1. Update `REF_BASE` and `COMMON_REFS` (max 14 — the script's `REF_CAP`) with your reference file paths
 2. Replace the `PROMPTS` array entries with your composed prompts
 3. Run with `bash scripts/generate-thumbnails-vN.sh > output/run.log 2>&1 &`
-4. Monitor with `tail -F output/run.log | grep -E "DONE|FAILED|charged"`
+4. Monitor with `tail -F output/run.log | grep -E "DONE|FAIL|ERROR|charged"`
 
 The script handles:
 - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)

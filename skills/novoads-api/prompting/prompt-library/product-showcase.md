@@ -28,7 +28,7 @@ Finished still returns in the response
 User approves still image
         |
         v
-Upload still -> assetId
+Still's own assetId (no upload)
         |
         v
 startImageAssetId on POST /v1/videos
@@ -82,7 +82,7 @@ Follow the template below. The prompt should describe:
 
 ### 5. Generate video from approved still
 
-1. Take the approved still's own `assetId`, the one its `POST /v1/images` result carries beside `url`. It is already an asset: uploading it again only mints a second id for the same picture.
+1. Take the approved still's own `assetId`, the one its `POST /v1/images` result carries beside `url`, or `outputAssetId` on the job read when the call answered `running`. It is already an asset: uploading it again only mints a second id for the same picture.
 2. Pass it as `startImageAssetId` on `POST /v1/videos` with a Seedance model. `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
 3. Include dialogue/script in the video prompt. The spoken line gets its **own** approval gate before the cost gate — see the `novoads-api` skill's SKILL.md.
 4. Video is **asynchronous**, unlike an image call (which usually answers in its response): `202` + `jobId` → poll `GET /v1/generations/{jobId}` for a **terminal** status → `…/watch` for the download. That skill owns the sequence and its own cost gate.

@@ -12,6 +12,13 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Fixed
+
+**An upload is ready when its PUT answers `200`.** The upload steps in `novoads-api`, its reference and
+`analyze-video` now say so: an `assetId` has no status and nothing to poll, and it is not a job id, since
+`GET /v1/generations/{jobId}` reads only the `jobId` a generate call returns. Nothing said it before, so a
+program could wait on an upload as if it were a render.
+
 ## v1.6.0 — 2026-11-13
 
 ### Changed

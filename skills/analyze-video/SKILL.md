@@ -385,8 +385,8 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    ```
 
    then PUT the raw bytes to the `uploadUrl` it returns, sending back **exactly** the
-   headers it returned. The `assetId` can be reused across calls and
-   models — upload once and keep the id.
+   headers it returned. The `assetId` is ready once the PUT answers `200`, nothing to
+   poll; reuse it across calls and models: upload once and keep the id.
 
 2. **Price it — gate 2.** `POST /v1/estimates` with `kind: "video"`, the `prompt`, the
    `model` and `durationSeconds`. It charges nothing and it is the only source of a price. It also

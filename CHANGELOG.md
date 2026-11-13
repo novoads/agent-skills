@@ -12,6 +12,35 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**A start picture and the video's shape (API 2.65.0 and 2.68.0).** Since 2026-11-12, on
+`POST /v1/videos`, an `aspectRatio` sent with a start picture holds on every model (API 2.65.0). With
+no `aspectRatio`, the picture's shape decides (`kling-v3-pro` keeps the picture's own proportions;
+the other models take the nearest of their shapes), where the model's default used to. From API
+2.68.0, when a start picture is not the video's shape, AI adds background around the whole picture to
+fit, the picture itself kept whole; `pictureFit: "border"` asks for a soft border instead. The pack
+said "`16:9` (default)" beside calls that always send a still, and `image-to-motion` said a mismatched
+layout "gets rebuilt". For an agent:
+
+- **`image-to-motion`, `clone-video-ad`'s start-image mode, `novoads-api` and its `reference.md`, the
+  prompting guide, the Seedance and Veo prompt files, the Omni guide and the README** now say which
+  default holds with no start picture, and what a start picture does with and without `aspectRatio`.
+  Sending the shape is still the rule: a shape sent is what binds.
+- **A `503 unavailable` row** in `novoads-api`'s two error tables and `clone-video-ad`'s, and a line
+  in `image-to-motion`: `details.reason` `start_picture_busy`, the server too busy to prepare the
+  picture within 30 seconds, nothing charged. Wait the seconds in `Retry-After` (also
+  `error.details.retryAfterSeconds`), then send the same request again with the same `idempotencyKey`.
+- **`pictureFit` (API 2.68.0)**, named where `novoads-api`, `clone-video-ad` and `image-to-motion`
+  decide the body: the AI's background is the default and changes no price and no estimate;
+  `"border"` asks for the soft border, which also stands in when the AI cannot run in time, and the
+  estimate refuses the field. A start and an end picture that both need it go the same way. A picture
+  seen for the first time can add up to about 25 seconds before the answer, on top of any busy-server
+  wait, and the `503`'s 30 seconds are counted after it. The `409` rows now name both waits for a
+  request sent again with the same `idempotencyKey` while the first is still being accepted, and what
+  to do. `image-to-motion` now says to aim the motion
+  at what the still shows, not at the margins the AI or the border adds.
+
 ## v1.5.0 — 2026-11-09
 
 ### Changed

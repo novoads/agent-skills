@@ -437,7 +437,7 @@ sequence:
 ```markdown
 ## Generating from this template
 
-1. Upload the product photo: `POST /v1/uploads` → `assetId` (reuse it across calls).
+1. Upload the product photo: `POST /v1/uploads`, then PUT the bytes to `uploadUrl` with its `headers` byte for byte. The `assetId` is ready once the PUT answers `200`, nothing to poll; reuse it across calls.
 2. Price it: `POST /v1/estimates` with `kind: "video"`, `model`, `durationSeconds`,
    `prompt`. It charges nothing, it is mandatory, and it is the only source of a price — show the number out loud
    before spending.

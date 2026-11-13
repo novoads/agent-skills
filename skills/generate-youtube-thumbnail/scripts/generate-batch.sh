@@ -145,7 +145,12 @@ import json,sys,shlex
 h = json.load(sys.stdin).get('headers', {})
 print(' '.join('-H ' + shlex.quote(f'{k}: {v}') for k, v in h.items()))
 ")
-  eval curl -sS -X PUT $hdr_args --data-binary "@$prepared" "$upload_url" >/dev/null
+  local put_code
+  put_code=$(eval curl -sS -o /dev/null -w '%{http_code}' -X PUT $hdr_args --data-binary "@$prepared" "$upload_url")
+  if [ "$put_code" != "200" ]; then
+    echo "UPLOAD PUT FAIL: HTTP $put_code" >&2
+    return 1
+  fi
   echo "$asset_id"
 }
 

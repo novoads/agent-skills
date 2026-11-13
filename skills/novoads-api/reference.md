@@ -144,7 +144,7 @@ Response `201`:
 
 **`Content-Type` and `Content-Length` are both signed into the URL.** If either differs from what was returned, storage rejects the PUT with a 403 that looks like an auth failure and is not one. `image/jpeg; charset=utf-8` is the classic way to lose an hour here. Measure the file, do not estimate it.
 
-**The `assetId` is ready the moment the PUT answers `200`.** It has no status and nothing to poll, and it is not a `jobId`: `GET /generations/{jobId}` reads only the `jobId` a generate call returns.
+**The `assetId` is ready the moment the PUT answers `200`.** It has no status and nothing to poll, and it is not a `jobId`: `GET /generations/{jobId}` reads only a `jobId`, the id a call that starts a job returns, and an `assetId` sent there gets an error, never a job, however long you wait.
 
 **The `assetId` can be reused across calls.** It is the storage key itself, resolution is a stateless check plus a fresh presign on every call, and no call consumes it, from `startImageAssetId` or from `referenceAssetIds`. Upload the product photo once and reuse it across iterations and models. The **900 second expiry belongs to the upload URL, not to the asset** — that is the distinction most likely to be conflated. The spec makes no promise of how long an id lasts, so keep your source file: if a call cannot find or read the file behind an old id, or a job built on one fails and its `reasonCode` names no other cause ([Status lifecycle](#status-lifecycle)), upload the file again and send the new id. A second upload of the same bytes is the same picture under a new id.
 

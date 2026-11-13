@@ -8,7 +8,7 @@ Local paths are never sent. Every image goes through one upload first:
 
 1. `POST /v1/uploads` with `{"contentType": "image/jpeg", "sizeBytes": <exact byte count>}` returns an `assetId` plus a presigned `uploadUrl` and the `headers` to send back byte for byte.
 2. `PUT` the raw bytes to that URL. `Content-Type` and `Content-Length` are both signed into it — a mismatch is a 403 from storage that reads like an auth failure and is not one.
-3. Pass the `assetId` in the request body.
+3. Pass the `assetId` in the request body as soon as the PUT answers `200`; there is nothing to poll.
 
 **Upload each file once.** The `assetId` can be reused across calls and across models: no call consumes it. Re-uploading the same bytes only mints a *second* id for the same picture: a wasted step, worth taking only when a call or a job built on the old id fails. Uploads are free; only generations are charged. The 900-second expiry on the response belongs to the upload URL, not to the asset.
 

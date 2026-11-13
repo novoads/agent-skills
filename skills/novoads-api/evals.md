@@ -392,6 +392,26 @@ it sends `omni-flash` a length or shape the model does not render and treats the
 
 ---
 
+## NA11 — An upload is ready when its PUT answers 200, and is never polled
+
+**Untested: written with the change, before any run.**
+
+**Scenario.** A reference picture is uploaded and a video generated from it.
+
+**The failure, from the pack's side.** Nothing in the pack said when an upload is finished, and the only
+status read it taught is `GET /v1/generations/{jobId}`, so a run could take the `assetId` for a job and
+poll it there for good.
+
+**Assertions.**
+
+- The call that uses the picture carries its `assetId` as soon as the PUT answers `200`.
+- The only id the run polls is the `jobId` of the call that started the job.
+
+**Fails if:** the run polls `GET /v1/generations/<assetId>`; or it sleeps or retries after a `200` PUT;
+or it reads an error there as "not ready yet".
+
+---
+
 ## Notes on evidence strength
 
 - **NA1 and NA2 are the strongest cases here.** Both were isolated on a paid run with

@@ -120,7 +120,7 @@ Once the user approves the prompt:
 
 Only after the user says the still looks good:
 
-1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
+1. Take the approved still's own `assetId`, the one its `POST /v1/images` result carries beside `url`. It is already an asset: uploading it again only mints a second id for the same picture.
 2. Pass it as `startImageAssetId` on a Seedance video (`POST /v1/videos`). Note `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
 3. Video is **asynchronous**, unlike an image call (which usually answers in its response): the call returns `202` with a `jobId`; poll `GET /v1/generations/{jobId}` for a **terminal** status, then `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, including its own cost gate.
 

@@ -15,9 +15,17 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 ### Fixed
 
 **An upload is ready when its PUT answers `200`.** The upload steps in `novoads-api`, its reference and
-`analyze-video` now say so: an `assetId` has no status and nothing to poll, and it is not a job id, since
-`GET /v1/generations/{jobId}` reads only the `jobId` a generate call returns. Nothing said it before, so a
-program could wait on an upload as if it were a render.
+`analyze-video` (its template block too), `AGENTS.md` and `shared/references/README.md` now say so: an
+`assetId` has no status and nothing to poll, and it is not a job id, since `GET /v1/generations/{jobId}`
+reads only a `jobId`, the id a call that starts a job returns. Nothing said it before, so a program could
+wait on an upload as if it were a render. The step-1 PUT example prints its status, and eval NA11 pins it.
+
+**A still the API made is not uploaded again.** `product-showcase`, `influencer-recreation` and
+`ugc-product-selfie` told the agent to upload the approved still before the video, and skipped the PUT. They
+now pass the still's own `assetId` from its `POST /v1/images` result, as `clone-video-ad` does.
+
+**`generate-batch.sh` reads the PUT's status.** A refused upload (a `403`) now stops the thumbnail with
+`UPLOAD PUT FAIL` instead of showing up later as a refused image call.
 
 ## v1.6.0 — 2026-11-13
 

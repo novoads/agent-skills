@@ -6,7 +6,7 @@
 #   1. Update REF_BASE and COMMON_REFS array with your reference file paths
 #   2. Replace PROMPTS array with your composed prompts
 #   3. Run: bash scripts/generate-thumbnails-vN.sh > output/run.log 2>&1 &
-#   4. Monitor: tail -F output/run.log | grep -E "DONE|FAIL|ERROR|charged"
+#   4. Monitor: tail -F output/run.log | grep --line-buffered -E "DONE|FAIL|ERROR|MISSING|resubmit|charged"
 #
 # Features:
 #   - Image preprocessing (Lanczos to 1080px longest side, RGB JPEG)

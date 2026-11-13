@@ -412,6 +412,24 @@ or it reads an error there as "not ready yet".
 
 ---
 
+## NA12 — A polled job of several stills chains the still the user approved
+
+**Untested: written with the change, before any run.**
+
+**Scenario.** Three UGC stills in one image call (`numImages: 3`); the call answers `running`, the run
+polls it, and the user approves the second still for the video.
+
+**Assertions.**
+
+- The video's `startImageAssetId` is the `assetId` beside the second still's `url` in `images[]` on the job
+  read.
+- Nothing is uploaded again.
+
+**Fails if:** the run passes the job read's `outputAssetId`, which is the first still's; or it downloads the
+still and uploads it again.
+
+---
+
 ## Notes on evidence strength
 
 - **NA1 and NA2 are the strongest cases here.** Both were isolated on a paid run with

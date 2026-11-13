@@ -1159,7 +1159,7 @@ Envelope, on every failure:
 | `forbidden` | 403 | `details.reason` is `plan_required` or `subscription_inactive`, or the API is not enabled for that organization. |
 | `not_found` | 404 | No such object **for this organization**. Deliberately indistinguishable from someone else's object. |
 | `method_not_allowed` | 405 | Real path, wrong verb. Carries an `Allow` header. |
-| `conflict` | 409 | Includes `/watch` on an unfinished job. |
+| `conflict` | 409 | Includes `/watch` on an unfinished job. On `POST /videos`, the same `idempotencyKey` while its first submission is still being accepted (one with a start picture can first wait up to 30 seconds for it to be prepared, after up to about 25 seconds for the AI's background on a picture seen for the first time): nothing charged a second time; send it again in a moment and the first submission comes back, and if it still answers `409` after two minutes, find its job with `GET /generations`. |
 | `content_policy` | 422 | Moderation, and the **only** refusal of a prompt for what it says. Nothing charged. |
 | `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |

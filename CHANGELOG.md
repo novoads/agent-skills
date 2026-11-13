@@ -36,7 +36,9 @@ layout "gets rebuilt". For an agent:
   `"border"` asks for the soft border, which also stands in when the AI cannot run in time, and the
   estimate refuses the field. A start and an end picture that both need it go the same way. A picture
   seen for the first time can add up to about 25 seconds before the answer, on top of any busy-server
-  wait, and the `503`'s 30 seconds are counted after it. `image-to-motion` now says to aim the motion
+  wait, and the `503`'s 30 seconds are counted after it. The `409` rows now name both waits for a
+  request sent again with the same `idempotencyKey` while the first is still being accepted, and what
+  to do. `image-to-motion` now says to aim the motion
   at what the still shows, not at the margins the AI or the border adds.
 
 ## v1.5.0 — 2026-11-09

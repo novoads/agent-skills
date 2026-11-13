@@ -698,7 +698,7 @@ Every error is `{"error":{"code":..., "message":..., "requestId":..., "details":
 | 402 | `insufficient_credits` | `details` carries `required` and `available`. | Tell the user the gap. Do not retry. |
 | 403 | `forbidden` | `details.reason` is `plan_required`, `subscription_inactive`, or the API is off for that account. | Say which. These are different fixes. |
 | 404 | `not_found` | No such object **for this organization**. | Do not assume it exists elsewhere. |
-| 409 | `conflict` | Includes `/watch` on an unfinished job. | Keep polling. |
+| 409 | `conflict` | Includes `/watch` on an unfinished job, and on `POST /v1/videos` the same `idempotencyKey` while its first submission is still being accepted: one with a start picture can wait up to 30 seconds for it to be prepared, after up to about 25 seconds for the AI's background on a picture seen for the first time. | `/watch`: keep polling. `POST /v1/videos`: nothing was charged a second time; send the same request again in a moment with the same key and the first submission comes back. Still `409` after two minutes: find its job with `GET /v1/generations`. |
 | 422 | `content_policy` | Moderation blocked it, and this is the **only** way a prompt is refused for what it says. The estimate skips moderation, so it can land on a prompt the estimate priced clean. | Nothing was charged. Rewrite or stop. |
 | 429 | `rate_limited` | **Several causes.** Branch on `details.reason`. | See below. |
 | 500 | `internal_error` | | **Do not blindly retry.** See below. |

@@ -334,7 +334,8 @@ the same local prompt-length check before spending.
 It also sends the same `idempotencyKey`, printed before the call, and resends a failed call by
 the same rules (the `chatgpt-image-ad` skill's Common errors). A run that was cut off, or stopped
 after a lost answer, is run again within 24 hours with `--idempotency-key <the key it printed>`:
-that call's answer comes back if it was made, or it is drawn, charged once either way. Only for
+that call's answer comes back if it was made, or it is drawn, charged once either way; after 24 hours
+the key draws and charges again, so look in `GET /v1/generations?kind=image&limit=50` first. Only for
 the same call: the key answers with the first picture whatever the prompt now says, so Phase 8's
 second model or a corrected prompt runs without it.
 

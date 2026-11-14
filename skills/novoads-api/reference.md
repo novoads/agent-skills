@@ -408,7 +408,7 @@ Reference order is preserved and can be addressed positionally by the prompt. Th
 
 Images accept **no `startImageAssetId`** — there is no first-frame concept on a still — and **no `styleFamily`**, which no longer exists anywhere on this API.
 
-**`idempotencyKey`** (optional, 1 to 255 characters after trimming): the same key within 24 hours returns the first call's answer instead of drawing and charging again, whatever the new body says: the same `jobId` and `creditsCharged` and every image of `numImages`, each `url` signed again, or `running` with `images: []` if that is what the first call answered, which you then poll. While that first call is still being made, the key answers `409` `conflict`: send the same call again in a moment with the same key. If it still answers `409` after two minutes, its answer was not recorded and that key keeps answering `409`: find its job with `GET /generations` and poll it. A call refused before it is accepted, or whose render fails at once and is refunded (`502` `provider_failed`, `503` `image_capacity`), gives its key back, so the same key then runs; a job that fails after its `running` answer keeps its key. One key covers the whole call, on a model body or a `preset`, scoped to your organization and to this endpoint. So a key belongs to one call: reuse it only to retry the identical call, after a timeout or a lost answer above all, and send a new key for every new or corrected picture.
+**`idempotencyKey`** (optional, 1 to 255 characters after trimming): the same key within 24 hours returns the first call's answer instead of drawing and charging again, whatever the new body says: the same `jobId` and `creditsCharged` and every image of `numImages`, each `url` signed again, or `running` with `images: []` if that is what the first call answered, which you then poll. After 24 hours the same key draws and charges again, so a key found later is looked up in `GET /generations` first. While that first call is still being made, the key answers `409` `conflict`: send the same call again in a moment with the same key. If it still answers `409` after two minutes, its answer was not recorded and that key keeps answering `409`: find its job in `GET /generations?kind=image&limit=50` by its prompt and `createdAt` and poll it to its end. One still in progress may still be drawing, or may be waiting for the API to fail it and refund it; no such job means nothing was charged, since the API writes a job in the same step as its charge. A call refused before it is accepted, or whose render fails at once and is refunded (`502` `provider_failed`, `503` `image_capacity`), gives its key back, so the same key then runs; any other failure after the charge keeps the key, which then answers `409` while the API fails that job and refunds it, and a job that fails after its `running` answer keeps its key. One key covers the whole call, on a model body or a `preset`, scoped to your organization and to this endpoint. So a key belongs to one call: reuse it only to retry the identical call, after a timeout or a lost answer above all, and send a new key for every new or corrected picture.
 
 ### A slow render answers `running`: poll it (API 2.39.0)
 
@@ -499,8 +499,9 @@ If a call does time out, send it again with its `idempotencyKey`, never under a 
 renders and charges again: within 24 hours that key answers with the first call's answer, every
 image of it, charged once, or `409` while the first is still being made (ask again in a moment).
 A call sent without a key, or whose key is lost, cannot be asked for its answer again: check
-`GET /generations` first and match on `createdAt`; a job that landed is already there, and
-image 1 is retrievable even though its siblings are not.
+`GET /generations?kind=image&limit=50` first and match on the prompt and `createdAt`; a job that
+landed is already there, and image 1 is retrievable even though its siblings are not, and no such
+job means nothing was charged.
 
 ---
 
@@ -1170,7 +1171,7 @@ Envelope, on every failure:
 | `forbidden` | 403 | `details.reason` is `plan_required` or `subscription_inactive`, or the API is not enabled for that organization. |
 | `not_found` | 404 | No such object **for this organization**. Deliberately indistinguishable from someone else's object. |
 | `method_not_allowed` | 405 | Real path, wrong verb. Carries an `Allow` header. |
-| `conflict` | 409 | Includes `/watch` on an unfinished job. On `POST /videos` and `POST /images`, the same `idempotencyKey` while its first call is still running: a video submission while it is being accepted (one with a start picture can first wait up to 30 seconds for it to be prepared, after up to about 25 seconds for the AI's background on a picture seen for the first time), a picture while it is being made (the call waits up to about 105 seconds for it). Nothing charged a second time; send it again in a moment with the same key and the first answer comes back, and if it still answers `409` after two minutes, find its job with `GET /generations`. |
+| `conflict` | 409 | Includes `/watch` on an unfinished job. On `POST /videos` and `POST /images`, the same `idempotencyKey` while its first call is still running: a video submission while it is being accepted (one with a start picture can first wait up to 30 seconds for it to be prepared, after up to about 25 seconds for the AI's background on a picture seen for the first time), a picture while it is being made (the call waits up to about 105 seconds for it). Nothing charged a second time; send it again in a moment with the same key and the first answer comes back, and if it still answers `409` after two minutes, find its job with `GET /generations` and poll it: a picture job still in progress then may be waiting for the API to fail it and refund it, and no such job means nothing was charged. |
 | `content_policy` | 422 | Moderation, and the **only** refusal of a prompt for what it says. Nothing charged. |
 | `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |
@@ -1218,6 +1219,13 @@ not here — this table is a working set, not the contract.
 | `organization_limit` | 180 requests per minute across every key the organization holds | Honor `Retry-After`. `X-RateLimit-*` will still show room on your key — correct, not a broken limiter. Minting another key does not raise it. |
 | `client_limit` | 1,200 requests per minute from one address, **pre-authentication** | Honor `Retry-After`. Carries no `X-RateLimit-*` trio. |
 
+**`credit_balance_busy` is newer than the seventeen.** Several calls of the organization that charge
+credits reached the balance at the same moment, and this one could not get its turn in time. Nothing
+was charged and nothing was made: wait the `Retry-After` (2 seconds, also
+`error.details.retryAfterSeconds`) and send the same call again, with its `idempotencyKey` where it
+has one. The picture scripts do that by themselves: once, or for as long as they are still asking a
+`409` on that key.
+
 An agent that reads only "429 means slow down" backs off on the wrong axis when the real problem is jobs in flight — and, with several separate concurrency queues, it may be backing off the wrong queue entirely. Branch on `details.reason`.
 
 **The in-flight count is per organization, not per key or per session**, so `concurrency_limit` is the ordinary outcome of running several workflows at once — two agents each holding five renders open is an eleventh submission refused, with neither of them individually misbehaving (observed live 2026-08-12 across parallel callers on one org, under the old ceiling of five). **Nothing is charged on the refusal**: the row is never created, so there is no job to find and no credit to reclaim. A render clears in roughly two minutes at the short durations, so resubmit the same body after one — the fix is a finished job, and minting a second key does not buy a slot.
@@ -1226,7 +1234,7 @@ An agent that reads only "429 means slow down" backs off on the wrong axis when 
 
 The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice. Video calls (API 2.52.0) and picture calls take an `idempotencyKey`, and a retry with the same key returns the first job instead of a second charge, so a key is only for a retry of the identical call.
 
-On a 500, a call that carried a key is sent again identical, with that key: the first job comes back if one was made, `409` while it is still being made, and a failure that gave the key back runs once more. A call without one: call `GET /v1/generations` first. If the job is there, poll it. Only resubmit if it is genuinely absent.
+On a 500, a call that carried a key is sent again identical, with that key: the first job comes back if one was made, `409` while it is still being made (on a picture call, also when a failure left its charge standing, and the API then fails that job and refunds it), and a failure that gave the key back runs once more. A call without one: call `GET /v1/generations` first. If the job is there, poll it. Only resubmit if it is genuinely absent.
 
 ---
 

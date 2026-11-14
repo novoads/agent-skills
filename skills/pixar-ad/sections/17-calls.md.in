@@ -19,7 +19,7 @@ POST /v1/estimates    { kind: "image" | "video" | "voiceover" | "music" | "capti
                         refuses nothing; this is the ONLY endpoint that returns it.
 
 POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16",
-                        referenceAssetIds: [castSheet, previousStill, product?] }
+                        referenceAssetIds: [castSheet, previousStill, product?], idempotencyKey }
                       → 200 { jobId, images: [{ url, expiresInSeconds, assetId }] }
                         the finished image is in the response (or `running`: poll the job), and
                         the call blocks ~60-90s. `assetId` chains straight into

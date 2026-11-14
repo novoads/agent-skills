@@ -5,13 +5,14 @@
 # seconds down; the timeout cases wait a second or two for a real client timeout).
 #
 # Each case plays one row of the scripts' resend table. An answer that charged nothing
-# (a 429, the API's 503) goes out once more after the wait it names. An answer that was
-# lost (a timeout, a dropped connection, a 500) goes out once more with the SAME key,
-# which the API answers with the first call's job, so it is never a second charge. The
-# key's 409 is asked again every 5 s for up to 120 s. A refusal stops at once. A resend
-# under a new key would be a second, paid picture, so every resend here is checked to
-# carry the first send's body and key, and a run that is cut off is checked to have
-# printed the key that gets its call back.
+# (a 429, the API's 503) goes out once more after the wait it names, up to 60 s. An answer
+# that was lost (a timeout, a dropped connection, a 500) goes out once more with the SAME
+# key, which the API answers with the first call's job, so it is never a second charge.
+# The key's 409 is asked again every 15 s for up to 120 s, and a 429 met in that time
+# waits the same way. A refusal stops at once. A resend under a new key would be a
+# second, paid picture, so every resend here is checked to carry the first send's body
+# and key, and a run that is cut off is checked to have printed the key that gets its
+# call back. The batch's own main loop is run too: each prompt sent with its own key.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -160,9 +161,11 @@ def c409(retry_after=None):
 
 OK = ok()
 E500 = {"status": 500, "body": envelope("internal_error", "Something went wrong on our side.")}
+E500_WAIT_120 = dict(E500, headers={"Retry-After": "120"})
 E503 = {"status": 503, "headers": {"Retry-After": "1"},
         "body": envelope("unavailable", "The picture service was full; nothing was charged.",
                          reason="image_capacity", retryAfterSeconds=1)}
+E503_WAIT_45 = dict(E503, headers={"Retry-After": "45"})
 E400 = {"status": 400, "body": envelope("invalid_input", "Invalid request body.",
                                         issues=[{"path": ["aspectRatio"], "message": "bad"}])}
 OTHER409 = {"status": 409, "body": envelope("conflict", "The object is not in a state that allows this.")}
@@ -178,10 +181,15 @@ RUNNING = {"status": 200, "body": {"jobId": "job-1", "status": "running", "model
 READ_OK = {"jobId": "job-1", "status": "succeeded", "kind": "image", "model": "m", "creditsCharged": 5,
            "outputUrl": BASE + "/img.png", "outputUrlExpiresInSeconds": 3600}
 
-# What each family prints. {k} is the key every send of the call carried.
+# What each family prints. {k} is the key every send of the call carried. None: that family
+# does not say it in that case (the batch's stops name BATCH_KEY only when the batch set it).
+LOOKUP = "GET /v1/generations?kind=image&limit=50"
+NO_JOB = "no such job means nothing was charged"
+REAPER = "may be waiting for the API to fail it and refund it"
 SAYS = {
     "py": {
         "busy": "nothing was charged; sending it once more in",
+        "busy-loop": "nothing was charged for this send; asking again in",
         "lost": "it may have been made; sending it once more in",
         "vendor": "refunded; drawing it once more in",
         "conflict": "the first send with this key is still being made; asking again in",
@@ -190,12 +198,17 @@ SAYS = {
         "stop-maybe": ("this may have rendered and been charged, once (every send carried idempotencyKey {k}). "
                        "Run it again with `--idempotency-key {k}`"),
         "stop-conflict": "idempotencyKey {k} still answered 409 after 120s of asking",
+        "after-24h": "After 24 hours that key draws and charges again",
+        "lookup": LOOKUP,
+        "no-job": NO_JOB,
+        "reaper": REAPER,
         "keyline": "idempotencyKey {k}: if this run is cut off, run it again with --idempotency-key {k}",
         "edge": "Cloudflare error 1010",
         "input": "(reasonCode: input_image_unreadable)",
     },
     "batch": {
         "busy": "nothing was charged: sending it once more in",
+        "busy-loop": "nothing was charged for this send: asking again in",
         "lost": "it may have been made: sending it once more in",
         "vendor": "refunded: drawing it once more in",
         "conflict": "HTTP 409, the first send is still being made, charged once at most: asking again in",
@@ -203,6 +216,10 @@ SAYS = {
         "stop-busy": "refused again after the wait. Nothing was charged",
         "stop-maybe": "This may have rendered and been charged, once (every send carried idempotencyKey {k})",
         "stop-conflict": "idempotencyKey {k} still answered 409 after 120s of asking",
+        "after-24h": None,
+        "lookup": LOOKUP,
+        "no-job": NO_JOB,
+        "reaper": REAPER,
         "keyline": "[#1] Submitting with idempotencyKey {k}",
         "edge": "ERROR: HTTP 403:",
         "input": "input_image_unreadable",
@@ -217,16 +234,23 @@ NOT = {
 }
 STOPS = ("stop-busy", "stop-maybe", "stop-conflict")
 
+# What a stop says beyond its first line: where to look, and what an empty look means.
+MAYBE = ["stop-maybe", "after-24h", "lookup", "no-job"]
+CONFLICT_STOP = ["stop-conflict", "lookup", "no-job", "reaper"]
+
 # name, plan, exit, POSTs, waits slept, said, not said, the server message count (msg, n)
 CASES = [
     ("429>200", [busy("1"), OK], 0, 2, [1], ["busy"], STOPS, None),
     ("429-details", [busy(None, 1), OK], 0, 2, [1], ["busy"], STOPS, None),
     ("429-no-wait", [busy(None, None), OK], 0, 2, [2], ["busy"], STOPS, None),
     ("429x2", [busy("1"), busy("1"), OK], 1, 2, [1], ["stop-busy"], ("stop-maybe", "stop-conflict"), (BUSY_MSG, 2)),
+    ("429-wait-45", [busy("45", 45), OK], 0, 2, [45], ["busy"], STOPS, None),
     ("503>200", [E503, OK], 0, 2, [1], ["busy"], STOPS, None),
+    ("503-wait-45", [E503_WAIT_45, OK], 0, 2, [45], ["busy"], STOPS, None),
     ("503x2", [E503, E503], 1, 2, [1], ["stop-busy"], ("stop-maybe",), None),
     ("500>200", [E500, OK], 0, 2, [2], ["lost"], STOPS, None),
-    ("500x2", [E500, E500, OK], 1, 2, [2], ["stop-maybe"], ("stop-busy", "stop-conflict"), None),
+    ("500x2", [E500, E500, OK], 1, 2, [2], MAYBE, ("stop-busy", "stop-conflict"), None),
+    ("500-wait-capped-30", [E500_WAIT_120, OK], 0, 2, [30], ["lost"], STOPS, None),
     ("drop>200", [DROP, OK], 0, 2, [2], ["lost"], STOPS, None),
     ("cut-short>200", [dict(OK, short=True), OK], 0, 2, [2], ["lost"], STOPS, None),
     ("html-200>200", [HTML200, OK], 0, 2, [2], ["lost"], STOPS, None),
@@ -240,24 +264,35 @@ CASES = [
     ("502x2", [e502("vendor_timeout"), e502("vendor_timeout"), OK], 1, 2, [2], [], STOPS, None),
     ("502-input", [e502("input_image_unreadable"), OK], 1, 1, [], ["input"], STOPS, None),
     ("502-moderation", [e502("moderation"), OK], 1, 1, [], [], STOPS, None),
-    ("409>200", [c409(), OK], 0, 2, [5], ["conflict"], STOPS, (CONFLICT_MSG, 1)),
-    ("409x3>200", [c409(), c409(), c409(), OK], 0, 4, [5, 5, 5], ["conflict", "again"], STOPS, (CONFLICT_MSG, 1)),
+    ("409>200", [c409(), OK], 0, 2, [15], ["conflict"], STOPS, (CONFLICT_MSG, 1)),
+    ("409x3>200", [c409(), c409(), c409(), OK], 0, 4, [15, 15, 15], ["conflict", "again"], STOPS, (CONFLICT_MSG, 1)),
     ("409-wait-7", [c409(7), OK], 0, 2, [7], ["conflict"], STOPS, None),
-    ("409-for-120s", [c409()] * 25 + [OK], 1, 25, [5] * 24, ["stop-conflict"], ("stop-busy", "stop-maybe"), None),
-    ("409-wait-30", [c409(30)] * 5 + [OK], 1, 5, [30] * 4, ["stop-conflict"], ("stop-busy",), None),
-    ("500>409>200", [E500, c409(), OK], 0, 3, [2, 5], ["lost", "conflict"], STOPS, None),
-    ("drop>409x2>200", [DROP, c409(), c409(), OK], 0, 4, [2, 5, 5], ["lost", "again"], STOPS, None),
-    ("409>500>200", [c409(), E500, OK], 0, 3, [5, 2], ["conflict", "lost"], STOPS, None),
-    ("409>500x2", [c409(), E500, E500, OK], 1, 3, [5, 2], ["stop-maybe"], ("stop-busy", "stop-conflict"), None),
+    ("409-for-120s", [c409()] * 9 + [OK], 1, 9, [15] * 8, CONFLICT_STOP, ("stop-busy", "stop-maybe"), None),
+    ("409-wait-30", [c409(30)] * 5 + [OK], 1, 5, [30] * 4, CONFLICT_STOP, ("stop-busy",), None),
+    ("500>409>200", [E500, c409(), OK], 0, 3, [2, 15], ["lost", "conflict"], STOPS, None),
+    ("drop>409x2>200", [DROP, c409(), c409(), OK], 0, 4, [2, 15, 15], ["lost", "again"], STOPS, None),
+    ("409>500>200", [c409(), E500, OK], 0, 3, [15, 2], ["conflict", "lost"], STOPS, None),
+    ("409>500x2", [c409(), E500, E500, OK], 1, 3, [15, 2], MAYBE, ("stop-busy", "stop-conflict"), None),
+    # Once the key has answered 409, a 429 or 503 waits like a 409 and never uses the one resend.
+    ("409>429>200", [c409(), busy("1"), OK], 0, 3, [15, 1], ["conflict", "busy-loop"], STOPS, None),
+    ("409>429x3>200", [c409()] + [busy("1")] * 3 + [OK], 0, 5, [15, 1, 1, 1], ["conflict", "busy-loop"], STOPS, None),
+    ("409>503>200", [c409(), E503, OK], 0, 3, [15, 1], ["conflict", "busy-loop"], STOPS, None),
+    ("409>429>409>200", [c409(), busy("1"), c409(), OK], 0, 4, [15, 1, 15], ["conflict", "busy-loop"], STOPS,
+     (CONFLICT_MSG, 2)),
+    ("409>429-0s>200", [c409(), busy("0", 0), OK], 0, 3, [15, 1], ["busy-loop"], STOPS, None),
+    ("429>409>429>200", [busy("1"), c409(), busy("1"), OK], 0, 4, [1, 15, 1], ["busy", "conflict", "busy-loop"],
+     STOPS, None),
+    ("409x7>429-30s", [c409()] * 7 + [busy("30", 30), OK], 1, 8, [15] * 7, MAYBE, ("stop-busy", "stop-conflict"),
+     None),
     ("409-no-key", [OTHER409, OK], 1, 1, [], [], STOPS, None),
-    ("drop>429", [DROP, busy("1"), OK], 1, 2, [2], ["stop-maybe"], ("stop-busy",), None),
-    ("429>500", [busy("1"), E500, OK], 1, 2, [1], ["stop-maybe"], ("stop-busy",), None),
-    ("wait-capped-30", [busy("120", 120), OK], 0, 2, [30], ["busy"], STOPS, None),
+    ("drop>429", [DROP, busy("1"), OK], 1, 2, [2], MAYBE, ("stop-busy",), None),
+    ("429>500", [busy("1"), E500, OK], 1, 2, [1], MAYBE, ("stop-busy",), None),
+    ("wait-capped-60", [busy("120", 120), OK], 0, 2, [60], ["busy"], STOPS, None),
 ]
 # A real client timeout: the server holds the answer, the client gives up after 1 s.
 TIMEOUT_CASES = [
     ("timeout>200", [HELD, OK], 0, 2, [2], ["lost"], STOPS, None),
-    ("timeoutx2", [HELD, HELD], 1, 2, [2], ["stop-maybe"], ("stop-busy",), None),
+    ("timeoutx2", [HELD, HELD], 1, 2, [2], MAYBE, ("stop-busy",), None),
 ]
 
 results = []
@@ -316,7 +351,7 @@ def judge(family, label, run, case, key=None):
     if pics != (1 if want_rc == 0 else 0):
         bad.append("%d picture(s)" % pics)
     for s in said:
-        if SAYS[family][s].format(k=k) not in out:
+        if SAYS[family][s] is not None and SAYS[family][s].format(k=k) not in out:
             bad.append("did not say " + s)
     for s in not_said:
         if NOT[family][s] in out:
@@ -435,9 +470,14 @@ try:
         judge("py", "%s:given-429x2" % name,
               py_run(path, fixed, [busy("1"), busy("1")], extra=["--idempotency-key", "key-from-an-earlier-run"]),
               ("", [], 1, 2, [1], ["stop-maybe"], ("stop-busy",), None), key="key-from-an-earlier-run")
-        judge("py", "%s:given-409>200" % name,
-              py_run(path, fixed, [c409(), OK], extra=["--idempotency-key", "key-from-an-earlier-run"]),
-              ("", [], 0, 2, [5], ["conflict"], STOPS, None), key="key-from-an-earlier-run")
+        given = py_run(path, fixed, [c409(), OK], extra=["--idempotency-key", "key-from-an-earlier-run"])
+        judge("py", "%s:given-409>200" % name, given, ("", [], 0, 2, [15], ["conflict"], STOPS, None),
+              key="key-from-an-earlier-run")
+        # A given key may be older than 24 hours: the run says so before its call.
+        check("%s:given-key-after-24h" % name,
+              "idempotencyKey key-from-an-earlier-run (given): a call made with it in the last 24 hours" in given[1]
+              and "after 24 hours it draws and charges again" in given[1],
+              "the given-key line says a key older than 24 hours draws and charges again")
         # The API's bounds: 1 to 255 characters after trimming, refused before any call.
         for label, given, want in (("blank", "   ", None), ("256-chars", "k" * 256, None),
                                    ("255-chars", "k" * 255, "k" * 255), ("trimmed", "  key-1  ", "key-1")):
@@ -452,11 +492,11 @@ try:
     # --- generate-batch.sh: its own functions, under its own shell options ---------------
     runner = WORK / "run_batch.sh"
     runner.write_text(r'''#!/usr/bin/env bash
-# generate-batch.sh's own generate_one and thumbnail_keys, against the stand-in server.
-# Args: batch-path api-base output-dir sleep-log mode [prompt ...]
+# generate-batch.sh's own generate_one, thumbnail_keys and generate_all (the main loop),
+# against the stand-in server. Args: batch-path api-base output-dir sleep-log mode [prompt ...]
 set -euo pipefail
 B="$1"; API="$2"; OUTPUT_DIR="$3"; SLEPT="$4"; MODE="$5"; shift 5
-NOVOADS_API_KEY=x PRODUCT_ID="" POLL_INTERVAL_S=15 POLL_DEADLINE_S=60
+NOVOADS_API_KEY=x PRODUCT_ID="" POLL_INTERVAL_S=15 POLL_DEADLINE_S=60 MAX_PARALLEL=4
 MODEL="${T_MODEL:-nano-banana-pro}"; ASPECT="${T_ASPECT:-16:9}"
 declare -a COMMON_REFS=()
 while IFS= read -r r; do [ -z "$r" ] || COMMON_REFS+=("$r"); done <<EOF
@@ -477,10 +517,12 @@ if [ -n "${CURL_MAX_TIME:-}" ]; then
 fi
 eval "$(awk '/^generate_one\(\) \{/{on=1} on{print} on && /^\}$/{n++; if (n == 2) exit}' "$B")"
 eval "$(awk '/^thumbnail_keys\(\) \{/{on=1} on{print} on && /^\}$/{exit}' "$B")"
+eval "$(awk '/^generate_all\(\) \{/{on=1} on{print} on && /^\}$/{exit}' "$B")"
 case "$MODE" in
   one) generate_one 1 "$1" "[]" "${T_KEY:-}" ;;
   two) generate_one 1 "$1" "[]"; generate_one 2 "$2" "[]" ;;
   keys) thumbnail_keys "$@" ;;
+  all) generate_all "[]" "$@"; echo "BATCH_KEY_GIVEN=[$BATCH_KEY_GIVEN] BATCH_KEY=[$BATCH_KEY]" ;;
 esac
 ''')
 
@@ -505,7 +547,7 @@ esac
         files = sorted(f.name for f in out_dir.iterdir())
         pics = sum(1 for f in files if f.endswith("_thumbnail.png"))
         waits = [float(w) for w in slept.read_text().split()] if slept.exists() else []
-        return rc, out, posts(), pics, waits, files
+        return rc, out, posts(), pics, waits, files, out_dir
 
     for case in CASES:
         judge("batch", "batch:%s" % case[0], batch_run(case[1]), case)
@@ -538,13 +580,12 @@ esac
     run = batch_run([OK], env_extra={"T_KEY": k or "missing"})
     check("batch:cut-off-run-again", run[0] == 0 and len(run[2]) == 1 and one_call(run[2], k) and run[3] == 1,
           "that key sent again: one POST, the same key, the thumbnail saved (exit %s)" % run[0])
-    # With BATCH_KEY given, a stop never says nothing was charged, and names the batch key.
-    judge("batch", "batch:batch-key-given-429x2",
-          batch_run([busy("1"), busy("1")], env_extra={"BATCH_KEY": "batch-1", "BATCH_KEY_GIVEN": "1"}),
-          ("", [], 1, 2, [1], ["stop-maybe"], ("stop-busy",), None))
+    # A stop that may leave a charge names the batch key, its 24 hours, and where to look.
     run = batch_run([E500, E500], env_extra={"BATCH_KEY": "batch-1"})
-    check("batch:500x2-names-batch-key", run[0] == 1 and "run the batch again unchanged with BATCH_KEY=batch-1" in run[1],
-          "a stop that may leave a charge says to run the batch again with its BATCH_KEY")
+    check("batch:500x2-names-batch-key", run[0] == 1 and "run the batch again unchanged with BATCH_KEY=batch-1" in run[1]
+          and SAYS["py"]["after-24h"] in run[1] and LOOKUP in run[1] and NO_JOB in run[1],
+          "a stop that may leave a charge says to run the batch again with its BATCH_KEY within 24 hours, "
+          "and where to look first")
 
     # thumbnail_keys: the same batch run again draws the same keys; a change draws a new one.
     def keys(prompts, batch_key="batch-1", **env):
@@ -565,13 +606,60 @@ esac
           "a corrected prompt draws a new key; the others keep theirs")
     check("batch:keys-new-batch-key", not set(keys(["first prompt", "second prompt", "first prompt"], "batch-2")) & set(a),
           "a new batch key draws new keys for every prompt")
+    ref = WORK / "face ref (1).png"
+    ref.write_bytes(PNG)
     check("batch:keys-shape-model-refs",
           all(not set(keys(["first prompt", "second prompt", "first prompt"], **env)) & set(a)
-              for env in ({"T_ASPECT": "9:16"}, {"T_MODEL": "gpt-image-2"}, {"T_REFS": "/refs/face.png"})),
+              for env in ({"T_ASPECT": "9:16"}, {"T_MODEL": "gpt-image-2"}, {"T_REFS": str(ref)})),
           "another shape, model or reference list draws new keys")
     c = keys(["one prompt\nwith a second line", "  first prompt  "])
     check("batch:keys-multiline", len(c) == 2 and c[1] == a[0],
           "a prompt with a line break is one prompt; spaces around a prompt are not part of it")
+    # A reference counts by its contents too: a file replaced at the same path draws new keys.
+    with_ref = keys(["first prompt", "second prompt"], T_REFS=str(ref))
+    again = keys(["first prompt", "second prompt"], T_REFS=str(ref))
+    ref.write_bytes(PNG + b"another picture")
+    replaced = keys(["first prompt", "second prompt"], T_REFS=str(ref))
+    ref.write_bytes(PNG)
+    back = keys(["first prompt", "second prompt"], T_REFS=str(ref))
+    check("batch:keys-ref-replaced", len(with_ref) == 2 and all(is_uuid(k, 5) for k in with_ref) and again == with_ref
+          and back == with_ref and len(replaced) == 2 and not set(replaced) & set(with_ref),
+          "the same reference file draws the same keys; the file replaced at the same path draws new ones")
+    run = batch_run([], mode="keys", prompts=["first prompt"],
+                    env_extra={"BATCH_KEY": "batch-1", "T_REFS": str(WORK / "no-such-ref.png")})
+    check("batch:keys-ref-unreadable", run[0] == 1 and "cannot read reference" in run[1]
+          and not any(is_uuid(w, 5) for w in run[1].split()),
+          "a reference that cannot be read draws no key (exit %s)" % run[0])
+
+    # --- generate_all: the batch's main loop, keys drawn and paired with their prompts ---
+    def batch_key_file(run):
+        f = run[6] / "batch_key.txt"
+        return f.read_text().strip() if f.exists() else None
+
+    pair = ("first prompt", "second prompt")
+    run = batch_run([OK, OK], mode="all", prompts=pair, env_extra={"BATCH_KEY": "batch-1"})
+    sent = {b.get("prompt"): b.get("idempotencyKey") for b in bodies(run[2]) if isinstance(b, dict)}
+    check("batch:all-pairs-keys", run[0] == 0 and len(run[2]) == 2 and run[3] == 2
+          and sent == dict(zip(pair, keys(list(pair)))) and batch_key_file(run) == "batch-1"
+          and "BATCH_KEY_GIVEN=[1] BATCH_KEY=[batch-1]" in run[1],
+          "two prompts, BATCH_KEY given: each POST carries its own prompt's key, and the batch key is saved")
+    run = batch_run([OK, OK], mode="all", prompts=pair)
+    drawn = batch_key_file(run)
+    sent = {b.get("prompt"): b.get("idempotencyKey") for b in bodies(run[2]) if isinstance(b, dict)}
+    check("batch:all-new-batch-key", run[0] == 0 and is_uuid(drawn, 4) and "Batch key: %s (saved in" % drawn in run[1]
+          and sent == dict(zip(pair, keys(list(pair), drawn))) and "BATCH_KEY_GIVEN=[] " in run[1],
+          "no BATCH_KEY: a new one is drawn, printed, saved and used for every key")
+    run = batch_run([busy("1"), busy("1")], mode="all", prompts=(PROMPT,), env_extra={"BATCH_KEY": "batch-1"})
+    check("batch:all-batch-key-given-429x2", len(run[2]) == 2 and "1_error.json" in run[5]
+          and "run the batch again unchanged with BATCH_KEY=batch-1" in run[1] and NOT["batch"]["stop-busy"] not in run[1],
+          "BATCH_KEY from the environment: a 429 twice may stand charged from that earlier run, never 'nothing was charged'")
+    run = batch_run([busy("1"), busy("1")], mode="all", prompts=(PROMPT,))
+    check("batch:all-no-batch-key-429x2", len(run[2]) == 2 and NOT["batch"]["stop-busy"] in run[1]
+          and NOT["batch"]["stop-maybe"] not in run[1],
+          "a new batch key: a 429 twice stops with nothing charged")
+    run = batch_run([OK], mode="all", prompts=(PROMPT,), env_extra={"T_REFS": str(WORK / "no-such-ref.png")})
+    check("batch:all-ref-unreadable", run[0] == 1 and not run[2] and "nothing was sent" in run[1]
+          and batch_key_file(run) is None, "a reference that cannot be read: no key, no POST, no batch key saved")
 finally:
     server.shutdown()
     subprocess.run(["rm", "-rf", str(WORK)])

@@ -261,21 +261,26 @@ leaves room for other image calls the organization runs through the API.
 Every `POST /v1/images` the batch script sends carries an `idempotencyKey`, its own per
 thumbnail and the same on that thumbnail's resends: the same key within 24 hours answers with the
 first call's job, so a resend with it is never charged twice. The script sends a call once more by
-itself after a `429` or the API's own `503` (nothing was charged), after a timeout, a dropped
+itself after a `429` or the API's own `503` (nothing was charged; `credit_balance_busy` is a `429`
+for the credit balance held by other paid calls at that moment), after a timeout, a dropped
 connection, a `500` or another `5xx` (the key answers with the first call if it landed), and after a
 `502` whose `reasonCode` is `vendor_error`, `vendor_timeout` or none (refunded, so a new draw), once
-it has waited the `Retry-After` (else 2 s, at most 30 s). A `409` for the key, the first call still
-being made, is asked again after the `Retry-After`, else 5 s, for up to 120 s in all; still `409`
-after that, its answer was not recorded and that key keeps answering `409`, so find the job with
-`GET /v1/generations`. Anything else stops at once.
+it has waited the `Retry-After` (else 2 s; at most 60 s on a `429` or `503`, the rest of a per-minute
+window, and 30 s otherwise). A `409` for the key, the first call still being made, is asked again
+after the `Retry-After`, else 15 s, for up to 120 s in all, and a `429` or `503` met in that time
+waits the same way. Still `409` after that, its answer was not recorded and that key keeps answering
+`409`: find the job in `GET /v1/generations?kind=image&limit=50` by its prompt and `createdAt` and
+poll it to its end. One still in progress may still be drawing, or may be waiting for the API to
+fail it and refund it, and no such job means nothing was charged. Anything else stops at once.
 
 The keys come from the run's batch key, printed at the start and saved in `batch_key.txt` in the
 output folder. A run that was cut off, or a thumbnail that stopped after a lost answer and may stand
 charged once, is run again unchanged with `BATCH_KEY=<that key>` within 24 hours: each thumbnail
-it sent answers with its first call, charged once, instead of a second, paid picture. It is only
-for the same batch: a thumbnail whose prompt, model, shape or references changed draws a new key by
-itself, so a corrected prompt is a new picture. A run without `BATCH_KEY` sends new keys, which
-render and charge again.
+it sent answers with its first call, charged once, instead of a second, paid picture. After 24 hours
+the same keys draw and charge again, so look in `GET /v1/generations` first. It is only for the same
+batch: a thumbnail whose prompt, model, shape or reference files changed (a file replaced at the
+same path included) draws a new key by itself, so a corrected prompt is a new picture. A run without
+`BATCH_KEY` sends new keys, which render and charge again.
 
 ### macOS bash 3.2
 

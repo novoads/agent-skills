@@ -118,20 +118,22 @@ Minimal product hero: matte black earbuds on concrete, soft studio three-point l
 ## curl example
 
 ```bash
+KEY=$(python3 -c 'import uuid; print(uuid.uuid4())')  # one per picture, kept for this call's resends
 source .env && curl -sS -X POST \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nano-banana-pro",
     "prompt": "Minimal product hero: matte black earbuds on concrete, soft studio three-point lighting, subtle reflection, no people, no extra props.",
-    "aspectRatio": "1:1"
+    "aspectRatio": "1:1",
+    "idempotencyKey": "'"$KEY"'"
   }' \
   "https://api.novoads.ai/v1/images"
 ```
 
 The response is the finished job only when the render finishes in time: `images[]` with presigned URLs, plus `creditsCharged` and the
 `model` that ran. One still going after about 105 s answers `status: "running"` with no images (API 2.39.0): poll
-`GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid. Price it first:
+`GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid. The `idempotencyKey` is new for every picture and the same on a resend of that call after a timeout, a `429` or a `5xx`, which answers with the first call's job instead of a second charge; a new or corrected picture takes a new key, since a key answers with its first picture whatever the prompt now says. The estimate refuses the field. Price it first:
 
 ```bash
 source .env && curl -sS -X POST \

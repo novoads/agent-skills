@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.6.1 — 2026-11-14
+
 ### Fixed
 
 **An upload is ready when its PUT answers `200`.** The upload steps in `novoads-api`, its reference and

@@ -1,6 +1,6 @@
 ---
 name: novoads-api
-metadata: {packVersion: 1.6.0}
+metadata: {packVersion: 1.6.1}
 description: >-
   Generate AI video ads and image ads through the Novoads REST API (api.novoads.ai). Use
   when the user wants a UGC video, a product video, a talking-head ad, an AI actor holding

@@ -14,18 +14,23 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ### Fixed
 
-**A picture call the API refuses before any charge is sent once more.** `generate_image.py` in
-`chatgpt-image-ad` and `nano-banana-image-ad`, and `generate-youtube-thumbnail`'s `generate-batch.sh`,
-stopped on any refused `POST /v1/images`, and `chatgpt-image-ad`'s then said the call "may have rendered
-and been charged anyway", even after a `429`, which charges nothing. Now a `429`, whatever its reason, and
-a `503 unavailable` from the API wait the seconds the answer names (`Retry-After`, else
-`error.details.retryAfterSeconds`, else 2, never more than 30) and go out once more with the same body,
-so a batch of pictures no longer stops on a moment's wait. A second refusal stops the call with the
-server's message and says nothing was charged. Nothing else is sent again: `POST /v1/images` takes no
-idempotency key, so a timeout, a dropped connection or a `500` still stops, and only an answer like those,
-or a failed poll, prints the advice to find the job with `GET /v1/generations` before sending it again
-(`nano-banana-image-ad` printed none). The two image skills' error tables and the thumbnail skill say so,
-with a `503` row.
+**Every picture call sends its own `idempotencyKey`, and a call that failed goes out once more where that
+can help.** `generate_image.py` in `chatgpt-image-ad` and `nano-banana-image-ad`, and
+`generate-youtube-thumbnail`'s `generate-batch.sh`, stopped on any failed `POST /v1/images`, and
+`chatgpt-image-ad`'s then said the call "may have rendered and been charged anyway", even after a `429`,
+which charges nothing. Each call now carries a new `idempotencyKey` and keeps it on its resends, and
+`POST /v1/images` answers a key it has seen within 24 hours with that first call's job (the same `jobId`,
+charge and images), so a resend is never a second charge. A `429` or a `503 unavailable` from the API
+(nothing charged), a timeout, a dropped connection, a `500` or another `5xx`, and a `502 provider_failed`
+whose `reasonCode` is `vendor_error`, `vendor_timeout` or none (refunded, so a new draw) go out once more
+after the seconds the answer names (`Retry-After`, else `error.details.retryAfterSeconds`, else 2, never
+more than 30), so a batch of pictures no longer stops on a moment's wait or a lost answer; a `409` for the
+key, the first call still being made, gets one wait and send of its own. Any other refusal stops at once,
+and a call that still fails stops with the server's message and says what it leaves: nothing charged, or a
+first call that may stand charged once, with its key and the advice to find it with `GET /v1/generations`
+before running it again, since a new run sends a new key. The two image skills' error tables (with `409`
+and `503` rows, and `idempotencyKey` in their field tables), the thumbnail skill and eval GI5 say so. It
+needs the API's `idempotencyKey` on `POST /v1/images`, which an API without it refuses with a `400`.
 
 ## v1.6.1 — 2026-11-14
 

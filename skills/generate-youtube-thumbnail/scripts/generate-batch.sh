@@ -21,8 +21,8 @@
 #
 # COST: every generation is charged, and there are no free re-rolls. Price the
 # batch with POST /v1/estimates and get the user's OK BEFORE running this.
-# It sends a generation again only when the API refused it before any charge, and
-# only once — see ONE RESEND.
+# Each thumbnail's POST carries its own idempotencyKey, so a call sent again is never
+# charged twice; it goes out again only where that can help — see ONE KEY.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -175,8 +175,10 @@ generate_one() {
 
   echo "[#$idx] Submitting (blocks ~60-90s for the render)..."
 
-  local body response
-  body=$(REF_JSON="$ref_json" PROMPT="$prompt" MODEL="$MODEL" ASPECT="$ASPECT" PRODUCT_ID="$PRODUCT_ID" python3 -c "
+  # One idempotencyKey for this thumbnail, in the body of each of its POSTs (see ONE KEY).
+  local body response key
+  key=$(python3 -c "import uuid; print(uuid.uuid4())")
+  body=$(KEY="$key" REF_JSON="$ref_json" PROMPT="$prompt" MODEL="$MODEL" ASPECT="$ASPECT" PRODUCT_ID="$PRODUCT_ID" python3 -c "
 import json, os
 body = {
   'model': os.environ['MODEL'],
@@ -184,6 +186,7 @@ body = {
   'aspectRatio': os.environ['ASPECT'],
   'numImages': 1,
   'referenceAssetIds': json.loads(os.environ['REF_JSON']),
+  'idempotencyKey': os.environ['KEY'],
 }
 if os.environ.get('PRODUCT_ID'):
     body['productId'] = os.environ['PRODUCT_ID']
@@ -191,50 +194,87 @@ print(json.dumps(body))
 ")
 
   # --fail-with-body keeps the error envelope readable on a non-2xx, and -D keeps the
-  # answer's status line and Retry-After. Only a refusal that charged nothing is sent
-  # once more (see ONE RESEND).
-  local attempt rc=0 post_status="" post_code="" post_ra="" post_wait=2
+  # answer's status line and Retry-After. A failed POST goes out again, the same body
+  # and key, only where that can help (see ONE KEY).
+  local send=0 rc=0 verdict kind first="" again=0 maybe_charged=0
+  local post_status="" post_ra="" post_wait=2 post_errline=""
   local post_hdr="$OUTPUT_DIR/${idx}_post.headers" post_err="$OUTPUT_DIR/${idx}_post.err"
-  for attempt in 1 2; do
+  while :; do
+    send=$((send + 1))
     rc=0
+    : > "$post_hdr"
     response=$(curl -sS --fail-with-body --max-time 300 -D "$post_hdr" \
       -H "Authorization: Bearer $NOVOADS_API_KEY" \
       -H "Content-Type: application/json" \
       -d "$body" \
       "$API/v1/images" 2>"$post_err") || rc=$?
-    [ "$rc" -eq 0 ] && break
     # curl exits 22 on an answer of 400 or more; any other failure is no answer at all.
     post_status=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk '/^HTTP\//{s=$2} END{print s}') || post_status=""
-    post_code=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False)['error']['code'])" 2>/dev/null) || post_code=""
-    if [ "$rc" -eq 22 ] && [ "$attempt" -eq 1 ]; then
-      case "$post_status:$post_code" in
-        429:rate_limited|503:unavailable)
-          post_ra=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk 'tolower($1) == "retry-after:" {v = $2} END {print v}') || post_ra=""
-          post_wait=$(RA="$post_ra" python3 -c "
-import json, os, sys
-h = os.environ['RA'].strip()
+    post_ra=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk 'tolower($1) == "retry-after:" {v = $2} END {print v}') || post_ra=""
+    post_errline=$(head -c 300 "$post_err" 2>/dev/null | tr -d '\n') || post_errline=""
+    # The answer's kind, then the wait before a resend. ok; busy, lost, vendor, conflict
+    # are sent again; refunded, refused stop. The table generate_image.py's post_image uses.
+    verdict=$(RC="$rc" STATUS="$post_status" RA="$post_ra" python3 -c "
+import json, math, os, sys
+rc, ra = int(os.environ['RC']), os.environ['RA'].strip()
+status = int(os.environ['STATUS']) if os.environ['STATUS'].isdigit() else 0
 try:
-    w = (json.loads(sys.stdin.read(), strict=False)['error'].get('details') or {}).get('retryAfterSeconds')
-except Exception:
-    w = None
-w = int(h) if h.isdigit() else (int(w) if isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0 else 2)
-print(min(w, 30))
-" <<<"$response" 2>/dev/null) || post_wait=2
-          echo "[#$idx] HTTP $post_status $post_code, nothing was charged: sending it once more in ${post_wait}s. $response"
-          sleep "$post_wait"
-          continue ;;
+    answer = json.loads(sys.stdin.read(), strict=False)
+except ValueError:
+    answer = None
+err = answer.get('error') if isinstance(answer, dict) else None
+err = err if isinstance(err, dict) else {}
+code = err.get('code')
+details = err.get('details') if isinstance(err.get('details'), dict) else {}
+if rc == 0:
+    kind = 'ok' if isinstance(answer, dict) else 'lost'
+elif rc != 22:
+    kind = 'lost'
+elif not code:
+    kind = 'lost' if status >= 500 else 'refused'
+elif (status, code) in ((429, 'rate_limited'), (503, 'unavailable')):
+    kind = 'busy'
+elif status == 409 and code == 'conflict' and details.get('idempotencyKey'):
+    kind = 'conflict'
+elif status == 502 and code == 'provider_failed':
+    kind = 'vendor' if details.get('reasonCode') in (None, 'vendor_error', 'vendor_timeout') else 'refunded'
+else:
+    kind = 'lost' if status >= 500 else 'refused'
+w = details.get('retryAfterSeconds')
+w = int(ra) if ra.isdigit() else (w if isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0 else 2)
+print(kind, min(math.ceil(w), 30))
+" <<<"$response" 2>/dev/null) || verdict=""
+    [ -n "$verdict" ] || verdict="lost 2"
+    kind=${verdict%% *}
+    post_wait=${verdict##* }
+    [ "$kind" = ok ] && break
+    case "$kind" in lost|conflict) maybe_charged=1 ;; esac
+    again=0
+    if [ "$send" -eq 1 ]; then
+      first=$kind
+      case "$kind" in busy|lost|vendor|conflict) again=1 ;; esac
+    elif [ "$send" -eq 2 ] && [ "$kind" = conflict ] && [ "$first" != conflict ]; then
+      again=1
+    fi
+    if [ "$again" -eq 1 ]; then
+      case "$kind" in
+        busy) echo "[#$idx] HTTP $post_status, nothing was charged: sending it once more in ${post_wait}s with the same idempotencyKey. $response" ;;
+        lost) echo "[#$idx] ${post_status:+HTTP $post_status, }it may have been made: sending it once more in ${post_wait}s with the same idempotencyKey, which is never charged twice. ${response:-no answer: $post_errline}" ;;
+        vendor) echo "[#$idx] HTTP 502, refunded: drawing it once more in ${post_wait}s, charged once if it works. $response" ;;
+        conflict) echo "[#$idx] HTTP 409, the first send is still being made, charged once at most: asking again in ${post_wait}s with the same idempotencyKey. $response" ;;
       esac
+      sleep "$post_wait"
+      continue
     fi
     echo "$response" > "$OUTPUT_DIR/${idx}_error.json"
-    case "$rc:$post_status:$post_code" in
-      22:429:rate_limited|22:503:unavailable)
-        echo "[#$idx] ERROR: HTTP $post_status, refused again after the wait. Nothing was charged: send it again later. $response" ;;
-      22:4??:*|22:502:?*|22:503:?*)
-        echo "[#$idx] ERROR: HTTP $post_status: $response" ;;
-      *)
-        echo "[#$idx] ERROR: ${post_status:+HTTP $post_status: }${response:-no answer} $(head -c 300 "$post_err" 2>/dev/null)"
-        echo "[#$idx] This may have rendered and been charged anyway: find it with GET /v1/generations before sending it again. POST /v1/images takes no idempotency key, so a resend renders and charges again." ;;
-    esac
+    echo "[#$idx] ERROR: ${post_status:+HTTP $post_status: }${response:-no answer: $post_errline}"
+    if [ "$kind" = conflict ]; then
+      echo "[#$idx] The first send with idempotencyKey $key is still being made, so it is charged once at most: find its job with GET /v1/generations and poll it. Running it again sends a new key, which renders and charges again."
+    elif [ "$maybe_charged" -eq 1 ]; then
+      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): find it with GET /v1/generations before running it again. A new run sends a new key, so it would render and charge again."
+    elif [ "$kind" = busy ]; then
+      echo "[#$idx] HTTP $post_status, refused again after the wait. Nothing was charged: send it again later."
+    fi
     rm -f "$post_hdr" "$post_err"
     return 1
   done
@@ -306,14 +346,22 @@ print(''.join(', %s=%s' % (k, d[k]) for k in ('reasonCode', 'error') if d.get(k)
   return 0
 }
 
-# ─── ONE RESEND, ONLY WHEN NOTHING WAS CHARGED ──────────────────────────────
-# A 429, whatever its reason, and the API's own 503 (`unavailable`) are answered before
-# any charge stands, so generate_one sends that call once more, after the wait the
-# answer names (Retry-After, else error.details.retryAfterSeconds, else 2 s; never more
-# than 30 s). A second refusal stops it, nothing charged. Nothing else is sent again:
-# POST /v1/images takes no idempotency key, so a resend after a timeout, a dropped
-# connection or a 500 can render and charge twice. If a generation fails that way,
-# check GET /v1/generations for a job that already landed before resubmitting it by hand.
+# ─── ONE KEY PER THUMBNAIL, AND WHEN A CALL GOES OUT AGAIN ──────────────────
+# generate_one puts a new idempotencyKey (a uuid4) in each thumbnail's POST /v1/images
+# body and keeps it for that call's resends. The API answers a key it has seen within
+# 24 hours with that first send's job (the same jobId, charge and image), answers 409
+# while the first send is still being made, and gives the key back when it refuses a
+# call or a draw fails at once and is refunded, so a resend with the same key is never
+# a second charge. A failed POST goes out once more, after the answer's Retry-After
+# (else error.details.retryAfterSeconds, else 2 s; never more than 30 s), on a 429 or
+# the API's own 503 (nothing charged); on no answer (a timeout, a dropped connection),
+# a 500 or another 5xx (the key answers with the first send if it was made); and on a
+# 502 provider_failed whose reasonCode is vendor_error, vendor_timeout or none
+# (refunded, so a new draw). A 409 for the key, the first send still being made, gets
+# one wait and send of its own, even as the answer to a resend. Anything else stops at
+# once: another 4xx, or a 502 whose reasonCode names the picture or the prompt, which
+# fails the same way again. A stop says whether the thumbnail may stand charged; if so,
+# find it with GET /v1/generations before running it again: a new run sends a new key.
 
 # ─── PROMPTS ────────────────────────────────────────────────────────────────
 # Define your prompts here. Each entry generates one thumbnail.

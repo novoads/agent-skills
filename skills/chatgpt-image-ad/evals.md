@@ -172,15 +172,17 @@ arrives**.
   losing images 2..N would be acceptable.
 - Each image is written to disk as it is read, before the next template starts. No
   batch held in memory and saved at the end.
-- A timed-out call is **not** re-sent: `POST /v1/images` takes no idempotency key, so a
-  retry renders and charges again. `GET /v1/generations` is checked first, matched on `createdAt`.
+- A timed-out call is sent again only under its own `idempotencyKey`, which the script does
+  once by itself: the API answers a key it has seen with the first job, never a second charge.
+  Once the script has stopped, a new call is a new key, which renders and charges again, so
+  `GET /v1/generations` is checked first, matched on `createdAt`.
 - At most 4 requests in flight: the run's own cap, under an org image queue of 12 that
   every other image call the org runs through the API shares.
 - A `429` is branched on `details.reason`: `image_concurrency_limit` clears only by waiting,
   and `Retry-After` is honoured rather than the backoff being tightened.
 
-**Fails if:** a batch is held in memory; or a timeout is retried without a lookup; or
-the concurrency refusal is treated as a rate limit.
+**Fails if:** a batch is held in memory; or a timed-out call is sent again under a new key
+without a lookup; or the concurrency refusal is treated as a rate limit.
 
 ---
 

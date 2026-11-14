@@ -258,11 +258,17 @@ leaves room for other image calls the organization runs through the API.
 
 ### Do not blindly retry a failed generation
 
-`POST /v1/images` takes no idempotency key, so resubmitting after a timeout or a `500` can
-render and charge twice. Check `GET /v1/generations` for a job that already landed before
-resubmitting. The batch script sends a call once more by itself only after a refusal that
-charged nothing, a `429` or the API's own `503`, once it has waited the `Retry-After` (at most
-30 s); it never resends a timeout, a dropped connection or a `500`.
+Every `POST /v1/images` the batch script sends carries an `idempotencyKey`, a new one per
+thumbnail and the same on that thumbnail's resends: the same key within 24 hours answers with the
+first call's job, so a resend with it is never charged twice. The script sends a call once more by
+itself after a `429` or the API's own `503` (nothing was charged), after a timeout, a dropped
+connection, a `500` or another `5xx` (the key answers with the first call if it landed), and after a
+`502` whose `reasonCode` is `vendor_error`, `vendor_timeout` or none (refunded, so a new draw), once
+it has waited the `Retry-After` (else 2 s, at most 30 s); a `409` for the key, the first call still
+being made, gets one wait and send of its own. Anything else stops at once. A thumbnail that stops
+after a lost answer or a `409` may stand charged, once: check `GET /v1/generations` for a job that
+already landed before running it again, because a new run sends a new key, which renders and
+charges again.
 
 ### macOS bash 3.2
 

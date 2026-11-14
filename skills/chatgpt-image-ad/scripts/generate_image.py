@@ -10,9 +10,9 @@ Novoads usually returns the finished images from the POST itself, which blocks f
 the render (typically 60-90 seconds). Since API 2.39.0 a render still going after
 about 105 seconds answers status "running" with no images; generate() then polls
 GET /v1/generations/{jobId} to a terminal status. It never resubmits: that job is paid.
-A POST the API refuses before any charge (a 429, or its own 503) is sent once more,
-after the wait the answer names. A lost answer or a 500 is never sent again: that job
-may have been charged, and POST /v1/images takes no idempotency key.
+Every POST carries an idempotencyKey, a new one per call: the API answers a key it has
+seen with that first send's job, so a call sent again with it is never charged twice. A
+failed POST is sent once more with the same key where that can help (see post_image).
 
 Output contract:
   stdout: one JSON object per generated image, one per line
@@ -28,6 +28,7 @@ Stdlib only. No requests, no python-dotenv.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -35,6 +36,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -157,15 +159,18 @@ class ApiError(RuntimeError):
     `code` is the envelope's `error.code`, or None when the answer is not the
     API's own (an edge page). `retry_after` is the wait the answer named, in
     seconds (`Retry-After`, else `error.details.retryAfterSeconds`), or None.
+    `details` is the envelope's `error.details`, or {}.
     """
 
     def __init__(self, message: str, url: str, status: int,
-                 code: str | None = None, retry_after: float | None = None) -> None:
+                 code: str | None = None, retry_after: float | None = None,
+                 details: dict | None = None) -> None:
         super().__init__(message)
         self.url = url
         self.status = status
         self.code = code
         self.retry_after = retry_after
+        self.details = details if isinstance(details, dict) else {}
 
 
 def _seconds(value: object) -> float | None:
@@ -182,7 +187,7 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> ApiError:
     raw = e.read().decode("utf-8", errors="replace")
     wait = _seconds(e.headers.get("Retry-After")) if e.headers is not None else None
     try:
-        err = json.loads(raw).get("error", {})
+        parsed = json.loads(raw)
     except json.JSONDecodeError:
         # Not our envelope at all -> it never reached the application. The one
         # that bites: Cloudflare's bot rule refusing the default urllib UA.
@@ -195,6 +200,10 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> ApiError:
                 url, e.code,
             )
         return ApiError(f"HTTP {e.code} on {url}: {raw}", url, e.code)
+    # JSON that is not the envelope (no `error` object) is read as not the API's own.
+    err = parsed.get("error") if isinstance(parsed, dict) else None
+    if not isinstance(err, dict):
+        err = {}
     code = err.get("code", "?")
     msg = err.get("message", raw)
     details = err.get("details")
@@ -212,7 +221,7 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> ApiError:
             hint = f" (reasonCode: {details['reasonCode']})"
         if wait is None:
             wait = _seconds(details.get("retryAfterSeconds"))
-    return ApiError(f"HTTP {e.code} {code} on {url}: {msg}{hint}", url, e.code, err.get("code"), wait)
+    return ApiError(f"HTTP {e.code} {code} on {url}: {msg}{hint}", url, e.code, err.get("code"), wait, details)
 
 
 # api.novoads.ai sits behind Cloudflare, whose bot rule 403s the default
@@ -447,45 +456,88 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
     return {**job, "status": status}
 
 
-# A POST the API refuses before any charge is sent once more, after the wait the
-# answer names: a 429, whatever its reason, and the API's own 503 (`unavailable`;
-# on `image_capacity` the charge was taken and given back at once). Nothing else is
-# sent again: POST /v1/images takes no idempotency key, so a resend after a lost
-# answer or a 500 can render and charge a second time.
-RESEND_ON = {429: "rate_limited", 503: "unavailable"}
+# Every POST /v1/images carries an `idempotencyKey`: a new one per call, made in
+# generate() and kept for that call's resends. The API answers a key it has seen
+# within 24 hours with that first send's job (the same jobId, charge and images)
+# instead of drawing and charging again, answers 409 while the first send is still
+# being made, and gives the key back when it refuses a call or a draw fails at once
+# and is refunded. So a resend with the same key is never a second charge, and a
+# failed POST is sent once more where that can help:
+#   busy      a 429 (`rate_limited`) or the API's own 503 (`unavailable`): nothing
+#             was charged;
+#   lost      no answer (a timeout, a dropped connection), an answer that is not
+#             JSON, a 500, or another 5xx that is not the API's own 502 or 503: the
+#             first send may have been made, and the key answers with it if it was;
+#   vendor    the API's 502 `provider_failed` for the vendor's own failure
+#             (`reasonCode` vendor_error, vendor_timeout or none): refunded, so the
+#             resend is a new draw, charged once if it works;
+#   conflict  a 409 for the key: the first send is still being made. After a lost
+#             answer the resend often meets it, so it gets its own wait and send.
+# Each waits the answer's Retry-After, else error.details.retryAfterSeconds, else
+# 2 s, never more than 30 s. A refusal (any other 4xx) and a 502 that names the
+# picture or the prompt (`moderation`, `input_image_*`) fail the same way again, so
+# they stop at once.
 RESEND_WAIT_DEFAULT_S = 2
 RESEND_WAIT_MAX_S = 30
+VENDOR_REASONS = (None, "vendor_error", "vendor_timeout")
+RESEND_SAYS = {
+    "busy": "nothing was charged; sending it once more",
+    "lost": "it may have been made; sending it once more",
+    "vendor": "refunded; drawing it once more",
+    "conflict": "the first send with this key is still being made; asking again",
+}
+# What a POST raises when its answer is lost or cut short.
+NO_ANSWER = (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeDecodeError)
 
 
-def charged_nothing(e: BaseException) -> bool:
-    """A refusal that charged nothing and asks to be sent again: a 429, or the API's 503."""
-    return isinstance(e, ApiError) and e.code is not None and RESEND_ON.get(e.status) == e.code
+class PostStopped(RuntimeError):
+    """POST /v1/images gave up: its last failure, the key every send carried, and the charge it may leave.
 
-
-def no_charge_stands(e: BaseException) -> bool:
-    """Whether the POST was answered with a refusal that leaves no charge standing.
-
-    A 4xx refuses before the charge; the API's own 502 refunds the attempt and its
-    503 charged nothing. A 500, any other 5xx, an answer that is not the API's, a
-    failed poll and no answer at all leave the charge unknown.
+    `kind` is the last answer's (failure_kind). `maybe_charged` says a send's answer
+    was lost or was the key's 409, so the call may stand charged, once.
     """
-    if not isinstance(e, ApiError) or not e.url.endswith("/v1/images"):
-        return False
-    return e.status < 500 or (e.code is not None and e.status in (502, 503))
+
+    def __init__(self, last: BaseException, key: str, kind: str, maybe_charged: bool) -> None:
+        super().__init__(str(last) or type(last).__name__)
+        self.key = key
+        self.kind = kind
+        self.maybe_charged = maybe_charged
+
+
+def failure_kind(e: BaseException) -> str:
+    """What a failed POST says: busy, lost, vendor, conflict (sent again) or refunded, refused."""
+    if not isinstance(e, ApiError):
+        return "lost"
+    if e.code is None:  # not the API's own answer: an edge page
+        return "lost" if e.status >= 500 else "refused"
+    if (e.status, e.code) in ((429, "rate_limited"), (503, "unavailable")):
+        return "busy"
+    if e.status == 409 and e.code == "conflict" and e.details.get("idempotencyKey"):
+        return "conflict"
+    if e.status == 502 and e.code == "provider_failed":
+        return "vendor" if e.details.get("reasonCode") in VENDOR_REASONS else "refunded"
+    return "lost" if e.status >= 500 else "refused"
 
 
 def post_image(url: str, headers: dict, body: dict) -> dict:
-    """POST /v1/images, sent once more after a refusal that charged nothing."""
-    try:
-        return http_post_json(url, headers, body, timeout=GENERATE_TIMEOUT_S)
-    except ApiError as e:
-        if not charged_nothing(e):
-            raise
-        wait = min(RESEND_WAIT_DEFAULT_S if e.retry_after is None else e.retry_after,
-                   RESEND_WAIT_MAX_S)
-        log(f"{e}\n  nothing was charged; sending it once more in {wait:g}s")
-        time.sleep(wait)
-    return http_post_json(url, headers, body, timeout=GENERATE_TIMEOUT_S)
+    """POST /v1/images, sent again with the same idempotencyKey where that can help (above)."""
+    kinds: list[str] = []
+    while True:
+        try:
+            return http_post_json(url, headers, body, timeout=GENERATE_TIMEOUT_S)
+        except (ApiError, *NO_ANSWER) as e:
+            kind = failure_kind(e)
+            kinds.append(kind)
+            again = (len(kinds) == 1 and kind in RESEND_SAYS) or (
+                len(kinds) == 2 and kind == "conflict" and kinds[0] != "conflict")
+            if not again:
+                raise PostStopped(e, body["idempotencyKey"], kind,
+                                  any(k in ("lost", "conflict") for k in kinds)) from e
+            named = e.retry_after if isinstance(e, ApiError) else None
+            wait = min(RESEND_WAIT_DEFAULT_S if named is None else named, RESEND_WAIT_MAX_S)
+            log(f"{str(e) or type(e).__name__}\n  {RESEND_SAYS[kind]} in {wait:g}s "
+                f"with the same idempotencyKey, which is never charged twice")
+            time.sleep(wait)
 
 
 def generate(
@@ -498,11 +550,15 @@ def generate(
     auth_hdr: str,
     source_asset_id: str | None = None,
 ) -> dict:
-    """One POST /v1/images, polled to a terminal status if it answers `running`. Returns the ImageJob."""
+    """One POST /v1/images, polled to a terminal status if it answers `running`. Returns the ImageJob.
+
+    The body carries a new idempotencyKey, which every resend of it keeps (post_image).
+    """
     body: dict = {
         "model": LOCKED_MODEL,
         "prompt": prompt,
         "numImages": num_images,
+        "idempotencyKey": str(uuid.uuid4()),
     }
     # Exactly one of these two ever goes on the wire. The API 400s if both are
     # sent, deliberately: an edit's output tracks the source's shape, so an
@@ -753,23 +809,38 @@ def main() -> int:
             final_prompt, args.aspect_ratio, args.n, ref_asset_ids,
             product_id, base_url, auth_hdr, source_asset_id,
         )
-    except Exception as e:  # noqa: BLE001
+    except PostStopped as e:
         log(f"generation FAILED — {e}")
-        if charged_nothing(e):
+        if e.kind == "conflict":
+            log(f"  the first send with idempotencyKey {e.key} is still being made, so it is "
+                "charged once at most: find its job with `GET /v1/generations?limit=5` and poll "
+                "it. Running this again sends a new key, which renders and charges again.")
+        elif e.maybe_charged:
+            # The render blocks inside the POST for 60-90s, so a lost answer does
+            # NOT mean a lost render: the first send may have landed and been
+            # CHARGED while its answer never arrived. Every send carried the same
+            # key, so that is once at most, but a new run sends a new key.
+            log(
+                "  before running it again: this may have rendered and been charged, once "
+                f"(every send carried idempotencyKey {e.key}). Check `GET /v1/generations?limit=5` "
+                "for a job matching this prompt and createdAt — a succeeded row carries the "
+                "image in `outputUrl`. A new run sends a new key, so it would render and "
+                "charge again."
+            )
+        elif e.kind == "busy":
             log("  nothing was charged: it was refused again after the wait. "
                 "Send it again later.")
-        elif not no_charge_stands(e):
-            # The render blocks inside the POST for 60-90s, so a lost answer does
-            # NOT mean a lost render: the job may have landed and been CHARGED
-            # while the answer never arrived. POST /v1/images takes no idempotency
-            # key, so sending it again renders and charges again. Check first.
-            log(
-                "  before sending it again: this may have rendered and been charged anyway. "
-                "Check `GET /v1/generations?limit=5` for a job matching this prompt "
-                "and createdAt — a succeeded row carries the image in `outputUrl`. "
-                "POST /v1/images takes no idempotency key, so sending it again renders "
-                "and charges a SECOND time."
-            )
+        return 1
+    except Exception as e:  # noqa: BLE001
+        # Past the POST (a poll that failed: that job was accepted), or a fault of
+        # this script's own: the charge is unknown, so check before running it again.
+        log(f"generation FAILED — {e}")
+        log(
+            "  before running it again: this may have rendered and been charged. "
+            "Check `GET /v1/generations?limit=5` for a job matching this prompt "
+            "and createdAt — a succeeded row carries the image in `outputUrl`. "
+            "A new run sends a new key, so it would render and charge again."
+        )
         return 1
 
     job_id = job.get("jobId", "")

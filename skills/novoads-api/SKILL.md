@@ -411,15 +411,15 @@ Returns `assetId`, `uploadUrl`, `method`, and `headers`.
 Then PUT the raw bytes to `uploadUrl`, sending **exactly** the headers it returned:
 
 ```bash
-curl -sS -X PUT "$UPLOAD_URL" \
+curl -sS -w '%{http_code}\n' -X PUT "$UPLOAD_URL" \
   -H "Content-Type: image/jpeg" \
   -H "Content-Length: 248193" \
   --data-binary @product.jpg
 ```
 
-Both headers are signed into the URL. `image/jpeg; charset=utf-8` is a 403, and so is a `Content-Length` that does not match the bytes you send. `sizeBytes` must be the real file size, so measure it, do not estimate it.
+Both headers are signed into the URL. `image/jpeg; charset=utf-8` is a 403, and so is a `Content-Length` that does not match the bytes you send. `sizeBytes` must be the real file size, so measure it, do not estimate it. The `-w` prints the PUT's status: `200` means the upload is done, and a `403` comes after storage's XML error.
 
-**Upload once, reuse the id.** The `assetId` can be reused across calls and across models, which is what makes prototyping on `seedance-2.0-mini` and finalizing on `seedance-2.0` cheap. The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`. Keep your source file: if a call cannot find or read the file behind an old id, or a job built on one fails and its `reasonCode` names no other cause (`reference.md`, Status lifecycle), upload it again and send the new id.
+**Upload once, reuse the id; it is ready when the PUT answers `200`.** The `assetId` has no status and nothing to poll, and it is not a job id: `GET /v1/generations/{jobId}` reads only a `jobId`, the id a call that starts a job returns (step 4's, here), and an `assetId` sent there gets an error, never a job, however long you wait. The `assetId` can be reused across calls and across models, which is what makes prototyping on `seedance-2.0-mini` and finalizing on `seedance-2.0` cheap. The 900-second expiry belongs to the presigned *upload URL*, not to the `assetId`. Keep your source file: if a call cannot find or read the file behind an old id, or a job built on one fails and its `reasonCode` names no other cause (`reference.md`, Status lifecycle), upload it again and send the new id.
 
 **Start frame or references, not both.** `startImageAssetId` animates one image as the first frame (on `omni-flash` it is a reference instead, below). `referenceAssetIds` (up to **9** on Seedance and `wan-3.0`, up to its own limit on `omni-flash`, images only; Seedance video and audio references have their own fields, below) composites the images as visual references, addressed positionally in the prompt text as `@Image1`…`@ImageN` in the order you send them. They select different modes on the model, so a body carrying both is a `400`.
 

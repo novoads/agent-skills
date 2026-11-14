@@ -12,6 +12,29 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Fixed
+
+**An upload is ready when its PUT answers `200`.** The upload steps in `novoads-api`, its reference and
+`analyze-video` (its template block too), `AGENTS.md` and `shared/references/README.md` now say so: an
+`assetId` has no status and nothing to poll, and it is not a job id, since `GET /v1/generations/{jobId}`
+reads only a `jobId`, the id a call that starts a job returns. Nothing said it before, so a program could
+wait on an upload as if it were a render. The step-1 PUT example prints its status, and eval NA11 pins it.
+
+**A still the API made is not uploaded again.** `product-showcase`, `influencer-recreation` and
+`ugc-product-selfie` told the agent to upload the approved still before the video, and skipped the PUT. They
+now pass the still's own `assetId` from its `POST /v1/images` result, or from the job read after a `running`
+answer, as `clone-video-ad` does. A job of several stills takes the approved still's row in `images[]`, never
+`outputAssetId`, which is the first still's (eval NA12).
+
+**`generate-batch.sh` uploads its references whole, and stops when one is refused.** Its PUT went through
+`eval` unquoted, which cut the presigned URL at its first `&`, so storage refused every reference upload, and
+nothing read the PUT's status. The headers are now an array (no `eval`), so any file name works, and a PUT
+that does not answer `200` now stops the batch with `UPLOAD PUT FAIL` and storage's error before any image
+is generated, so nothing is charged. The monitor line in the script and `SKILL.md` now shows, as it is
+written, every line where the run or a thumbnail stops (`grep --line-buffered -E
+"DONE|FAIL|ERROR|MISSING|resubmit|charged"`): without `--line-buffered`, grep held them, so an agent watching saw
+nothing.
+
 ## v1.6.0 — 2026-11-13
 
 ### Changed

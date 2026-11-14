@@ -141,8 +141,8 @@ sys.exit(1 if failed else 0)
 PY
 py_rc=$?
 
-# B1 to B3: generate-batch.sh is a template that runs a whole batch when it starts,
-# so its one function and its run total are run on their own.
+# B1 to B5: generate-batch.sh is a template that runs a whole batch when it starts,
+# so its two functions and its run total are run on their own.
 B=skills/generate-youtube-thumbnail/scripts/generate-batch.sh
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -216,6 +216,73 @@ if [ -n "$TOT" ] && [ "$total" = "8.0" ]; then
   ok B3 "batch: the run total leaves out a failed or blocked job and counts one with a raw newline"
 else
   bad B3 "batch: the run total (want 8.0, got '$total')"
+fi
+
+# B4 and B5: upload_file sends the presigned URL and the signed headers whole, and a
+# PUT that is not 200 stops it. The stand-in storage answers 200 only when the whole
+# &-joined URL and both headers arrive, so a second parse of either (an eval) fails B4.
+mkdir -p "$WORK/ubin" "$WORK/utmp"
+cat > "$WORK/ubin/curl" <<'SH'
+#!/usr/bin/env bash
+# Stand-in curl for upload_file: the POST answers a presign whose URL carries &, and the
+# PUT answers 200 only when that whole URL and both signed headers arrive ($MODE=ok).
+out=""; url=""; wfmt=""; method=""; hdrs=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -w) wfmt="$2"; shift 2 ;;
+    -X) method="$2"; shift 2 ;;
+    -H) hdrs="$hdrs$2
+"; shift 2 ;;
+    -d|--data-binary) shift 2 ;;
+    http*) url="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+PUT_URL='https://storage.example.invalid/put?X-Amz-Algorithm=A&X-Amz-Credential=B&X-Amz-Signature=C'
+case "$method $url" in
+  "POST https://api.example.invalid/v1/uploads")
+    printf '{"assetId":"org_123/u1.jpg","uploadUrl":"%s","method":"PUT","headers":{"Content-Type":"image/jpeg","Content-Length":"3"}}' "$PUT_URL" ;;
+  "PUT "*)
+    code=403
+    if [ "$MODE" = ok ] && [ "$url" = "$PUT_URL" ] \
+      && printf '%s' "$hdrs" | grep -qx 'Content-Type: image/jpeg' \
+      && printf '%s' "$hdrs" | grep -qx 'Content-Length: 3'; then code=200; fi
+    if [ -n "$out" ]; then
+      if [ "$code" = 200 ]; then : > "$out"; else printf '<Error><Code>SignatureDoesNotMatch</Code></Error>' > "$out"; fi
+    fi
+    [ -n "$wfmt" ] && printf '%s' "$code" ;;
+  *) echo "stand-in curl: unexpected $method $url" >&2; exit 7 ;;
+esac
+SH
+chmod +x "$WORK/ubin/curl"
+REF="$WORK/logo (1) & it's.png"
+printf 'abc' > "$REF"
+UFN=$(awk '/^upload_file\(\) \{/{on=1} on{print} on && /^\}$/{exit}' "$B")
+upload() {
+  (
+    set -euo pipefail
+    export PATH="$WORK/ubin:$PATH" MODE="$1"
+    API=https://api.example.invalid NOVOADS_API_KEY=x TMP_DIR="$WORK/utmp"
+    prepare_image() { cp "$1" "$2"; }
+    eval "$UFN"
+    aid=$(upload_file "$REF") || exit 1
+    printf '%s\n' "$aid"
+  )
+}
+
+out=$(upload ok 2>&1); rc=$?
+if [ -n "$UFN" ] && [ "$rc" -eq 0 ] && [ "$out" = "org_123/u1.jpg" ]; then
+  ok B4 "batch: an upload sends the &-joined URL and both headers whole, even for a file named with ( & '"
+else
+  bad B4 "batch: an upload with an &-joined URL (exit $rc): $(printf '%s' "$out" | tail -1)"
+fi
+
+out=$(upload deny 2>&1); rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF "UPLOAD PUT FAIL: HTTP 403 <Error><Code>SignatureDoesNotMatch"; then
+  ok B5 "batch: a refused PUT stops the upload and names the status and storage's error"
+else
+  bad B5 "batch: a refused PUT (exit $rc): $(printf '%s' "$out" | tail -1)"
 fi
 
 printf '  batch: %d passed, %d failed\n' "$pass" "$fail"

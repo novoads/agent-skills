@@ -17,7 +17,7 @@ uploaded via `POST /v1/uploads` and cited in `referenceAssetIds` — there is no
 this API. The call usually returns the images: it blocks for the render (typically 60–90 seconds) and
 returns the finished image. A render still going after about 105 seconds answers `status: "running"` with no images instead (API 2.39.0): poll `GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there. Never resubmit it; that job is already paid.
 
-**Video route (after approval):** upload the approved still → pass its `assetId` as
+**Video route (after approval):** pass the approved still's own `assetId` (no second upload) as
 `startImageAssetId` on a Seedance video. See the `novoads-api` skill's SKILL.md for the call.
 Veo 3.1 is on this API as `veo-3.1` (start frame only; see [veo-3-1.md](veo-3-1.md)); Sora 2 was removed from it in 2026-09.
 
@@ -120,7 +120,7 @@ Once the user approves the prompt:
 
 Only after the user says the still looks good:
 
-1. Upload the approved still via `POST /v1/uploads` → keep the `assetId`.
+1. Take the approved still's own `assetId`, the one its `POST /v1/images` result carries beside `url`, or `outputAssetId` on the job read when the call answered `running`. It is already an asset: uploading it again only mints a second id for the same picture.
 2. Pass it as `startImageAssetId` on a Seedance video (`POST /v1/videos`). Note `startImageAssetId` and `referenceAssetIds` are **separate modes** — sending both is a `400`, not a merge.
 3. Video is **asynchronous**, unlike an image call (which usually answers in its response): the call returns `202` with a `jobId`; poll `GET /v1/generations/{jobId}` for a **terminal** status, then `…/watch` for the download. The `novoads-api` skill's SKILL.md owns that sequence, including its own cost gate.
 
@@ -146,6 +146,6 @@ sheen on blouse. Photorealistic.
 ## Tips for consistency across multiple generations
 
 - Save the approved prompt text in `MASTER_CONTEXT.md` under a heading like **"Influencer: [name/alias]"** so future sessions can reuse it without re-analyzing.
-- When generating video from the recreation, pass the approved still's `assetId` as `startImageAssetId` on a Seedance video (see [reference.md](../../reference.md) for the upload → assetId pipeline).
+- When generating video from the recreation, pass the approved still's `assetId` as `startImageAssetId` on a Seedance video (see [reference.md](../../reference.md#chain-from-imagesassetid-never-from-imagesurl), *Chain from `images[].assetId`, never from `images[].url`*).
 - **Reuse the same `assetId`** rather than re-uploading the same photo: a fresh upload is the same picture under a new id, so it is needed only when a call or a job built on the old id fails.
 - Small wording changes between generations will drift the face. Keep the core description **frozen** and only vary pose, clothing, or setting in subsequent prompts.

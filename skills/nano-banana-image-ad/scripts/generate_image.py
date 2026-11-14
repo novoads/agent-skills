@@ -17,6 +17,8 @@ GET /v1/generations/{jobId} to a terminal status. It never resubmits: that job i
 Every POST carries an idempotencyKey, a new one per call: the API answers a key it has
 seen with that first send's job, so a call sent again with it is never charged twice. A
 failed POST is sent once more with the same key where that can help (see post_image).
+The key is printed before the POST, and --idempotency-key sends it again from a new run,
+so a run that was cut off gets its call's answer back instead of a second, paid picture.
 
 Output contract:
   stdout: one JSON object per generated image, one per line
@@ -463,12 +465,13 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
 
 
 # Every POST /v1/images carries an `idempotencyKey`: a new one per call, made in
-# generate() and kept for that call's resends. The API answers a key it has seen
-# within 24 hours with that first send's job (the same jobId, charge and images)
-# instead of drawing and charging again, answers 409 while the first send is still
-# being made, and gives the key back when it refuses a call or a draw fails at once
-# and is refunded. So a resend with the same key is never a second charge, and a
-# failed POST is sent once more where that can help:
+# main() (or given back with --idempotency-key) and kept for that call's resends.
+# The API answers a key it has seen within 24 hours with that first call's answer
+# (the same jobId, charge and images) instead of drawing and charging again,
+# answers 409 while the first call is still being made, and gives the key back
+# when it refuses a call or a draw fails at once and is refunded. So a resend with
+# the same key is never a second charge, and a failed POST is sent once more where
+# that can help:
 #   busy      a 429 (`rate_limited`) or the API's own 503 (`unavailable`): nothing
 #             was charged;
 #   lost      no answer (a timeout, a dropped connection), an answer that is not
@@ -476,15 +479,23 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
 #             first send may have been made, and the key answers with it if it was;
 #   vendor    the API's 502 `provider_failed` for the vendor's own failure
 #             (`reasonCode` vendor_error, vendor_timeout or none): refunded, so the
-#             resend is a new draw, charged once if it works;
-#   conflict  a 409 for the key: the first send is still being made. After a lost
-#             answer the resend often meets it, so it gets its own wait and send.
+#             resend is a new draw, charged once if it works.
 # Each waits the answer's Retry-After, else error.details.retryAfterSeconds, else
-# 2 s, never more than 30 s. A refusal (any other 4xx) and a 502 that names the
-# picture or the prompt (`moderation`, `input_image_*`) fail the same way again, so
-# they stop at once.
+# 2 s, never more than 30 s, and a call gets one such resend. A refusal (any other
+# 4xx) and a 502 that names the picture or the prompt (`moderation`,
+# `input_image_*`) fail the same way again, so they stop at once.
+#   conflict  a 409 for the key: the first call with it is still being made, after a
+#             lost answer or when --idempotency-key gives back the key of a run that
+#             was cut off. It is asked again after each Retry-After, else 5 s, until
+#             the waits on 409s reach 120 s, and never uses the one resend: the API
+#             answers a call within about 105 s of its start, which came before the
+#             first 409. Past that the API says its answer was not recorded and the
+#             same key keeps answering 409, so the script stops and says to find the job.
 RESEND_WAIT_DEFAULT_S = 2
 RESEND_WAIT_MAX_S = 30
+CONFLICT_WAIT_DEFAULT_S = 5
+CONFLICT_WAIT_TOTAL_S = 120
+KEY_MAX_CHARS = 255  # the API's bound on idempotencyKey, after trimming
 VENDOR_REASONS = (None, "vendor_error", "vendor_timeout")
 RESEND_SAYS = {
     "busy": "nothing was charged; sending it once more",
@@ -500,14 +511,17 @@ class PostStopped(RuntimeError):
     """POST /v1/images gave up: its last failure, the key every send carried, and the charge it may leave.
 
     `kind` is the last answer's (failure_kind). `maybe_charged` says a send's answer
-    was lost or was the key's 409, so the call may stand charged, once.
+    was lost or was the key's 409, or the key came from an earlier run, so the call
+    may stand charged, once. `waited` is the seconds waited on the key's 409s.
     """
 
-    def __init__(self, last: BaseException, key: str, kind: str, maybe_charged: bool) -> None:
+    def __init__(self, last: BaseException, key: str, kind: str, maybe_charged: bool,
+                 waited: float = 0) -> None:
         super().__init__(str(last) or type(last).__name__)
         self.key = key
         self.kind = kind
         self.maybe_charged = maybe_charged
+        self.waited = waited
 
 
 def failure_kind(e: BaseException) -> str:
@@ -525,24 +539,42 @@ def failure_kind(e: BaseException) -> str:
     return "lost" if e.status >= 500 else "refused"
 
 
-def post_image(url: str, headers: dict, body: dict) -> dict:
-    """POST /v1/images, sent again with the same idempotencyKey where that can help (above)."""
+def post_image(url: str, headers: dict, body: dict, key_given: bool = False) -> dict:
+    """POST /v1/images, sent again with the same idempotencyKey where that can help (above).
+
+    `key_given` says the key came from --idempotency-key: an earlier run may have sent
+    it, so a stop never says that nothing was charged.
+    """
     kinds: list[str] = []
+    resent = False
+    waited = 0.0  # seconds waited on the key's 409s, in all
     while True:
         try:
             return http_post_json(url, headers, body, timeout=GENERATE_TIMEOUT_S)
         except (ApiError, *NO_ANSWER) as e:
             kind = failure_kind(e)
             kinds.append(kind)
-            again = (len(kinds) == 1 and kind in RESEND_SAYS) or (
-                len(kinds) == 2 and kind == "conflict" and kinds[0] != "conflict")
+            named = e.retry_after if isinstance(e, ApiError) else None
+            if kind == "conflict":
+                wait = min(max(CONFLICT_WAIT_DEFAULT_S if named is None else named, 1), RESEND_WAIT_MAX_S)
+                again = waited + wait <= CONFLICT_WAIT_TOTAL_S
+            else:
+                wait = min(RESEND_WAIT_DEFAULT_S if named is None else named, RESEND_WAIT_MAX_S)
+                again = kind in RESEND_SAYS and not resent
             if not again:
                 raise PostStopped(e, body["idempotencyKey"], kind,
-                                  any(k in ("lost", "conflict") for k in kinds)) from e
-            named = e.retry_after if isinstance(e, ApiError) else None
-            wait = min(RESEND_WAIT_DEFAULT_S if named is None else named, RESEND_WAIT_MAX_S)
-            log(f"{str(e) or type(e).__name__}\n  {RESEND_SAYS[kind]} in {wait:g}s "
-                f"with the same idempotencyKey, which is never charged twice")
+                                  key_given or any(k in ("lost", "conflict") for k in kinds),
+                                  waited) from e
+            if kind == "conflict":
+                waited += wait
+                # The server's message once per run of 409s; then one short line each.
+                said = f"{e}\n  " if kinds[-2:-1] != ["conflict"] else "  HTTP 409 again: "
+                log(f"{said}{RESEND_SAYS[kind]} in {wait:g}s with the same idempotencyKey "
+                    f"({waited:g}s of {CONFLICT_WAIT_TOTAL_S}s)")
+            else:
+                resent = True
+                log(f"{str(e) or type(e).__name__}\n  {RESEND_SAYS[kind]} in {wait:g}s "
+                    f"with the same idempotencyKey, which is never charged twice")
             time.sleep(wait)
 
 
@@ -554,17 +586,20 @@ def generate(
     product_id: str | None,
     base_url: str,
     auth_hdr: str,
+    idempotency_key: str | None = None,
+    key_given: bool = False,
 ) -> dict:
     """One POST /v1/images, polled to a terminal status if it answers `running`. Returns the ImageJob.
 
-    The body carries a new idempotencyKey, which every resend of it keeps (post_image).
+    The body carries `idempotency_key` (a new one when none is passed), which every
+    resend of it keeps (post_image).
     """
     body: dict = {
         "model": LOCKED_MODEL,
         "prompt": prompt,
         "aspectRatio": aspect_ratio,
         "numImages": num_images,
-        "idempotencyKey": str(uuid.uuid4()),
+        "idempotencyKey": idempotency_key or str(uuid.uuid4()),
     }
     if ref_asset_ids:
         body["referenceAssetIds"] = ref_asset_ids
@@ -576,7 +611,7 @@ def generate(
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
-    job = post_image(f"{base_url}/v1/images", headers, body)
+    job = post_image(f"{base_url}/v1/images", headers, body, key_given)
     return wait_for_images(job, base_url, headers)
 
 
@@ -674,6 +709,16 @@ def main() -> int:
             "character here comes off your prompt's budget. Unpinned marks get invented."
         ),
     )
+    p.add_argument(
+        "--idempotency-key",
+        metavar="KEY",
+        help=(
+            "Send this idempotencyKey instead of a new one: the key a run that was cut off "
+            "printed before its call. Within 24 hours the API answers it with that call's "
+            "answer, charged once, whatever this run's prompt says, so pass it only to run "
+            "the same call again, never for a corrected prompt."
+        ),
+    )
     args = p.parse_args()
 
     if args.model != LOCKED_MODEL:
@@ -686,6 +731,12 @@ def main() -> int:
 
     if not (1 <= args.n <= MAX_IMAGES):
         log(f"error: --n must be 1..{MAX_IMAGES} (got {args.n})")
+        return 2
+
+    given_key = None if args.idempotency_key is None else args.idempotency_key.strip()
+    if given_key is not None and not 1 <= len(given_key) <= KEY_MAX_CHARS:
+        log(f"error: --idempotency-key must be 1 to {KEY_MAX_CHARS} characters after trimming "
+            f"(got {len(given_key)}). Pass the key a run printed, as it printed it.")
         return 2
 
     # Both flags fill the same referenceAssetIds array, so the cap counts the pair.
@@ -753,29 +804,44 @@ def main() -> int:
         for ref in args.image_ref:
             ref_asset_ids.append(upload_reference(ref, base_url, auth_hdr))
 
+    # The key goes out on the wire only once this line is printed, so a run that is
+    # cut off (a tool's own timeout, a closed session) has said how to get its call back.
+    key = given_key or str(uuid.uuid4())
+    if given_key:
+        log(f"idempotencyKey {key} (given): a call already made with it answers with its "
+            "first answer, charged once")
+    else:
+        log(f"idempotencyKey {key}: if this run is cut off, run it again with "
+            f"--idempotency-key {key} within 24 hours to get this call's answer instead of "
+            "a new picture")
     log(f"submitting (this blocks for the render, typically 60-90s)…")
     try:
         job = generate(
             final_prompt, args.aspect_ratio, args.n, ref_asset_ids,
             product_id, base_url, auth_hdr,
+            idempotency_key=key, key_given=bool(given_key),
         )
     except PostStopped as e:
         log(f"generation FAILED — {e}")
         if e.kind == "conflict":
-            log(f"  the first send with idempotencyKey {e.key} is still being made, so it is "
-                "charged once at most: find its job with `GET /v1/generations?limit=5` and poll "
-                "it. Running this again sends a new key, which renders and charges again.")
+            log(f"  idempotencyKey {e.key} still answered 409 after {e.waited:g}s of asking: the "
+                "API says its first call's answer was not recorded, and that call is charged once "
+                "at most. Find its job with `GET /v1/generations?limit=5` and poll it. The same "
+                "key keeps answering 409, and a run without it sends a new key, which renders and "
+                "charges again.")
         elif e.maybe_charged:
             # The render blocks inside the POST for 60-90s, so a lost answer does
             # NOT mean a lost render: the first send may have landed and been
             # CHARGED while its answer never arrived. Every send carried the same
-            # key, so that is once at most, but a new run sends a new key.
+            # key, so that is once at most, and the same key gets that answer back.
             log(
                 "  before running it again: this may have rendered and been charged, once "
-                f"(every send carried idempotencyKey {e.key}). Check `GET /v1/generations?limit=5` "
-                "for a job matching this prompt and createdAt — a succeeded row carries the "
-                "image in `outputUrl`. A new run sends a new key, so it would render and "
-                "charge again."
+                f"(every send carried idempotencyKey {e.key}). Run it again with "
+                f"`--idempotency-key {e.key}` within 24 hours: that call's answer comes back "
+                "if it was made, or it is drawn if it was not, charged once either way. Or "
+                "check `GET /v1/generations?limit=5` for a job matching this prompt and "
+                "createdAt — a succeeded row carries the image in `outputUrl`. A run without "
+                "the flag sends a new key, so it would render and charge again."
             )
         elif e.kind == "busy":
             log("  nothing was charged: it was refused again after the wait. "
@@ -786,10 +852,11 @@ def main() -> int:
         # this script's own: the charge is unknown, so check before running it again.
         log(f"generation FAILED — {e}")
         log(
-            "  before running it again: this may have rendered and been charged. "
-            "Check `GET /v1/generations?limit=5` for a job matching this prompt "
-            "and createdAt — a succeeded row carries the image in `outputUrl`. "
-            "A new run sends a new key, so it would render and charge again."
+            "  before running it again: this may have rendered and been charged. Run it "
+            f"again with `--idempotency-key {key}` within 24 hours to get that call's answer, "
+            "charged once, or check `GET /v1/generations?limit=5` for a job matching this "
+            "prompt and createdAt — a succeeded row carries the image in `outputUrl`. "
+            "A run without the flag sends a new key, so it would render and charge again."
         )
         return 1
 
@@ -833,7 +900,11 @@ def main() -> int:
     for r in results:
         print(json.dumps(r), flush=True)
 
-    log(f"all {len(results)} image(s) succeeded — {credits} credits charged for this call")
+    if given_key:
+        log(f"all {len(results)} image(s) succeeded — {credits} credits, charged once for "
+            f"idempotencyKey {key}")
+    else:
+        log(f"all {len(results)} image(s) succeeded — {credits} credits charged for this call")
     return 0
 
 

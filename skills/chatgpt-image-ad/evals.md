@@ -158,13 +158,17 @@ to get an id it was already given.
 **Scenario.** The full-library run: one product photo, every template whose Model notes
 mark this model clean or preferred, one flat output folder.
 
-**Why, and it is measured.** A `numImages > 1` call charges for every image, and on a
-single-row job only the **first** is recoverable afterwards — `GET /v1/generations/{jobId}`
-returns a single `outputUrl`, and images 2..N exist nowhere but the body of the response
-that returned them. The render blocks inside the POST for 60–90 seconds, so a proxy or CDN idle
-timeout (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and charged for. That is the
-run's own text: **one image per call**, and **write every image to disk the moment it
-arrives**.
+**Why.** A `numImages > 1` call charges for every image, and on a single-row job only the
+**first** is on the job afterwards — `GET /v1/generations/{jobId}` returns a single
+`outputUrl`, and images 2..N are in the body of the response that returned them and in a
+resend of that same call with its `idempotencyKey`, which answers within 24 hours with that
+first answer, every image of it, each `url` signed again. The API answers within about 105
+seconds, as `running` past that, under the CDN's cut at around 125 seconds; what still loses
+an answer is the caller's side: a tool's own timeout that kills the script, or a dropped
+connection. The script resends once by itself, and prints the key before the call, so a run
+that is killed can be run again with it (`--idempotency-key`). A run that loses both the
+response and its key has paid for images 2..N it cannot reach. That is the run's own text:
+**one image per call**, and **write every image to disk the moment it arrives**.
 
 **Assertions.**
 
@@ -174,15 +178,19 @@ arrives**.
   batch held in memory and saved at the end.
 - A timed-out call is sent again only under its own `idempotencyKey`, which the script does
   once by itself: the API answers a key it has seen with the first job, never a second charge.
-  Once the script has stopped, a new call is a new key, which renders and charges again, so
-  `GET /v1/generations` is checked first, matched on `createdAt`.
+  Once the script has stopped, the run goes again with `--idempotency-key` and the key it
+  printed, or `GET /v1/generations` is checked first, matched on `createdAt`: a run without
+  the flag is a new key, which renders and charges again.
+- A QA retry or a corrected prompt runs without `--idempotency-key`: the first call's key
+  answers with its first picture whatever the new prompt says.
 - At most 4 requests in flight: the run's own cap, under an org image queue of 12 that
   every other image call the org runs through the API shares.
 - A `429` is branched on `details.reason`: `image_concurrency_limit` clears only by waiting,
   and `Retry-After` is honoured rather than the backoff being tightened.
 
 **Fails if:** a batch is held in memory; or a timed-out call is sent again under a new key
-without a lookup; or the concurrency refusal is treated as a rate limit.
+without a lookup; or a corrected prompt is sent under the first call's key; or the
+concurrency refusal is treated as a rate limit.
 
 ---
 
@@ -230,9 +238,11 @@ against first attempts; or the final report sums estimates instead of charges.
   half is spec-read, not probed here.
 - **GI4 is a repeat offence**, which is the argument for it existing: the field was
   available and the run still did the dance, because nothing an operator reads said so.
-- **GI5's premise is measured** (the response can be the only copy; the POST blocks long
-  enough for an idle timeout to land). What is untested is an agent losing images to it
-  in this pack.
+- **GI5's premise is measured** (a single-row job's read carries image 1 only, so the
+  response can be the only copy). The replay that brings images 2..N back is the API's
+  documented behaviour for the key, checked here against a stand-in server
+  (`scripts/test-image-resend.sh`), not probed live. What is untested is an agent losing
+  images to it in this pack.
 - **GI6 is prospective and says so.** It is the one case here with no incident behind it.
 - **No credit figures appear in this file by design.** Multiples and ordering survive;
   the number comes from `POST /v1/estimates` in the session that spends it.

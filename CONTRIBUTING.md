@@ -94,6 +94,7 @@ python3 scripts/build-skill-md.py --check
 ./scripts/test-placeholder-lint.sh
 ./scripts/test-parity-i2m.sh
 ./scripts/test-image-poll.sh
+./scripts/test-image-resend.sh
 ```
 
 `build-skill-md.py --check` is the one to run after touching either storyboard skill. It is a

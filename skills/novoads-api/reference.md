@@ -408,11 +408,13 @@ Reference order is preserved and can be addressed positionally by the prompt. Th
 
 Images accept **no `startImageAssetId`** — there is no first-frame concept on a still — and **no `styleFamily`**, which no longer exists anywhere on this API.
 
+**`idempotencyKey`** (optional, 1 to 255 characters after trimming): the same key within 24 hours returns the first call's answer instead of drawing and charging again, whatever the new body says: the same `jobId` and `creditsCharged` and every image of `numImages`, each `url` signed again, or `running` with `images: []` if that is what the first call answered, which you then poll. While that first call is still being made, the key answers `409` `conflict`: send the same call again in a moment with the same key. If it still answers `409` after two minutes, its answer was not recorded and that key keeps answering `409`: find its job with `GET /generations` and poll it. A call refused before it is accepted, or whose render fails at once and is refunded (`502` `provider_failed`, `503` `image_capacity`), gives its key back, so the same key then runs; a job that fails after its `running` answer keeps its key. One key covers the whole call, on a model body or a `preset`, scoped to your organization and to this endpoint. So a key belongs to one call: reuse it only to retry the identical call, after a timeout or a lost answer above all, and send a new key for every new or corrected picture.
+
 ### A slow render answers `running`: poll it (API 2.39.0)
 
 Most image renders still come back finished in the `200`. Since API 2.39.0 the server waits about 105 seconds for a render; one still going at that point answers **`200` with `status: "running"`, the same `jobId` and `images: []`**.
 
-- That is a paid render in progress, not a failure, and **never a reason to resubmit**: a resubmit renders and charges again. `creditsCharged` is in that first response; log it there.
+- That is a paid render in progress, not a failure, and **never a reason to resubmit**: a resubmit under a new key, or none, renders and charges again, and one under the same key only answers `running` again. `creditsCharged` is in that first response; log it there.
 - Poll `GET /generations/{jobId}` every 15 seconds to a **terminal** status (see [Status lifecycle](#status-lifecycle)). On `succeeded` the job carries `outputUrl` and `outputAssetId`, with `images[]` in order on a job of several (`url`, `expiresInSeconds` and `assetId` on each). On `failed` or `blocked` the credits are refunded.
 - A job with several images is one job, one entry in `GET /generations`, and one slot against the image budget.
 - **Any script that reads `images[]` from the response must branch on `status` first.** A script that does not reports a paid, still-rendering job as an empty result. The pack's own image scripts poll; a hand-rolled `curl` has to do the same.
@@ -470,28 +472,35 @@ property is absent, this deployment cannot edit, and no retry will change that.
 A `numImages > 1` call charges for every image, and you may not get them all back. A job the
 service rendered as one row per image carries `images[]` on `GET /generations/{jobId}` and on
 the list. A single-row job does not: it has one `outputUrl`, image 1, and images 2..N exist
-nowhere but the body of the response that returned them. Which of the two a call becomes is
-not yours to set, so lose that response and the credits stay spent on images you may not reach.
+nowhere but the body of the response that returned them, and in a resend of that call with its
+`idempotencyKey`, which answers within 24 hours with that first answer. Which of the two a call
+becomes is not yours to set, so lose that response and its key and the credits stay spent on
+images you may not reach.
 
-That is not a hypothetical: the render blocks inside the POST for 60–90 seconds, so a
-proxy or CDN idle-timeout on a long call (the CDN in front of this API cuts at around 125 seconds) drops a response for work the API already did and
-charged for. Two consequences worth building around:
+That is not a hypothetical: the render blocks inside the POST for 60–90 seconds, and the API
+answers within about 105 seconds (as `running` past that, under the CDN's cut at around 125
+seconds), so what drops a response for work the API already did and charged for is the caller's
+side: a client or tool timeout shorter than that, a proxy's idle cut, a dropped connection.
+Two consequences worth building around:
 
 - **Write each image to disk as you read it**, before doing anything else with the response.
   Do not hold a batch in memory and save at the end.
 - **Prefer one image per call in a long batch.** `numImages: 4` is one concurrency slot and
   the same price as four calls, which is the right trade when four variants of one prompt
   are wanted. It is the wrong trade when the four are independent deliverables, because it
-  can put three unrecoverable images behind a single response.
+  can put three images behind a single response, recoverable only through its key.
 
   Since spec `2.12.0` this costs you nothing in throughput: images have their **own** budget
   of **12** concurrent jobs, so twelve single-image calls run at once and each response is
   independently recoverable. Fire the batch twelve wide rather than serialising it — 36
   images is three waves, not thirty-six calls in a row.
 
-If a call does time out, do **not** re-send it — `POST /images` takes no idempotency key, so a
-retry renders and charges again. Check `GET /generations` first and match on `createdAt`; a job
-that landed is already there, and image 1 is retrievable even though its siblings are not.
+If a call does time out, send it again with its `idempotencyKey`, never under a new one, which
+renders and charges again: within 24 hours that key answers with the first call's answer, every
+image of it, charged once, or `409` while the first is still being made (ask again in a moment).
+A call sent without a key, or whose key is lost, cannot be asked for its answer again: check
+`GET /generations` first and match on `createdAt`; a job that landed is already there, and
+image 1 is retrievable even though its siblings are not.
 
 ---
 
@@ -1161,7 +1170,7 @@ Envelope, on every failure:
 | `forbidden` | 403 | `details.reason` is `plan_required` or `subscription_inactive`, or the API is not enabled for that organization. |
 | `not_found` | 404 | No such object **for this organization**. Deliberately indistinguishable from someone else's object. |
 | `method_not_allowed` | 405 | Real path, wrong verb. Carries an `Allow` header. |
-| `conflict` | 409 | Includes `/watch` on an unfinished job. On `POST /videos`, the same `idempotencyKey` while its first submission is still being accepted (one with a start picture can first wait up to 30 seconds for it to be prepared, after up to about 25 seconds for the AI's background on a picture seen for the first time): nothing charged a second time; send it again in a moment and the first submission comes back, and if it still answers `409` after two minutes, find its job with `GET /generations`. |
+| `conflict` | 409 | Includes `/watch` on an unfinished job. On `POST /videos` and `POST /images`, the same `idempotencyKey` while its first call is still running: a video submission while it is being accepted (one with a start picture can first wait up to 30 seconds for it to be prepared, after up to about 25 seconds for the AI's background on a picture seen for the first time), a picture while it is being made (the call waits up to about 105 seconds for it). Nothing charged a second time; send it again in a moment with the same key and the first answer comes back, and if it still answers `409` after two minutes, find its job with `GET /generations`. |
 | `content_policy` | 422 | Moderation, and the **only** refusal of a prompt for what it says. Nothing charged. |
 | `rate_limited` | 429 | **Seventeen causes**, nine of them broken out. See below. |
 | `internal_error` | 500 | **Do not blindly retry.** See below. |
@@ -1215,9 +1224,9 @@ An agent that reads only "429 means slow down" backs off on the wrong axis when 
 
 ### The 500 rule
 
-The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice. Video calls take an `idempotencyKey` (API 2.52.0), and a retry with the same key returns the first job instead of a second charge, so a key is only for a retry of the identical call; `POST /images` takes none.
+The generation endpoints charge credits, and a failure can land **after** the debit committed. A blind retry can pay twice. Video calls (API 2.52.0) and picture calls take an `idempotencyKey`, and a retry with the same key returns the first job instead of a second charge, so a key is only for a retry of the identical call.
 
-On a 500: call `GET /v1/generations` first. If the job is there, poll it. Only resubmit if it is genuinely absent.
+On a 500, a call that carried a key is sent again identical, with that key: the first job comes back if one was made, `409` while it is still being made, and a failure that gave the key back runs once more. A call without one: call `GET /v1/generations` first. If the job is there, poll it. Only resubmit if it is genuinely absent.
 
 ---
 

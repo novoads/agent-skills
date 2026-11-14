@@ -863,7 +863,7 @@ def main() -> int:
     else:
         log(f"idempotencyKey {key}: if this run is cut off, run it again with "
             f"--idempotency-key {key} within 24 hours to get this call's answer instead of "
-            "a new picture")
+            "a second, paid picture")
     log(f"submitting (this blocks for the render, typically 60-90s)…")
     try:
         job = generate(

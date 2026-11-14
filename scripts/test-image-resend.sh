@@ -12,14 +12,17 @@
 # waits the same way. A refusal stops at once. A resend under a new key would be a
 # second, paid picture, so every resend here is checked to carry the first send's body
 # and key, and a run that is cut off is checked to have printed the key that gets its
-# call back. The batch's own main loop is run too: each prompt sent with its own key.
+# call back and the time it sent it, from which every stop's look for the job starts
+# (a day earlier for a key an earlier run may have sent). The batch's own main loop is
+# run too: each prompt sent with its own key.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
 echo "image-resend tests"
 
 python3 -I - "$(pwd)" <<'PY'
-import http.server, json, os, signal, subprocess, sys, tempfile, threading, time, uuid
+import http.server, json, os, re, signal, subprocess, sys, tempfile, threading, time, uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -183,9 +186,12 @@ READ_OK = {"jobId": "job-1", "status": "succeeded", "kind": "image", "model": "m
 
 # What each family prints. {k} is the key every send of the call carried. None: that family
 # does not say it in that case (the batch's stops name BATCH_KEY only when the batch set it).
-LOOKUP = "GET /v1/generations?kind=image&limit=50"
-NO_JOB = "no such job means nothing was charged"
+LOOKUP = "GET /v1/generations?kind=image&limit=50&updatedSince="
+NO_JOB = "no such job since then means nothing was charged"
 REAPER = "may be waiting for the API to fail it and refund it"
+# A rerun with a key whose call failed with its charge standing: 409, then the conflict stop.
+KEPT = ("or, where that call failed with its charge standing, it answers 409 until its 24 hours pass, "
+        "and the run then stops with where to find its job")
 SAYS = {
     "py": {
         "busy": "nothing was charged; sending it once more in",
@@ -202,7 +208,14 @@ SAYS = {
         "lookup": LOOKUP,
         "no-job": NO_JOB,
         "reaper": REAPER,
-        "keyline": "idempotencyKey {k}: if this run is cut off, run it again with --idempotency-key {k}",
+        "kept": KEPT,
+        "redraw": ("This key keeps answering 409 for its 24 hours: once that job has failed or is not there, run "
+                   "it again without --idempotency-key, a new key, charged once. Sooner, the picture may stand "
+                   "charged twice"),
+        "past-post": ("this may have rendered and been charged. Run it again with `--idempotency-key {k}` within "
+                      "24 hours to get that call's answer"),
+        "keyline": "idempotencyKey {k}, sent ",
+        "cut-off": "if this run is cut off, run it again with --idempotency-key {k} within 24 hours",
         "edge": "Cloudflare error 1010",
         "input": "(reasonCode: input_image_unreadable)",
     },
@@ -220,7 +233,14 @@ SAYS = {
         "lookup": LOOKUP,
         "no-job": NO_JOB,
         "reaper": REAPER,
-        "keyline": "[#1] Submitting with idempotencyKey {k}",
+        "kept": None,
+        "redraw": ("This key keeps answering 409 for its 24 hours, and the same BATCH_KEY sends it again for this "
+                   "thumbnail: once that job has failed or is not there, run this thumbnail alone with a new batch "
+                   "key (only its prompt in PROMPTS, no BATCH_KEY), one new key, charged once. Sooner, it may stand "
+                   "charged twice"),
+        "past-post": None,
+        "keyline": "[#1] Submitting with idempotencyKey {k}, sent ",
+        "cut-off": None,
         "edge": "ERROR: HTTP 403:",
         "input": "input_image_unreadable",
     },
@@ -234,9 +254,10 @@ NOT = {
 }
 STOPS = ("stop-busy", "stop-maybe", "stop-conflict")
 
-# What a stop says beyond its first line: where to look, and what an empty look means.
-MAYBE = ["stop-maybe", "after-24h", "lookup", "no-job"]
-CONFLICT_STOP = ["stop-conflict", "lookup", "no-job", "reaper"]
+# What a stop says beyond its first line: where to look, what an empty look means, and how
+# a key the API kept is met (MAYBE) or drawn again under a new key (CONFLICT_STOP).
+MAYBE = ["stop-maybe", "after-24h", "lookup", "no-job", "kept"]
+CONFLICT_STOP = ["stop-conflict", "lookup", "no-job", "reaper", "redraw"]
 
 # name, plan, exit, POSTs, waits slept, said, not said, the server message count (msg, n)
 CASES = [
@@ -335,11 +356,42 @@ def one_call(ps, key=None):
     return right_key and all(b == bs[0] for b in bs) and not any("idempotency-key" in p["headers"] for p in ps)
 
 
-def judge(family, label, run, case, key=None):
+STAMP = r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)"
+
+
+def utc(s):
+    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+def stamps(out, k, given, when, looked):
+    """What is wrong with the key line's send time and the lookups' bound, or None.
+
+    The key line says when its call was sent, in UTC, as the run's clock read it; every
+    lookup a stop prints starts a minute before that, and a day more for a given key.
+    `when` is (before, after) the run, in UTC.
+    """
+    sent = re.findall(r"idempotencyKey %s(?: \(given\))?, sent %s" % (re.escape(str(k)), STAMP), out)
+    if len(sent) != 1:
+        return "%d key lines with a send time" % len(sent)
+    t = utc(sent[0])
+    if not when[0] - timedelta(seconds=2) <= t <= when[1]:
+        return "sent %s, not the run's UTC time" % sent[0]
+    looks = re.findall(re.escape(LOOKUP) + STAMP, out)
+    back = timedelta(days=1 if given else 0, seconds=60)
+    if looked and (not looks or any(utc(s) != t - back for s in looks)):
+        return "lookup since %s for a send at %s" % (looks, sent[0])
+    return None
+
+
+def judge(family, label, run, case, key=None, given=False):
     rc, out, ps, pics, waits = run[:5]
     _, _, want_rc, want_posts, want_waits, said, not_said, count = case
     k = keys_of(ps)[0] if ps else None
     bad = []
+    # Every run that sent a call printed when; every lookup it printed starts from that time.
+    why = stamps(out, k, given, run[-1], "lookup" in said) if ps else None
+    if why:
+        bad.append(why)
     if rc != want_rc:
         bad.append("exit %s" % rc)
     if len(ps) != want_posts:
@@ -404,6 +456,7 @@ def py_run(path, fixed, plan, extra=(), cap=None, read=None):
     env = dict(CLEAN, IMAGE_RESEND_SLEPT=str(slept))
     if cap:
         env["IMAGE_RESEND_TIMEOUT"] = str(cap)
+    began = datetime.now(timezone.utc)
     try:
         p = subprocess.run(py_argv(path, fixed, d, env_file, extra), capture_output=True, text=True, env=env,
                            timeout=120)
@@ -412,7 +465,7 @@ def py_run(path, fixed, plan, extra=(), cap=None, read=None):
         rc, out = "timeout", ""
     pics = len(list(d.glob("*.png")))
     waits = [float(w) for w in slept.read_text().split()] if slept.exists() else []
-    return rc, out, posts(), pics, waits
+    return rc, out, posts(), pics, waits, (began, datetime.now(timezone.utc))
 
 
 def until_posted(n, seconds=20):
@@ -430,7 +483,7 @@ try:
             judge("py", "%s:%s" % (name, case[0]), py_run(path, fixed, case[1], cap=1), case)
 
         # One key covers every picture of numImages, and stays on the resend.
-        rc, out, ps, pics, waits = py_run(path, fixed, [E500, ok(2)], extra=["--n", "2"])
+        rc, out, ps, pics, waits = py_run(path, fixed, [E500, ok(2)], extra=["--n", "2"])[:5]
         nb = [b.get("numImages") for b in bodies(ps)]
         check("%s:n2" % name, rc == 0 and len(ps) == 2 and one_call(ps) and nb == [2, 2] and pics == 2,
               "--n 2, a 500 then 200: one key for both pictures, kept on the resend (numImages %s, exit %s)" % (nb, rc))
@@ -446,6 +499,7 @@ try:
         d = Path(tempfile.mkdtemp(dir=WORK))
         env_file = d / ".env"
         env_file.write_text("NOVOADS_API_KEY=novo_" + "0" * 64 + "\n")
+        began = datetime.now(timezone.utc)
         with open(d / "err.txt", "w") as err:
             p = subprocess.Popen(py_argv(path, fixed, d, env_file, []), stdout=subprocess.DEVNULL, stderr=err,
                                  env=dict(CLEAN, IMAGE_RESEND_SLEPT=str(d / "slept.txt")))
@@ -454,8 +508,10 @@ try:
             p.wait()
         said = (d / "err.txt").read_text()
         k = (keys_of(posts()) or [None])[0]
-        check("%s:cut-off-prints-key" % name, arrived and is_uuid(k, 4) and SAYS["py"]["keyline"].format(k=k) in said,
-              "a run killed while its POST is held has printed its key and how to send it again")
+        check("%s:cut-off-prints-key" % name, arrived and is_uuid(k, 4) and SAYS["py"]["keyline"].format(k=k) in said
+              and SAYS["py"]["cut-off"].format(k=k) in said
+              and not stamps(said, k, False, (began, datetime.now(timezone.utc)), False),
+              "a run killed while its POST is held has printed its key, when it sent it, and how to send it again")
         run = py_run(path, fixed, [OK], extra=["--idempotency-key", k or "missing"])
         check("%s:cut-off-run-again" % name, run[0] == 0 and len(run[2]) == 1 and one_call(run[2], k) and run[3] == 1
               and "idempotencyKey %s (given)" % k in run[1] and "charged once for idempotencyKey %s" % k in run[1],
@@ -466,18 +522,29 @@ try:
         check("%s:given-running" % name, run[0] == 0 and len(run[2]) == 1 and one_call(run[2], "key-from-an-earlier-run")
               and run[3] == 1 and run[4] == [15.0],
               "a given key answered `running` is polled once to its picture (exit %s, waits %s)" % (run[0], run[4]))
-        # With a given key, a stop never says nothing was charged: an earlier run may have been.
+        # With a given key, a stop never says nothing was charged: an earlier run may have been,
+        # so its look for the job reaches a day further back.
         judge("py", "%s:given-429x2" % name,
               py_run(path, fixed, [busy("1"), busy("1")], extra=["--idempotency-key", "key-from-an-earlier-run"]),
-              ("", [], 1, 2, [1], ["stop-maybe"], ("stop-busy",), None), key="key-from-an-earlier-run")
+              ("", [], 1, 2, [1], MAYBE, ("stop-busy",), None), key="key-from-an-earlier-run", given=True)
         given = py_run(path, fixed, [c409(), OK], extra=["--idempotency-key", "key-from-an-earlier-run"])
         judge("py", "%s:given-409>200" % name, given, ("", [], 0, 2, [15], ["conflict"], STOPS, None),
-              key="key-from-an-earlier-run")
+              key="key-from-an-earlier-run", given=True)
         # A given key may be older than 24 hours: the run says so before its call.
         check("%s:given-key-after-24h" % name,
-              "idempotencyKey key-from-an-earlier-run (given): a call made with it in the last 24 hours" in given[1]
+              re.search(r"idempotencyKey key-from-an-earlier-run \(given\), sent %s: a call made with it in the "
+                        r"last 24 hours" % STAMP, given[1]) is not None
               and "after 24 hours it draws and charges again" in given[1],
-              "the given-key line says a key older than 24 hours draws and charges again")
+              "the given-key line says when it was sent and that a key older than 24 hours draws and charges again")
+        # A given key that still answers 409 after 120 s was kept by the API: the stop looks a day
+        # back and says to draw the picture again under a new key once its job has failed.
+        judge("py", "%s:given-409-for-120s" % name,
+              py_run(path, fixed, [c409()] * 9 + [OK], extra=["--idempotency-key", "key-from-an-earlier-run"]),
+              ("", [], 1, 9, [15] * 8, CONFLICT_STOP, ("stop-busy", "stop-maybe"), None),
+              key="key-from-an-earlier-run", given=True)
+        # A poll refused after the POST was accepted: that job is charged, and the stop says where it is.
+        judge("py", "%s:poll-refused" % name, py_run(path, fixed, [RUNNING]),
+              ("", [], 1, 1, [15], ["past-post", "lookup", "no-job"], ("stop-busy", "stop-conflict"), None))
         # The API's bounds: 1 to 255 characters after trimming, refused before any call.
         for label, given, want in (("blank", "   ", None), ("256-chars", "k" * 256, None),
                                    ("255-chars", "k" * 255, "k" * 255), ("trimmed", "  key-1  ", "key-1")):
@@ -538,6 +605,7 @@ esac
         env = dict(CLEAN, **(env_extra or {}))
         if cap:
             env["CURL_MAX_TIME"] = str(cap)
+        began = datetime.now(timezone.utc)
         try:
             p = subprocess.run(batch_argv(out_dir, slept, mode, prompts), capture_output=True, text=True, env=env,
                                timeout=180)
@@ -547,7 +615,7 @@ esac
         files = sorted(f.name for f in out_dir.iterdir())
         pics = sum(1 for f in files if f.endswith("_thumbnail.png"))
         waits = [float(w) for w in slept.read_text().split()] if slept.exists() else []
-        return rc, out, posts(), pics, waits, files, out_dir
+        return rc, out, posts(), pics, waits, files, out_dir, (began, datetime.now(timezone.utc))
 
     for case in CASES:
         judge("batch", "batch:%s" % case[0], batch_run(case[1]), case)
@@ -568,6 +636,7 @@ esac
     reset([HELD])
     d = Path(tempfile.mkdtemp(dir=WORK))
     (d / "out").mkdir()
+    began = datetime.now(timezone.utc)
     with open(d / "out.txt", "w") as fh:
         p = subprocess.Popen(batch_argv(d / "out", d / "slept.txt", "one", (PROMPT,)), stdout=fh, stderr=fh,
                              env=CLEAN, start_new_session=True)
@@ -575,17 +644,21 @@ esac
         os.killpg(p.pid, signal.SIGKILL)  # the runner and the curl it started: this test's own
         p.wait()
     k = (keys_of(posts()) or [None])[0]
-    check("batch:cut-off-prints-key", arrived and is_uuid(k, 4) and SAYS["batch"]["keyline"].format(k=k)
-          in (d / "out.txt").read_text(), "a run killed while its POST is held has printed its key")
+    said = (d / "out.txt").read_text()
+    check("batch:cut-off-prints-key", arrived and is_uuid(k, 4) and SAYS["batch"]["keyline"].format(k=k) in said
+          and not stamps(said, k, False, (began, datetime.now(timezone.utc)), False),
+          "a run killed while its POST is held has printed its key and when it sent it")
     run = batch_run([OK], env_extra={"T_KEY": k or "missing"})
     check("batch:cut-off-run-again", run[0] == 0 and len(run[2]) == 1 and one_call(run[2], k) and run[3] == 1,
           "that key sent again: one POST, the same key, the thumbnail saved (exit %s)" % run[0])
-    # A stop that may leave a charge names the batch key, its 24 hours, and where to look.
+    # A stop that may leave a charge names the batch key, its 24 hours, a kept key's 409, and
+    # where to look first, from a minute before the thumbnail was sent (a batch key this run drew).
     run = batch_run([E500, E500], env_extra={"BATCH_KEY": "batch-1"})
     check("batch:500x2-names-batch-key", run[0] == 1 and "run the batch again unchanged with BATCH_KEY=batch-1" in run[1]
-          and SAYS["py"]["after-24h"] in run[1] and LOOKUP in run[1] and NO_JOB in run[1],
+          and SAYS["py"]["after-24h"] in run[1] and LOOKUP in run[1] and NO_JOB in run[1] and KEPT in run[1]
+          and not stamps(run[1], (keys_of(run[2]) or [None])[0], False, run[-1], True),
           "a stop that may leave a charge says to run the batch again with its BATCH_KEY within 24 hours, "
-          "and where to look first")
+          "what a kept key answers, and where to look first")
 
     # thumbnail_keys: the same batch run again draws the same keys; a change draws a new one.
     def keys(prompts, batch_key="batch-1", **env):
@@ -651,8 +724,21 @@ esac
           "no BATCH_KEY: a new one is drawn, printed, saved and used for every key")
     run = batch_run([busy("1"), busy("1")], mode="all", prompts=(PROMPT,), env_extra={"BATCH_KEY": "batch-1"})
     check("batch:all-batch-key-given-429x2", len(run[2]) == 2 and "1_error.json" in run[5]
-          and "run the batch again unchanged with BATCH_KEY=batch-1" in run[1] and NOT["batch"]["stop-busy"] not in run[1],
-          "BATCH_KEY from the environment: a 429 twice may stand charged from that earlier run, never 'nothing was charged'")
+          and "run the batch again unchanged with BATCH_KEY=batch-1" in run[1] and NOT["batch"]["stop-busy"] not in run[1]
+          and KEPT in run[1] and not stamps(run[1], (keys_of(run[2]) or [None])[0], True, run[-1], True),
+          "BATCH_KEY from the environment: a 429 twice may stand charged from that earlier run, never 'nothing was "
+          "charged', and the look for its job reaches a day further back")
+    # A thumbnail whose key the API kept: the same BATCH_KEY sends that key again, which answers
+    # 409 for its 24 hours, so the stop says to run that thumbnail alone with a new batch key.
+    kept_key = keys([PROMPT])[0]
+    run = batch_run([c409()] * 9 + [OK], mode="all", prompts=(PROMPT,), env_extra={"BATCH_KEY": "batch-1"})
+    check("batch:all-409-stop-alone", len(run[2]) == 9 and one_call(run[2], kept_key) and run[4] == [15.0] * 8
+          and "1_error.json" in run[5] and run[3] == 0
+          and all(SAYS["batch"][s].format(k=kept_key) in run[1] for s in CONFLICT_STOP)
+          and "a day and a minute before this send, since BATCH_KEY may be an earlier run's" in run[1]
+          and not stamps(run[1], kept_key, True, run[-1], True),
+          "BATCH_KEY given, its key still 409 after 120 s: the stop looks a day back and says to run that "
+          "thumbnail alone with a new batch key")
     run = batch_run([busy("1"), busy("1")], mode="all", prompts=(PROMPT,))
     check("batch:all-no-batch-key-429x2", len(run[2]) == 2 and NOT["batch"]["stop-busy"] in run[1]
           and NOT["batch"]["stop-maybe"] not in run[1],

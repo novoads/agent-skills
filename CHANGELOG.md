@@ -33,9 +33,14 @@ for up to 120 s in all, since the API waits about 105 s for a picture, and a `42
 time waits the same way instead of using the one resend, so pictures asking together do not stop on the
 per-key limit. Any other refusal stops at once, and a call that still fails stops with the server's message and
 says what it leaves: nothing charged, or a first call that may stand charged once, with its key and where
-to look, `GET /v1/generations?kind=image&limit=50` matched on the prompt and `createdAt`: a job still in
-progress may be drawing or waiting for the API to fail it and refund it, and no job means nothing was
-charged. That key is printed before the call, and `--idempotency-key <key>` sends it again from a new run
+to look, `GET /v1/generations?kind=image&limit=50&updatedSince=` a minute before the call was sent (a day
+more for a key an earlier run may have sent) and every further page, matched on `promptPreview`, a
+prompt's first 120 characters, and `createdAt`, each match read whole with `GET /v1/generations/{jobId}`:
+a job still in progress may be drawing or waiting for the API to fail it and refund it, and no job since
+then means nothing was charged. A key the API kept after a failure whose charge stands answers `409` for
+its 24 hours, so the stop says to draw that picture again under a new key once its job has failed or is
+not there, and that sooner it may stand charged twice; the batch runs that thumbnail alone without
+`BATCH_KEY`. That key is printed before the call with the time it was sent, and `--idempotency-key <key>` sends it again from a new run
 within 24 hours, so a run that was cut off gets that call's answer instead of a second, paid picture;
 after 24 hours the same key draws and charges again, which the scripts say wherever they hand a key back. The batch
 prints its `BATCH_KEY`, saves it in its output folder and draws each thumbnail's key from it and that

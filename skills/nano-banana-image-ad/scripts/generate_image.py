@@ -44,7 +44,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 BASE_URL_DEFAULT = "https://api.novoads.ai"  # host only; this script appends /v1/...
@@ -501,10 +501,26 @@ BUSY_WAIT_MAX_S = 60
 CONFLICT_WAIT_DEFAULT_S = 15
 CONFLICT_WAIT_TOTAL_S = 120
 KEY_MAX_CHARS = 255  # the API's bound on idempotencyKey, after trimming
-# Where a stop says to look for its call's job: the newest image jobs, as many as one read
-# gives, since several pictures in flight can push a job past the newest few. The API writes
-# a job in the same step as its charge, so no job for that prompt and time is no charge.
-LOOKUP = "GET /v1/generations?kind=image&limit=50"
+# Where a stop says to look for its call's job. The list shows a job's `promptPreview`, the
+# first 120 characters of its prompt, which prompts that start alike share, so a match is read
+# with GET /v1/generations/{jobId}, whose `prompt` is whole. `updatedSince` bounds the look by
+# the call's time and every page is read, so no job there is no charge: the API writes a job in
+# the same step as its charge, and each later write moves its `updatedAt` on. The bound is a
+# minute before the first send, for a clock a little ahead of the API's, and a day more for a
+# key an earlier run may have sent, which answers for a first call that recent.
+LOOKUP = "GET /v1/generations?kind=image&limit=50&updatedSince="
+LOOKUP_EARLY_S = 60
+
+
+def lookup(sent_at: datetime, key_given: bool) -> str:
+    """Where the stops say to find the call's job, from the time its key was sent (see LOOKUP)."""
+    since = sent_at - timedelta(days=1 if key_given else 0, seconds=LOOKUP_EARLY_S)
+    before = ("a day and a minute before this send, since the key may be an earlier run's"
+              if key_given else "a minute before its first send")
+    return (f"`{LOOKUP}{since:%Y-%m-%dT%H:%M:%SZ}` ({before}) and its further pages (`offset` "
+            "while `hasMore`): a job created since then whose `promptPreview`, the first 120 "
+            "characters of its prompt, begins as this prompt does; where several do, read each "
+            "with `GET /v1/generations/{jobId}` and take the one whose whole `prompt` does")
 VENDOR_REASONS = (None, "vendor_error", "vendor_timeout")
 RESEND_SAYS = {
     "busy": "nothing was charged; sending it once more",
@@ -827,15 +843,20 @@ def main() -> int:
             ref_asset_ids.append(upload_reference(ref, base_url, auth_hdr))
 
     # The key goes out on the wire only once this line is printed, so a run that is
-    # cut off (a tool's own timeout, a closed session) has said how to get its call back.
+    # cut off (a tool's own timeout, a closed session) has said how to get its call back,
+    # and when it was sent, which bounds the look for its job (lookup).
     key = given_key or str(uuid.uuid4())
+    sent_at = datetime.now(timezone.utc).replace(microsecond=0)
+    look = lookup(sent_at, bool(given_key))
     if given_key:
-        log(f"idempotencyKey {key} (given): a call made with it in the last 24 hours answers "
-            "with its first answer, charged once; after 24 hours it draws and charges again")
+        log(f"idempotencyKey {key} (given), sent {sent_at:%Y-%m-%dT%H:%M:%SZ}: a call made with "
+            "it in the last 24 hours answers with its first answer, charged once; after 24 "
+            "hours it draws and charges again")
     else:
-        log(f"idempotencyKey {key}: if this run is cut off, run it again with "
-            f"--idempotency-key {key} within 24 hours to get this call's answer instead of "
-            "a second, paid picture (after 24 hours that key draws and charges again)")
+        log(f"idempotencyKey {key}, sent {sent_at:%Y-%m-%dT%H:%M:%SZ}: if this run is cut off, "
+            f"run it again with --idempotency-key {key} within 24 hours to get this call's "
+            "answer instead of a second, paid picture (after 24 hours that key draws and "
+            "charges again)")
     log(f"submitting (this blocks for the render, typically 60-90s)…")
     try:
         job = generate(
@@ -848,11 +869,12 @@ def main() -> int:
         if e.kind == "conflict":
             log(f"  idempotencyKey {e.key} still answered 409 after {e.waited:g}s of asking: its "
                 "first call's answer was not recorded, and that call is charged once at most. "
-                f"Find its job in `{LOOKUP}` by this prompt and createdAt and poll it to its "
-                "end: one still in progress may still be drawing, or may be waiting for the API "
-                "to fail it and refund it, and no such job means nothing was charged. Run it "
-                "again only once that job has failed or is not there: a run sends a new key, a "
-                "second picture charged again, and this key keeps answering 409.")
+                f"Find its job in {look}. Poll it to its end: one still in progress may still be "
+                "drawing, or may be waiting for the API to fail it and refund it, and no such "
+                "job since then means nothing was charged. This key keeps answering 409 for its "
+                "24 hours: once that job has failed or is not there, run it again without "
+                "--idempotency-key, a new key, charged once. Sooner, the picture may stand "
+                "charged twice: that call and the new one.")
         elif e.maybe_charged:
             # The render blocks inside the POST for 60-90s, so a lost answer does
             # NOT mean a lost render: the first send may have landed and been
@@ -862,11 +884,13 @@ def main() -> int:
                 "  before running it again: this may have rendered and been charged, once "
                 f"(every send carried idempotencyKey {e.key}). Run it again with "
                 f"`--idempotency-key {e.key}` within 24 hours: that call's answer comes back "
-                "if it was made, or it is drawn if it was not, charged once either way. After "
-                f"24 hours that key draws and charges again, so look first: `{LOOKUP}`, a job "
-                "matching this prompt and createdAt; a succeeded one carries the image in "
-                "`outputUrl`, and no such job means nothing was charged. A run without the "
-                "flag sends a new key: a second picture, charged again, if the first was made."
+                "if it was made, or it is drawn if it was not, charged once either way, or, "
+                "where that call failed with its charge standing, it answers 409 until its 24 "
+                "hours pass, and the run then stops with where to find its job. After "
+                f"24 hours that key draws and charges again, so look first: {look}. A succeeded "
+                "one carries the image in `outputUrl`, and no such job since then means "
+                "nothing was charged. A run without the flag sends a new key: a second "
+                "picture, charged again, if the first was made."
             )
         elif e.kind == "busy":
             log("  nothing was charged: it was refused again after the wait. "
@@ -880,10 +904,9 @@ def main() -> int:
             "  before running it again: this may have rendered and been charged. Run it "
             f"again with `--idempotency-key {key}` within 24 hours to get that call's answer, "
             "charged once; after 24 hours that key draws and charges again. Or look in "
-            f"`{LOOKUP}` for a job matching this prompt and createdAt: a succeeded one "
-            "carries the image in `outputUrl`, and no such job means nothing was charged. "
-            "A run without the flag sends a new key: a second picture, charged again, if "
-            "the first was made."
+            f"{look}. A succeeded one carries the image in `outputUrl`, and no such job "
+            "since then means nothing was charged. A run without the flag sends a new key: "
+            "a second picture, charged again, if the first was made."
         )
         return 1
 

@@ -177,10 +177,12 @@ generate_one() {
   local ref_json=$3
 
   # One idempotencyKey for this thumbnail, in the body of each of its POSTs: the one
-  # thumbnail_keys drew for it, else a new one (see ONE KEY). Printed before the POST.
-  local body response key=${4:-}
+  # thumbnail_keys drew for it, else a new one (see ONE KEY). Printed before the POST, with
+  # the time it was sent, which bounds a stop's look for its job.
+  local body response key=${4:-} sent_at
   [ -n "$key" ] || key=$(python3 -c "import uuid; print(uuid.uuid4())")
-  echo "[#$idx] Submitting with idempotencyKey $key (blocks ~60-90s for the render)..."
+  sent_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  echo "[#$idx] Submitting with idempotencyKey $key, sent $sent_at (blocks ~60-90s for the render)..."
   body=$(KEY="$key" REF_JSON="$ref_json" PROMPT="$prompt" MODEL="$MODEL" ASPECT="$ASPECT" PRODUCT_ID="$PRODUCT_ID" python3 -c "
 import json, os
 body = {
@@ -302,14 +304,25 @@ print(kind, min(math.ceil(w), 60 if kind == 'busy' else 30))
     fi
     echo "$response" > "$OUTPUT_DIR/${idx}_error.json"
     echo "[#$idx] ERROR: ${post_status:+HTTP $post_status: }${response:-no answer: $post_errline}"
-    # Where to look for the job: the newest image jobs, as many as one read gives. The API
-    # writes a job in the same step as its charge, so no job for that prompt and time is no charge.
+    # Where to look for the job: every image job written since a minute before this thumbnail
+    # was sent (a clock a little ahead of the API's), a day more when BATCH_KEY was given (an
+    # earlier run may have sent this key), page by page. The list shows a prompt's first 120
+    # characters, which every thumbnail prompt of a batch shares, so each match is read whole.
+    # The API writes a job in the same step as its charge, so no job there is no charge.
+    local since lookup before="a minute before this thumbnail's first send"
+    [ -z "${BATCH_KEY_GIVEN:-}" ] || before="a day and a minute before this send, since BATCH_KEY may be an earlier run's"
+    since=$(SENT_AT="$sent_at" GIVEN="${BATCH_KEY_GIVEN:-}" python3 -c "
+import datetime, os
+t = datetime.datetime.strptime(os.environ['SENT_AT'], '%Y-%m-%dT%H:%M:%SZ')
+print((t - datetime.timedelta(days=1 if os.environ['GIVEN'] else 0, seconds=60)).strftime('%Y-%m-%dT%H:%M:%SZ'))
+" 2>/dev/null) || since=$sent_at
+    lookup="GET /v1/generations?kind=image&limit=50&updatedSince=$since ($before) and its further pages (offset while hasMore): read with GET /v1/generations/{jobId} each job created since then whose promptPreview, the first 120 characters of its prompt, begins as this thumbnail's prompt does, since every thumbnail prompt of a batch starts alike, and take the one whose whole prompt is this thumbnail's"
     if [ "$kind" = conflict ]; then
-      echo "[#$idx] idempotencyKey $key still answered 409 after ${conflict_waited}s of asking: its first call's answer was not recorded, and that call is charged once at most. Find its job in GET /v1/generations?kind=image&limit=50 by this thumbnail's prompt and createdAt and poll it to its end: one still in progress may still be drawing, or may be waiting for the API to fail it and refund it, and no such job means nothing was charged. Run it again only once that job has failed or is not there: a run sends a new key, a second picture charged again, and this key keeps answering 409."
+      echo "[#$idx] idempotencyKey $key still answered 409 after ${conflict_waited}s of asking: its first call's answer was not recorded, and that call is charged once at most. Find its job in $lookup. Poll it to its end: one still in progress may still be drawing, or may be waiting for the API to fail it and refund it, and no such job since then means nothing was charged. This key keeps answering 409 for its 24 hours, and the same BATCH_KEY sends it again for this thumbnail: once that job has failed or is not there, run this thumbnail alone with a new batch key (only its prompt in PROMPTS, no BATCH_KEY), one new key, charged once. Sooner, it may stand charged twice: that call and the new one. The whole batch without BATCH_KEY draws and charges every thumbnail again."
     elif [ "$maybe_charged" -eq 1 ] && [ -n "${BATCH_KEY:-}" ]; then
-      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): run the batch again unchanged with BATCH_KEY=$BATCH_KEY within 24 hours: its answer comes back if it was made, or it is drawn if it was not, charged once either way. After 24 hours that key draws and charges again, so look first: GET /v1/generations?kind=image&limit=50, a job matching this thumbnail's prompt and createdAt; no such job means nothing was charged. A new BATCH_KEY sends a new key: a second picture, charged again, if the first was made."
+      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): run the batch again unchanged with BATCH_KEY=$BATCH_KEY within 24 hours: its answer comes back if it was made, or it is drawn if it was not, charged once either way, or, where that call failed with its charge standing, it answers 409 until its 24 hours pass, and the run then stops with where to find its job. After 24 hours that key draws and charges again, so look first: $lookup; no such job since then means nothing was charged. A new BATCH_KEY sends a new key: a second picture, charged again, if the first was made."
     elif [ "$maybe_charged" -eq 1 ]; then
-      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): look in GET /v1/generations?kind=image&limit=50 for a job matching this thumbnail's prompt and createdAt before running it again; no such job means nothing was charged. A new run sends a new key: a second picture, charged again, if the first was made."
+      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): before running it again, look in $lookup; no such job since then means nothing was charged. A new run sends a new key: a second picture, charged again, if the first was made."
     elif [ "$kind" = busy ]; then
       echo "[#$idx] HTTP $post_status, refused again after the wait. Nothing was charged: send it again later."
     fi

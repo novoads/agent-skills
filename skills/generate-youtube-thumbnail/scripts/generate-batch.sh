@@ -21,7 +21,8 @@
 #
 # COST: every generation is charged, and there are no free re-rolls. Price the
 # batch with POST /v1/estimates and get the user's OK BEFORE running this.
-# This script deliberately does NOT retry a failed generation — see NO RETRY.
+# It sends a generation again only when the API refused it before any charge, and
+# only once — see ONE RESEND.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -189,16 +190,55 @@ if os.environ.get('PRODUCT_ID'):
 print(json.dumps(body))
 ")
 
-  # --fail-with-body keeps the error envelope readable on a non-2xx.
-  response=$(curl -sS --fail-with-body --max-time 300 \
-    -H "Authorization: Bearer $NOVOADS_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "$body" \
-    "$API/v1/images" 2>&1) || {
-      echo "[#$idx] ERROR: $response"
-      echo "$response" > "$OUTPUT_DIR/${idx}_error.json"
-      return 1
-    }
+  # --fail-with-body keeps the error envelope readable on a non-2xx, and -D keeps the
+  # answer's status line and Retry-After. Only a refusal that charged nothing is sent
+  # once more (see ONE RESEND).
+  local attempt rc=0 post_status="" post_code="" post_ra="" post_wait=2
+  local post_hdr="$OUTPUT_DIR/${idx}_post.headers" post_err="$OUTPUT_DIR/${idx}_post.err"
+  for attempt in 1 2; do
+    rc=0
+    response=$(curl -sS --fail-with-body --max-time 300 -D "$post_hdr" \
+      -H "Authorization: Bearer $NOVOADS_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d "$body" \
+      "$API/v1/images" 2>"$post_err") || rc=$?
+    [ "$rc" -eq 0 ] && break
+    # curl exits 22 on an answer of 400 or more; any other failure is no answer at all.
+    post_status=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk '/^HTTP\//{s=$2} END{print s}') || post_status=""
+    post_code=$(echo "$response" | python3 -c "import json,sys; print(json.loads(sys.stdin.read(), strict=False)['error']['code'])" 2>/dev/null) || post_code=""
+    if [ "$rc" -eq 22 ] && [ "$attempt" -eq 1 ]; then
+      case "$post_status:$post_code" in
+        429:rate_limited|503:unavailable)
+          post_ra=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk 'tolower($1) == "retry-after:" {v = $2} END {print v}') || post_ra=""
+          post_wait=$(RA="$post_ra" python3 -c "
+import json, os, sys
+h = os.environ['RA'].strip()
+try:
+    w = (json.loads(sys.stdin.read(), strict=False)['error'].get('details') or {}).get('retryAfterSeconds')
+except Exception:
+    w = None
+w = int(h) if h.isdigit() else (int(w) if isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0 else 2)
+print(min(w, 30))
+" <<<"$response" 2>/dev/null) || post_wait=2
+          echo "[#$idx] HTTP $post_status $post_code, nothing was charged: sending it once more in ${post_wait}s. $response"
+          sleep "$post_wait"
+          continue ;;
+      esac
+    fi
+    echo "$response" > "$OUTPUT_DIR/${idx}_error.json"
+    case "$rc:$post_status:$post_code" in
+      22:429:rate_limited|22:503:unavailable)
+        echo "[#$idx] ERROR: HTTP $post_status, refused again after the wait. Nothing was charged: send it again later. $response" ;;
+      22:4??:*|22:502:?*|22:503:?*)
+        echo "[#$idx] ERROR: HTTP $post_status: $response" ;;
+      *)
+        echo "[#$idx] ERROR: ${post_status:+HTTP $post_status: }${response:-no answer} $(head -c 300 "$post_err" 2>/dev/null)"
+        echo "[#$idx] This may have rendered and been charged anyway: find it with GET /v1/generations before sending it again. POST /v1/images takes no idempotency key, so a resend renders and charges again." ;;
+    esac
+    rm -f "$post_hdr" "$post_err"
+    return 1
+  done
+  rm -f "$post_hdr" "$post_err"
 
   echo "$response" > "$OUTPUT_DIR/${idx}_job.json"
 
@@ -266,10 +306,14 @@ print(''.join(', %s=%s' % (k, d[k]) for k in ('reasonCode', 'error') if d.get(k)
   return 0
 }
 
-# ─── NO RETRY, ON PURPOSE ───────────────────────────────────────────────────
-# POST /v1/images takes no idempotency key, so a blind retry after a timeout or a 500 can
-# render and charge twice. If a generation fails, check GET /v1/generations for a
-# job that already landed before resubmitting it by hand.
+# ─── ONE RESEND, ONLY WHEN NOTHING WAS CHARGED ──────────────────────────────
+# A 429, whatever its reason, and the API's own 503 (`unavailable`) are answered before
+# any charge stands, so generate_one sends that call once more, after the wait the
+# answer names (Retry-After, else error.details.retryAfterSeconds, else 2 s; never more
+# than 30 s). A second refusal stops it, nothing charged. Nothing else is sent again:
+# POST /v1/images takes no idempotency key, so a resend after a timeout, a dropped
+# connection or a 500 can render and charge twice. If a generation fails that way,
+# check GET /v1/generations for a job that already landed before resubmitting it by hand.
 
 # ─── PROMPTS ────────────────────────────────────────────────────────────────
 # Define your prompts here. Each entry generates one thumbnail.

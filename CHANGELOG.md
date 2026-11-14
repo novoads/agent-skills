@@ -12,6 +12,21 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Fixed
+
+**A picture call the API refuses before any charge is sent once more.** `generate_image.py` in
+`chatgpt-image-ad` and `nano-banana-image-ad`, and `generate-youtube-thumbnail`'s `generate-batch.sh`,
+stopped on any refused `POST /v1/images`, and `chatgpt-image-ad`'s then said the call "may have rendered
+and been charged anyway", even after a `429`, which charges nothing. Now a `429`, whatever its reason, and
+a `503 unavailable` from the API wait the seconds the answer names (`Retry-After`, else
+`error.details.retryAfterSeconds`, else 2, never more than 30) and go out once more with the same body,
+so a batch of pictures no longer stops on a moment's wait. A second refusal stops the call with the
+server's message and says nothing was charged. Nothing else is sent again: `POST /v1/images` takes no
+idempotency key, so a timeout, a dropped connection or a `500` still stops, and only an answer like those,
+or a failed poll, prints the advice to find the job with `GET /v1/generations` before sending it again
+(`nano-banana-image-ad` printed none). The two image skills' error tables and the thumbnail skill say so,
+with a `503` row.
+
 ## v1.6.1 — 2026-11-14
 
 ### Fixed

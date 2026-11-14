@@ -341,10 +341,11 @@ that is `clone-image-ad`'s job.
 | `402 insufficient_credits` | `details` carries `required` and `available`. Tell the user the gap; do not retry. |
 | `403 forbidden` | `details.reason` says which: `plan_required`, `subscription_inactive`, or API access off for the account. |
 | `422 content_policy` | Moderation blocked it. The estimate does not run moderation, so this can land on a prompt the estimate priced cleanly. Nothing was charged. Rewrite or stop. |
-| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
+| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. Nothing was charged, so the script waits it out (at most 30 s) and sends the call once more by itself; a second `429` stops it with the server's message. |
 | `403` on the presigned PUT | The signed headers weren't echoed byte for byte. Send the `headers` object from `POST /v1/uploads` exactly as returned. |
 | `500 internal_error` | **Do not blindly retry** — `POST /v1/images` takes no idempotency key, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
 | `502 provider_failed` | The model provider failed. Credits are refunded automatically. The script prints `reasonCode` where the job has one: read it before you send anything again (Status lifecycle in the `novoads-api` skill's `reference.md`). |
+| `503 unavailable` | Nothing was charged (on `details.reason` `image_capacity` the credits were taken and given back at once). The script sends the call once more after the `Retry-After`, else 2 s; a second `503` stops it with the server's message. |
 
 ## Files this skill owns
 

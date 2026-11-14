@@ -260,7 +260,9 @@ leaves room for other image calls the organization runs through the API.
 
 `POST /v1/images` takes no idempotency key, so resubmitting after a timeout or a `500` can
 render and charge twice. Check `GET /v1/generations` for a job that already landed before
-resubmitting. The batch script deliberately does not auto-retry.
+resubmitting. The batch script sends a call once more by itself only after a refusal that
+charged nothing, a `429` or the API's own `503`, once it has waited the `Retry-After` (at most
+30 s); it never resends a timeout, a dropped connection or a `500`.
 
 ### macOS bash 3.2
 

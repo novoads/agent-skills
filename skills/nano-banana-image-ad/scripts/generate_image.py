@@ -14,6 +14,9 @@ Novoads usually returns the finished images from the POST itself, which blocks f
 the render (typically 60-90 seconds). Since API 2.39.0 a render still going after
 about 105 seconds answers status "running" with no images; generate() then polls
 GET /v1/generations/{jobId} to a terminal status. It never resubmits: that job is paid.
+A POST the API refuses before any charge (a 429, or its own 503) is sent once more,
+after the wait the answer names. A lost answer or a 500 is never sent again: that job
+may have been charged, and POST /v1/images takes no idempotency key.
 
 Output contract:
   stdout: one JSON object per generated image, one per line
@@ -154,22 +157,50 @@ def slugify(text: str, max_len: int = 40) -> str:
     return s[:max_len] or "image"
 
 
-def _api_error(e: urllib.error.HTTPError, url: str) -> RuntimeError:
+class ApiError(RuntimeError):
+    """An HTTP answer that refused a call, with the parts the script decides on.
+
+    `code` is the envelope's `error.code`, or None when the answer is not the
+    API's own (an edge page). `retry_after` is the wait the answer named, in
+    seconds (`Retry-After`, else `error.details.retryAfterSeconds`), or None.
+    """
+
+    def __init__(self, message: str, url: str, status: int,
+                 code: str | None = None, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.url = url
+        self.status = status
+        self.code = code
+        self.retry_after = retry_after
+
+
+def _seconds(value: object) -> float | None:
+    """A wait the server named, in seconds, or None when it named none."""
+    if isinstance(value, str) and value.strip().isdigit():
+        return float(value.strip())
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return float(value)
+    return None
+
+
+def _api_error(e: urllib.error.HTTPError, url: str) -> ApiError:
     """Turn a Novoads error envelope into a message worth reading."""
     raw = e.read().decode("utf-8", errors="replace")
+    wait = _seconds(e.headers.get("Retry-After")) if e.headers is not None else None
     try:
         err = json.loads(raw).get("error", {})
     except json.JSONDecodeError:
         # Not our envelope at all -> it never reached the application. The one
         # that bites: Cloudflare's bot rule refusing the default urllib UA.
         if "1010" in raw:
-            return RuntimeError(
+            return ApiError(
                 f"HTTP {e.code} on {url}: Cloudflare error 1010 — the edge refused "
                 f"this client, NOT your API key. This is a User-Agent problem: "
                 f"send a non-default one (see USER_AGENT above) or use curl. Do not "
-                f"regenerate the key or check the subscription."
+                f"regenerate the key or check the subscription.",
+                url, e.code,
             )
-        return RuntimeError(f"HTTP {e.code} on {url}: {raw}")
+        return ApiError(f"HTTP {e.code} on {url}: {raw}", url, e.code)
     code = err.get("code", "?")
     msg = err.get("message", raw)
     details = err.get("details")
@@ -185,7 +216,9 @@ def _api_error(e: urllib.error.HTTPError, url: str) -> RuntimeError:
             hint = f" (issues: {json.dumps(details['issues'])[:300]})"
         elif details.get("reasonCode"):
             hint = f" (reasonCode: {details['reasonCode']})"
-    return RuntimeError(f"HTTP {e.code} {code} on {url}: {msg}{hint}")
+        if wait is None:
+            wait = _seconds(details.get("retryAfterSeconds"))
+    return ApiError(f"HTTP {e.code} {code} on {url}: {msg}{hint}", url, e.code, err.get("code"), wait)
 
 
 # api.novoads.ai sits behind Cloudflare, whose bot rule 403s the default
@@ -420,6 +453,47 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
     return {**job, "status": status}
 
 
+# A POST the API refuses before any charge is sent once more, after the wait the
+# answer names: a 429, whatever its reason, and the API's own 503 (`unavailable`;
+# on `image_capacity` the charge was taken and given back at once). Nothing else is
+# sent again: POST /v1/images takes no idempotency key, so a resend after a lost
+# answer or a 500 can render and charge a second time.
+RESEND_ON = {429: "rate_limited", 503: "unavailable"}
+RESEND_WAIT_DEFAULT_S = 2
+RESEND_WAIT_MAX_S = 30
+
+
+def charged_nothing(e: BaseException) -> bool:
+    """A refusal that charged nothing and asks to be sent again: a 429, or the API's 503."""
+    return isinstance(e, ApiError) and e.code is not None and RESEND_ON.get(e.status) == e.code
+
+
+def no_charge_stands(e: BaseException) -> bool:
+    """Whether the POST was answered with a refusal that leaves no charge standing.
+
+    A 4xx refuses before the charge; the API's own 502 refunds the attempt and its
+    503 charged nothing. A 500, any other 5xx, an answer that is not the API's, a
+    failed poll and no answer at all leave the charge unknown.
+    """
+    if not isinstance(e, ApiError) or not e.url.endswith("/v1/images"):
+        return False
+    return e.status < 500 or (e.code is not None and e.status in (502, 503))
+
+
+def post_image(url: str, headers: dict, body: dict) -> dict:
+    """POST /v1/images, sent once more after a refusal that charged nothing."""
+    try:
+        return http_post_json(url, headers, body, timeout=GENERATE_TIMEOUT_S)
+    except ApiError as e:
+        if not charged_nothing(e):
+            raise
+        wait = min(RESEND_WAIT_DEFAULT_S if e.retry_after is None else e.retry_after,
+                   RESEND_WAIT_MAX_S)
+        log(f"{e}\n  nothing was charged; sending it once more in {wait:g}s")
+        time.sleep(wait)
+    return http_post_json(url, headers, body, timeout=GENERATE_TIMEOUT_S)
+
+
 def generate(
     prompt: str,
     aspect_ratio: str,
@@ -446,9 +520,7 @@ def generate(
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
-    job = http_post_json(
-        f"{base_url}/v1/images", headers, body, timeout=GENERATE_TIMEOUT_S
-    )
+    job = post_image(f"{base_url}/v1/images", headers, body)
     return wait_for_images(job, base_url, headers)
 
 
@@ -633,6 +705,21 @@ def main() -> int:
         )
     except Exception as e:  # noqa: BLE001
         log(f"generation FAILED — {e}")
+        if charged_nothing(e):
+            log("  nothing was charged: it was refused again after the wait. "
+                "Send it again later.")
+        elif not no_charge_stands(e):
+            # The render blocks inside the POST for 60-90s, so a lost answer does
+            # NOT mean a lost render: the job may have landed and been CHARGED
+            # while the answer never arrived. POST /v1/images takes no idempotency
+            # key, so sending it again renders and charges again. Check first.
+            log(
+                "  before sending it again: this may have rendered and been charged anyway. "
+                "Check `GET /v1/generations?limit=5` for a job matching this prompt "
+                "and createdAt — a succeeded row carries the image in `outputUrl`. "
+                "POST /v1/images takes no idempotency key, so sending it again renders "
+                "and charges a SECOND time."
+            )
         return 1
 
     job_id = job.get("jobId", "")

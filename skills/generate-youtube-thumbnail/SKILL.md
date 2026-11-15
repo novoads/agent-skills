@@ -264,21 +264,24 @@ first call's job, so a resend with it is never charged twice. The script sends a
 itself after a `429` or the API's own `503` (nothing was charged; `credit_balance_busy` is a `429`
 for the credit balance held by other paid calls at that moment), after a timeout, a dropped
 connection, a `500` or another `5xx` (the key answers with the first call if it landed), and after a
-`502` whose `reasonCode` is `vendor_error`, `vendor_timeout` or none (refunded, so a new draw), once
-it has waited the `Retry-After` (else 2 s; at most 60 s on a `429` or `503`, the rest of a per-minute
-window, and 30 s otherwise). A `409` for the key, the first call still being made, is asked again
-after the `Retry-After`, else 15 s, for up to 120 s in all, and a `429` or `503` met in that time
-waits the same way. Still `409` after that, its answer was not recorded and that key keeps answering
-`409` for its 24 hours: find the job where the stop says, in
+`502` whose `reasonCode` is `vendor_error`, `vendor_timeout` or none (refunded, so a new draw; the
+API gives the key back only where the credits all came back, and where they did not the resend
+meets the `409` below, never a second charge), once it has waited the `Retry-After` (else 2 s; at
+most 60 s on a `429` or `503`, the rest of a per-minute window, and 30 s otherwise). A `409` for
+the key, the first call still being made, is asked again after the `Retry-After`, else 15 s, for up
+to 120 s in all, and a `429` or `503` met in that time waits the same way. Still `409` after that,
+its answer was not recorded and that key keeps answering `409` for its 24 hours: find the job where
+the stop says, in
 `GET /v1/generations?kind=image&limit=50&updatedSince=` a minute before the time its `Submitting`
 line gave (a day more when `BATCH_KEY` was given) and every further page (`offset` while `hasMore`).
 The list's `promptPreview` is a prompt's first 120 characters, which every thumbnail prompt of a
 batch shares, so read each job created since then that matches with `GET /v1/generations/{jobId}`
 and take the one whose whole `prompt` is this thumbnail's; poll it to its end. One still in progress
-may still be drawing, or may be waiting for the API to fail it and refund it, and no such job since
-then means nothing was charged. Once that job has failed or is not there, run that thumbnail alone
-with a new batch key (only its prompt in `PROMPTS`, no `BATCH_KEY`): one new key, charged once.
-Sooner, it may stand charged twice. The same `BATCH_KEY` keeps answering `409` for it for 24 hours,
+may still be drawing, or may be waiting for the API to fail it and refund it, usually within about
+30 minutes of the charge and at the latest about 2 hours after it, and no such job since then means
+nothing was charged. Once that job has failed or is not there, run that thumbnail alone with a new
+batch key (only its prompt in `PROMPTS`, no `BATCH_KEY`): one new key, charged once. Sooner, it may
+stand charged twice. The same `BATCH_KEY` keeps answering `409` for it for 24 hours,
 and the whole batch without `BATCH_KEY` draws and charges every thumbnail again. Anything else
 stops at once.
 

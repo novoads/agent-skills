@@ -509,7 +509,10 @@ def wait_for_images(job: dict, base_url: str, headers: dict) -> dict:
 #             first send may have been made, and the key answers with it if it was;
 #   vendor    the API's 502 `provider_failed` for the vendor's own failure
 #             (`reasonCode` vendor_error, vendor_timeout or none): refunded, so the
-#             resend is a new draw, charged once if it works.
+#             resend is a new draw, charged once if it works. The API gives the key
+#             back only where the credits all came back: where they did not, the
+#             resend meets a 409 and takes the conflict path below, never a second
+#             charge.
 # Each waits the answer's Retry-After, else error.details.retryAfterSeconds, else
 # 2 s, never more than 30 s (60 s for busy: a per-minute limit names the rest of its
 # minute), and a call gets one such resend. A refusal (any other 4xx) and a 502 that
@@ -1035,8 +1038,9 @@ def main() -> int:
             log(f"  idempotencyKey {e.key} still answered 409 after {e.waited:g}s of asking: its "
                 "first call's answer was not recorded, and that call is charged once at most. "
                 f"Find its job in {look}. Poll it to its end: one still in progress may still be "
-                "drawing, or may be waiting for the API to fail it and refund it, and no such "
-                "job since then means nothing was charged. This key keeps answering 409 for its "
+                "drawing, or may be waiting for the API to fail it and refund it, usually within "
+                "about 30 minutes of the charge and at the latest about 2 hours after it, and no "
+                "such job since then means nothing was charged. This key keeps answering 409 for its "
                 "24 hours: once that job has failed or is not there, run it again without "
                 "--idempotency-key, a new key, charged once. Sooner, the picture may stand "
                 "charged twice: that call and the new one.")

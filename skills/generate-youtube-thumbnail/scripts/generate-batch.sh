@@ -318,7 +318,7 @@ print((t - datetime.timedelta(days=1 if os.environ['GIVEN'] else 0, seconds=60))
 " 2>/dev/null) || since=$sent_at
     lookup="GET /v1/generations?kind=image&limit=50&updatedSince=$since ($before) and its further pages (offset while hasMore): read with GET /v1/generations/{jobId} each job created since then whose promptPreview, the first 120 characters of its prompt, begins as this thumbnail's prompt does, since every thumbnail prompt of a batch starts alike, and take the one whose whole prompt is this thumbnail's"
     if [ "$kind" = conflict ]; then
-      echo "[#$idx] idempotencyKey $key still answered 409 after ${conflict_waited}s of asking: its first call's answer was not recorded, and that call is charged once at most. Find its job in $lookup. Poll it to its end: one still in progress may still be drawing, or may be waiting for the API to fail it and refund it, and no such job since then means nothing was charged. This key keeps answering 409 for its 24 hours, and the same BATCH_KEY sends it again for this thumbnail: once that job has failed or is not there, run this thumbnail alone with a new batch key (only its prompt in PROMPTS, no BATCH_KEY), one new key, charged once. Sooner, it may stand charged twice: that call and the new one. The whole batch without BATCH_KEY draws and charges every thumbnail again."
+      echo "[#$idx] idempotencyKey $key still answered 409 after ${conflict_waited}s of asking: its first call's answer was not recorded, and that call is charged once at most. Find its job in $lookup. Poll it to its end: one still in progress may still be drawing, or may be waiting for the API to fail it and refund it, usually within about 30 minutes of the charge and at the latest about 2 hours after it, and no such job since then means nothing was charged. This key keeps answering 409 for its 24 hours, and the same BATCH_KEY sends it again for this thumbnail: once that job has failed or is not there, run this thumbnail alone with a new batch key (only its prompt in PROMPTS, no BATCH_KEY), one new key, charged once. Sooner, it may stand charged twice: that call and the new one. The whole batch without BATCH_KEY draws and charges every thumbnail again."
     elif [ "$maybe_charged" -eq 1 ] && [ -n "${BATCH_KEY:-}" ]; then
       echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): run the batch again unchanged with BATCH_KEY=$BATCH_KEY within 24 hours: its answer comes back if it was made, or it is drawn if it was not, charged once either way, or, where that call failed with its charge standing, it answers 409 until its 24 hours pass, and the run then stops with where to find its job. After 24 hours that key draws and charges again, so look first: $lookup; no such job since then means nothing was charged. A new BATCH_KEY sends a new key: a second picture, charged again, if the first was made."
     elif [ "$maybe_charged" -eq 1 ]; then
@@ -410,7 +410,9 @@ print(''.join(', %s=%s' % (k, d[k]) for k in ('reasonCode', 'error') if d.get(k)
 # credit balance held by other paid calls at that moment, is one of them); on no answer
 # (a timeout, a dropped connection), a 500 or another 5xx (the key answers with the first
 # send if it was made); and on a 502 provider_failed whose reasonCode is vendor_error,
-# vendor_timeout or none (refunded, so a new draw). A 409 for the key, the first send
+# vendor_timeout or none (refunded, so a new draw; the API gives the key back only where
+# the credits all came back, and where they did not the resend meets a 409 and takes the
+# 409's path, never a second charge). A 409 for the key, the first send
 # still being made, never uses that one resend: it is asked again after each
 # Retry-After, else 15 s, until the waits since the first 409 reach 120 s (the API
 # answers a call within about 105 s of its start), and a 429 or 503 met in that time

@@ -280,7 +280,7 @@ job to find and no credit to reclaim.
 
 The queues are separate, and that is the part an agent gets wrong. Video, images,
 captions, transcripts, voice-overs and voice-changes each have their own ceiling and
-their own `details.reason`. The deployed spec names seventeen reasons (2.60.0). An agent that reads
+their own `details.reason`. The deployed spec names nineteen reasons (2.82.5). An agent that reads
 only *"429 means slow down"* backs off on the wrong axis when the problem is jobs in
 flight — and may be backing off the wrong **queue** entirely.
 

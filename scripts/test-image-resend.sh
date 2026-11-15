@@ -38,9 +38,10 @@ PNG = (b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR" + (1024).to_byte
        + (1024).to_bytes(4, "big") + b"\x08\x02\x00\x00\x00" + b"\x00" * 20)
 BUSY_MSG = ("Several requests were charging credits at the same moment. Nothing was charged for "
             "this one; send it again in a few seconds.")
-CONFLICT_MSG = ("A picture with this idempotencyKey is still being made. Retry in a moment with the same "
-                "key and the first answer comes back, or find its job with GET /v1/generations and poll "
-                "it. If it still answers conflict after two minutes, its answer was not recorded.")
+CONFLICT_MSG = ("A picture with this idempotencyKey is still being made, or its first call failed with its "
+                "charge standing. Retry in a moment with the same key and the first answer comes back, or "
+                "find its job with GET /v1/generations and poll it. If it still answers conflict after two "
+                "minutes, its answer was not recorded.")
 
 
 def envelope(code, message, **details):
@@ -188,7 +189,8 @@ READ_OK = {"jobId": "job-1", "status": "succeeded", "kind": "image", "model": "m
 # does not say it in that case (the batch's stops name BATCH_KEY only when the batch set it).
 LOOKUP = "GET /v1/generations?kind=image&limit=50&updatedSince="
 NO_JOB = "no such job since then means nothing was charged"
-REAPER = "may be waiting for the API to fail it and refund it"
+REAPER = ("may be waiting for the API to fail it and refund it, usually within about 30 minutes of the charge "
+          "and at the latest about 2 hours after it")
 # A rerun with a key whose call failed with its charge standing: 409, then the conflict stop.
 KEPT = ("or, where that call failed with its charge standing, it answers 409 until its 24 hours pass, "
         "and the run then stops with where to find its job")
@@ -291,6 +293,10 @@ CASES = [
     ("409-for-120s", [c409()] * 9 + [OK], 1, 9, [15] * 8, CONFLICT_STOP, ("stop-busy", "stop-maybe"), None),
     ("409-wait-30", [c409(30)] * 5 + [OK], 1, 5, [30] * 4, CONFLICT_STOP, ("stop-busy",), None),
     ("500>409>200", [E500, c409(), OK], 0, 3, [2, 15], ["lost", "conflict"], STOPS, None),
+    # A 502 whose credits did not all come back keeps its key: the resend meets the 409 and is asked like one.
+    ("502>409>200", [e502("vendor_error"), c409(), OK], 0, 3, [2, 15], ["vendor", "conflict"], STOPS, None),
+    ("502>409-for-120s", [e502(None)] + [c409()] * 9 + [OK], 1, 10, [2] + [15] * 8, ["vendor"] + CONFLICT_STOP,
+     ("stop-busy", "stop-maybe"), None),
     ("drop>409x2>200", [DROP, c409(), c409(), OK], 0, 4, [2, 15, 15], ["lost", "again"], STOPS, None),
     ("409>500>200", [c409(), E500, OK], 0, 3, [15, 2], ["conflict", "lost"], STOPS, None),
     ("409>500x2", [c409(), E500, E500, OK], 1, 3, [15, 2], MAYBE, ("stop-busy", "stop-conflict"), None),

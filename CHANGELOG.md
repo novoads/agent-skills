@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.6.2 — 2026-11-15
+
 ### Fixed
 
 **Every picture call sends its own `idempotencyKey`, a call that failed goes out again with it where that

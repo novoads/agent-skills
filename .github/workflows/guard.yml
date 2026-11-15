@@ -127,6 +127,13 @@ jobs:
       # reported a paid, finished picture as missing. Every call here is a stub.
       - name: image scripts' answer reading
         run: ./scripts/test-image-poll.sh
+      # A picture call that failed goes out again only under its first send's
+      # idempotencyKey, which the API never charges twice: once for a refusal
+      # that charged nothing or an answer that was lost, and for up to 120 s while
+      # that key's first call is still being made. A resend under a new key is a
+      # second, paid picture. Every call goes to a stand-in server on 127.0.0.1.
+      - name: image scripts' resend rules
+        run: ./scripts/test-image-resend.sh
 
   #   links     — a skill that tells the agent to read a file which is not there
   #             fails SILENTLY: the agent shrugs and proceeds without the rules

@@ -148,7 +148,7 @@ a markdown file**, including this one, which carries none.
 ## One endpoint, two models
 
 Every image in this ecosystem comes from the same call: **`POST /v1/images`**, which usually answers with the finished images already in the response. One still going after about 105 seconds answers `status: "running"` with no images (API 2.39.0): the scripts poll it; a hand-rolled call polls
-`GET /v1/generations/{jobId}` to a terminal status, reads `outputUrl` and `outputAssetId` there (`images[]` too on a job of several) and never resubmits, because a resubmit is a second charge. `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
+`GET /v1/generations/{jobId}` to a terminal status, reads `outputUrl` and `outputAssetId` there (`images[]` too on a job of several) and never resubmits under a new key, because that is a second charge (its own `idempotencyKey` only answers `running` again). `Authorization: Bearer $NOVOADS_API_KEY`. The full contract lives in
 the `novoads-api` skill's `reference.md`; this table is only what differs *between the models*.
 
 | | `gpt-image-2` | `nano-banana-pro` |

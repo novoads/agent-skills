@@ -449,13 +449,13 @@ POST /v1/images  beat 5       9:16  ref [castSheet, beat4]          one before
 ╚═══════════════════════════════════════════════════════════════════════╝
 ```
 
-One still call in full. Every other call in this file is the same shape:
+One still call in full. Every other call in this file is the same shape, with a new `idempotencyKey` for every picture: a resend after a timeout or a `5xx` keeps that key, and a new or corrected picture takes a new one:
 
 ```bash
 curl -sS -X POST https://api.novoads.ai/v1/images \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-image-2","prompt":"<style lock + beat 1 + negatives>",
+  -d '{"model":"gpt-image-2","idempotencyKey":"<a new uuid per picture>","prompt":"<style lock + beat 1 + negatives>",
        "aspectRatio":"9:16","referenceAssetIds":["<castSheet>","<product>"]}'
 ```
 
@@ -957,7 +957,7 @@ POST /v1/estimates    { kind: "image" | "video" | "voiceover" | "music" | "capti
                         refuses nothing; this is the ONLY endpoint that returns it.
 
 POST /v1/images       { model: "gpt-image-2", prompt, aspectRatio: "1:1" | "9:16",
-                        referenceAssetIds: [castSheet, previousStill, product?] }
+                        referenceAssetIds: [castSheet, previousStill, product?], idempotencyKey }
                       → 200 { jobId, images: [{ url, expiresInSeconds, assetId }] }
                         the finished image is in the response (or `running`: poll the job), and
                         the call blocks ~60-90s. `assetId` chains straight into

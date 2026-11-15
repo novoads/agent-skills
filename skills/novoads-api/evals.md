@@ -52,8 +52,9 @@ including whether there is a job.
   this API described"*, never as a diagnosis of the key, the plan or the prompt.
 - Before anything is retried, `GET /v1/generations` is called and matched on
   `createdAt` — a row may exist, may be charged, and may already be refunded.
-- Nothing is re-sent blind. A video call carries an `idempotencyKey` or is checked in
-  `GET /v1/generations` first; an image call takes no key, so a retry can render and charge again.
+- Nothing is re-sent blind. A video or image call is re-sent only with its own `idempotencyKey`,
+  or is checked in `GET /v1/generations` first; under a new key, or none, a retry can render and
+  charge again.
 - The user is told plainly whether a charge landed and whether it came back, from the
   ledger rather than from the failed response.
 - On a bare edge page specifically, the client is examined before the credential. A
@@ -279,7 +280,7 @@ job to find and no credit to reclaim.
 
 The queues are separate, and that is the part an agent gets wrong. Video, images,
 captions, transcripts, voice-overs and voice-changes each have their own ceiling and
-their own `details.reason`. The deployed spec names seventeen reasons (2.60.0). An agent that reads
+their own `details.reason`. The deployed spec names nineteen reasons (2.82.5). An agent that reads
 only *"429 means slow down"* backs off on the wrong axis when the problem is jobs in
 flight — and may be backing off the wrong **queue** entirely.
 

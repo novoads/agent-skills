@@ -12,6 +12,54 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Fixed
+
+**Every picture call sends its own `idempotencyKey`, a call that failed goes out again with it where that
+can help, and a run that was cut off can get its answer back.** The four picture scripts,
+`generate_image.py` in `chatgpt-image-ad` and `nano-banana-image-ad`, `clone-image-ad`'s
+`validate_image.py` and `generate-youtube-thumbnail`'s `generate-batch.sh`, stopped on any failed
+`POST /v1/images`, and `chatgpt-image-ad`'s then said the call "may have rendered and been charged
+anyway", even after a `429`, which charges nothing. Each call now carries an `idempotencyKey` and keeps it
+on its resends, and `POST /v1/images` answers a key it has seen within 24 hours with that first call's
+answer (the same `jobId`, charge and images, every image of `numImages`), so a resend is never a second
+charge. A `429` or a `503 unavailable` from the API (nothing charged; `credit_balance_busy`, the credit
+balance held by other paid calls sent at the same moment, a `429` since API 2.80.5, is one of them) goes
+out once more after the seconds it names, up to 60, the rest of a per-minute window. A timeout, a dropped
+connection, a `500` or another `5xx`, and a `502 provider_failed` whose `reasonCode` is `vendor_error`,
+`vendor_timeout` or none (refunded, so a new draw; the API gives the key back only where the credits all
+came back, and where they did not the resend meets the `409` below, never a second charge) go out once
+more after `Retry-After`, else `error.details.retryAfterSeconds`, else 2 s, never more than 30. So a
+batch of pictures no longer stops on a moment's wait or a lost answer.
+A `409` for the key, its first call still being made, is asked again after each `Retry-After`, else 15 s,
+for up to 120 s in all, since the API waits about 105 s for a picture, and a `429` or `503` met in that
+time waits the same way instead of using the one resend, so pictures asking together do not stop on the
+per-key limit. Any other refusal stops at once, and a call that still fails stops with the server's message and
+says what it leaves: nothing charged, or a first call that may stand charged once, with its key and where
+to look, `GET /v1/generations?kind=image&limit=50&updatedSince=` a minute before the call was sent (a day
+more for a key an earlier run may have sent) and every further page, matched on `promptPreview`, a
+prompt's first 120 characters, and `createdAt`, each match read whole with `GET /v1/generations/{jobId}`:
+a job still in progress may be drawing or waiting for the API to fail it and refund it, usually within
+about 30 minutes of the charge and at the latest about 2 hours after it, and no job since then means
+nothing was charged. A key the API kept after a failure whose charge stands answers `409` for
+its 24 hours, so the stop says to draw that picture again under a new key once its job has failed or is
+not there, and that sooner it may stand charged twice; the batch runs that thumbnail alone without
+`BATCH_KEY`. That key is printed before the call with the time it was sent, and `--idempotency-key <key>` sends it again from a new run
+within 24 hours, so a run that was cut off gets that call's answer instead of a second, paid picture;
+after 24 hours the same key draws and charges again, which the scripts say wherever they hand a key back. The batch
+prints its `BATCH_KEY`, saves it in its output folder and draws each thumbnail's key from it and that
+thumbnail's own prompt, model, shape and reference files, their contents included, so the same batch run
+again with `BATCH_KEY=<key>` gets each first answer back, while a corrected prompt or a reference
+replaced at the same path draws a new key. Both are for the same call only, since a key answers with the
+first picture whatever the prompt now says. The image skills' error and field tables, the thumbnail and
+`clone-image-ad` skills, `novoads-api`'s `SKILL.md` and `reference.md` (`credit_balance_busy` among the
+`429` reasons, nineteen counted off the spec at API 2.82.5, where they said seventeen; `reference.md`
+breaks out ten and names the other nine), its `nano-banana` prompt-library page and eval, the shared
+image overview and eval GI5 now say so, where they said a picture call takes no key, and the picture calls written out in
+`pixar-ad` and on the `nano-banana` page carry a key. `scripts/test-image-resend.sh`, run in CI, plays
+every case against a stand-in server, the batch's own main loop included. The four scripts need
+API 2.82.5 or later, the first with `idempotencyKey` on `POST /v1/images`: an API without it refuses
+the field with a `400`.
+
 ## v1.6.1 — 2026-11-14
 
 ### Fixed

@@ -21,7 +21,11 @@
 #
 # COST: every generation is charged, and there are no free re-rolls. Price the
 # batch with POST /v1/estimates and get the user's OK BEFORE running this.
-# This script deliberately does NOT retry a failed generation — see NO RETRY.
+# Each thumbnail's POST carries its own idempotencyKey, so a call sent again is never
+# charged twice; it goes out again only where that can help — see ONE KEY. A run
+# prints its batch key: run it again unchanged with BATCH_KEY=<that key> within 24 hours
+# and each thumbnail it sent gets its first call's answer back instead of a second, paid
+# picture. After 24 hours the same keys draw and charge again.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -172,10 +176,14 @@ generate_one() {
   local prompt=$2
   local ref_json=$3
 
-  echo "[#$idx] Submitting (blocks ~60-90s for the render)..."
-
-  local body response
-  body=$(REF_JSON="$ref_json" PROMPT="$prompt" MODEL="$MODEL" ASPECT="$ASPECT" PRODUCT_ID="$PRODUCT_ID" python3 -c "
+  # One idempotencyKey for this thumbnail, in the body of each of its POSTs: the one
+  # thumbnail_keys drew for it, else a new one (see ONE KEY). Printed before the POST, with
+  # the time it was sent, which bounds a stop's look for its job.
+  local body response key=${4:-} sent_at
+  [ -n "$key" ] || key=$(python3 -c "import uuid; print(uuid.uuid4())")
+  sent_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  echo "[#$idx] Submitting with idempotencyKey $key, sent $sent_at (blocks ~60-90s for the render)..."
+  body=$(KEY="$key" REF_JSON="$ref_json" PROMPT="$prompt" MODEL="$MODEL" ASPECT="$ASPECT" PRODUCT_ID="$PRODUCT_ID" python3 -c "
 import json, os
 body = {
   'model': os.environ['MODEL'],
@@ -183,22 +191,145 @@ body = {
   'aspectRatio': os.environ['ASPECT'],
   'numImages': 1,
   'referenceAssetIds': json.loads(os.environ['REF_JSON']),
+  'idempotencyKey': os.environ['KEY'],
 }
 if os.environ.get('PRODUCT_ID'):
     body['productId'] = os.environ['PRODUCT_ID']
 print(json.dumps(body))
 ")
 
-  # --fail-with-body keeps the error envelope readable on a non-2xx.
-  response=$(curl -sS --fail-with-body --max-time 300 \
-    -H "Authorization: Bearer $NOVOADS_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "$body" \
-    "$API/v1/images" 2>&1) || {
-      echo "[#$idx] ERROR: $response"
-      echo "$response" > "$OUTPUT_DIR/${idx}_error.json"
-      return 1
-    }
+  # --fail-with-body keeps the error envelope readable on a non-2xx, and -D keeps the
+  # answer's status line and Retry-After. A failed POST goes out again, the same body
+  # and key, only where that can help (see ONE KEY).
+  local send=0 rc=0 verdict kind prev="" again=0 resent=0 maybe_charged=0 looping=0 seen_conflict=0
+  local conflict_waited=0 conflict_total=120
+  local post_status="" post_ra="" post_wait=2 post_errline=""
+  # A key from an earlier run (BATCH_KEY given) may already stand charged: never "nothing was charged".
+  if [ -n "${BATCH_KEY_GIVEN:-}" ]; then maybe_charged=1; fi
+  local post_hdr="$OUTPUT_DIR/${idx}_post.headers" post_err="$OUTPUT_DIR/${idx}_post.err"
+  while :; do
+    send=$((send + 1))
+    rc=0
+    : > "$post_hdr"
+    response=$(curl -sS --fail-with-body --max-time 300 -D "$post_hdr" \
+      -H "Authorization: Bearer $NOVOADS_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d "$body" \
+      "$API/v1/images" 2>"$post_err") || rc=$?
+    # curl exits 22 on an answer of 400 or more; any other failure is no answer at all.
+    post_status=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk '/^HTTP\//{s=$2} END{print s}') || post_status=""
+    post_ra=$(tr -d '\r' < "$post_hdr" 2>/dev/null | awk 'tolower($1) == "retry-after:" {v = $2} END {print v}') || post_ra=""
+    post_errline=$(head -c 300 "$post_err" 2>/dev/null | tr -d '\n') || post_errline=""
+    # The answer's kind, then the wait before a resend. ok; busy, lost, vendor (once) and
+    # conflict (every 15 s, up to 120 s) are sent again; refunded, refused stop. The table
+    # generate_image.py's post_image uses.
+    verdict=$(RC="$rc" STATUS="$post_status" RA="$post_ra" python3 -c "
+import json, math, os, sys
+rc, ra = int(os.environ['RC']), os.environ['RA'].strip()
+status = int(os.environ['STATUS']) if os.environ['STATUS'].isdigit() else 0
+try:
+    answer = json.loads(sys.stdin.read(), strict=False)
+except ValueError:
+    answer = None
+err = answer.get('error') if isinstance(answer, dict) else None
+err = err if isinstance(err, dict) else {}
+code = err.get('code')
+details = err.get('details') if isinstance(err.get('details'), dict) else {}
+if rc == 0:
+    kind = 'ok' if isinstance(answer, dict) else 'lost'
+elif rc != 22:
+    kind = 'lost'
+elif not code:
+    kind = 'lost' if status >= 500 else 'refused'
+elif (status, code) in ((429, 'rate_limited'), (503, 'unavailable')):
+    kind = 'busy'
+elif status == 409 and code == 'conflict' and details.get('idempotencyKey'):
+    kind = 'conflict'
+elif status == 502 and code == 'provider_failed':
+    kind = 'vendor' if details.get('reasonCode') in (None, 'vendor_error', 'vendor_timeout') else 'refunded'
+else:
+    kind = 'lost' if status >= 500 else 'refused'
+w = details.get('retryAfterSeconds')
+w = int(ra) if ra.isdigit() else (w if isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0 else None)
+if w is None:
+    w = 15 if kind == 'conflict' else 2
+print(kind, min(math.ceil(w), 60 if kind == 'busy' else 30))
+" <<<"$response" 2>/dev/null) || verdict=""
+    [ -n "$verdict" ] || verdict="lost 2"
+    kind=${verdict%% *}
+    post_wait=${verdict##* }
+    [ "$kind" = ok ] && break
+    case "$kind" in lost|conflict) maybe_charged=1 ;; esac
+    # One resend for the first failure that is not the key's 409; the key's 409 is asked
+    # again after each wait until the waits since the first 409 would pass 120 s, and a
+    # busy answer met after it waits the same way (see ONE KEY).
+    looping=0
+    if [ "$kind" = conflict ]; then
+      looping=1
+      seen_conflict=1
+    elif [ "$kind" = busy ] && [ "$seen_conflict" -eq 1 ]; then
+      looping=1
+    fi
+    if [ "$looping" -eq 1 ] && [ "$post_wait" -lt 1 ]; then post_wait=1; fi
+    again=0
+    if [ "$looping" -eq 1 ]; then
+      if [ $((conflict_waited + post_wait)) -le "$conflict_total" ]; then
+        again=1
+        conflict_waited=$((conflict_waited + post_wait))
+      fi
+    elif [ "$resent" -eq 0 ]; then
+      case "$kind" in busy|lost|vendor) again=1; resent=1 ;; esac
+    fi
+    if [ "$again" -eq 1 ]; then
+      case "$kind" in
+        busy)
+          if [ "$looping" -eq 1 ]; then
+            echo "[#$idx] HTTP $post_status, nothing was charged for this send: asking again in ${post_wait}s with the same idempotencyKey (${conflict_waited}s of ${conflict_total}s). $response"
+          else
+            echo "[#$idx] HTTP $post_status, nothing was charged: sending it once more in ${post_wait}s with the same idempotencyKey. $response"
+          fi ;;
+        lost) echo "[#$idx] ${post_status:+HTTP $post_status, }it may have been made: sending it once more in ${post_wait}s with the same idempotencyKey, which is never charged twice. ${response:-no answer: $post_errline}" ;;
+        vendor) echo "[#$idx] HTTP 502, refunded: drawing it once more in ${post_wait}s, charged once if it works. $response" ;;
+        conflict)
+          # The server's message once per run of 409s; then one short line each.
+          if [ "$prev" = conflict ]; then
+            echo "[#$idx] HTTP 409 again, still being made and charged once at most: asking again in ${post_wait}s (${conflict_waited}s of ${conflict_total}s)."
+          else
+            echo "[#$idx] HTTP 409, the first send is still being made, charged once at most: asking again in ${post_wait}s with the same idempotencyKey (${conflict_waited}s of ${conflict_total}s). $response"
+          fi ;;
+      esac
+      prev=$kind
+      sleep "$post_wait"
+      continue
+    fi
+    echo "$response" > "$OUTPUT_DIR/${idx}_error.json"
+    echo "[#$idx] ERROR: ${post_status:+HTTP $post_status: }${response:-no answer: $post_errline}"
+    # Where to look for the job: every image job written since a minute before this thumbnail
+    # was sent (a clock a little ahead of the API's), a day more when BATCH_KEY was given (an
+    # earlier run may have sent this key), page by page. The list shows a prompt's first 120
+    # characters, which every thumbnail prompt of a batch shares, so each match is read whole.
+    # The API writes a job in the same step as its charge, so no job there is no charge.
+    local since lookup before="a minute before this thumbnail's first send"
+    [ -z "${BATCH_KEY_GIVEN:-}" ] || before="a day and a minute before this send, since BATCH_KEY may be an earlier run's"
+    since=$(SENT_AT="$sent_at" GIVEN="${BATCH_KEY_GIVEN:-}" python3 -c "
+import datetime, os
+t = datetime.datetime.strptime(os.environ['SENT_AT'], '%Y-%m-%dT%H:%M:%SZ')
+print((t - datetime.timedelta(days=1 if os.environ['GIVEN'] else 0, seconds=60)).strftime('%Y-%m-%dT%H:%M:%SZ'))
+" 2>/dev/null) || since=$sent_at
+    lookup="GET /v1/generations?kind=image&limit=50&updatedSince=$since ($before) and its further pages (offset while hasMore): read with GET /v1/generations/{jobId} each job created since then whose promptPreview, the first 120 characters of its prompt, begins as this thumbnail's prompt does, since every thumbnail prompt of a batch starts alike, and take the one whose whole prompt is this thumbnail's"
+    if [ "$kind" = conflict ]; then
+      echo "[#$idx] idempotencyKey $key still answered 409 after ${conflict_waited}s of asking: its first call's answer was not recorded, and that call is charged once at most. Find its job in $lookup. Poll it to its end: one still in progress may still be drawing, or may be waiting for the API to fail it and refund it, usually within about 30 minutes of the charge and at the latest about 2 hours after it, and no such job since then means nothing was charged. This key keeps answering 409 for its 24 hours, and the same BATCH_KEY sends it again for this thumbnail: once that job has failed or is not there, run this thumbnail alone with a new batch key (only its prompt in PROMPTS, no BATCH_KEY), one new key, charged once. Sooner, it may stand charged twice: that call and the new one. The whole batch without BATCH_KEY draws and charges every thumbnail again."
+    elif [ "$maybe_charged" -eq 1 ] && [ -n "${BATCH_KEY:-}" ]; then
+      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): run the batch again unchanged with BATCH_KEY=$BATCH_KEY within 24 hours: its answer comes back if it was made, or it is drawn if it was not, charged once either way, or, where that call failed with its charge standing, it answers 409 until its 24 hours pass, and the run then stops with where to find its job. After 24 hours that key draws and charges again, so look first: $lookup; no such job since then means nothing was charged. A new BATCH_KEY sends a new key: a second picture, charged again, if the first was made."
+    elif [ "$maybe_charged" -eq 1 ]; then
+      echo "[#$idx] This may have rendered and been charged, once (every send carried idempotencyKey $key): before running it again, look in $lookup; no such job since then means nothing was charged. A new run sends a new key: a second picture, charged again, if the first was made."
+    elif [ "$kind" = busy ]; then
+      echo "[#$idx] HTTP $post_status, refused again after the wait. Nothing was charged: send it again later."
+    fi
+    rm -f "$post_hdr" "$post_err"
+    return 1
+  done
+  rm -f "$post_hdr" "$post_err"
 
   echo "$response" > "$OUTPUT_DIR/${idx}_job.json"
 
@@ -266,10 +397,101 @@ print(''.join(', %s=%s' % (k, d[k]) for k in ('reasonCode', 'error') if d.get(k)
   return 0
 }
 
-# ─── NO RETRY, ON PURPOSE ───────────────────────────────────────────────────
-# POST /v1/images takes no idempotency key, so a blind retry after a timeout or a 500 can
-# render and charge twice. If a generation fails, check GET /v1/generations for a
-# job that already landed before resubmitting it by hand.
+# ─── ONE KEY PER THUMBNAIL, AND WHEN A CALL GOES OUT AGAIN ──────────────────
+# generate_one puts each thumbnail's idempotencyKey in the body of its POST /v1/images
+# and keeps it for that call's resends. The API answers a key it has seen within 24
+# hours with that first send's job (the same jobId, charge and image), answers 409
+# while the first send is still being made, and gives the key back only when nothing
+# stands charged (a call it refused, or a draw that failed at once and was refunded),
+# so a resend with the same key is never a second charge. A failed POST goes out once
+# more, after the answer's Retry-After (else error.details.retryAfterSeconds, else 2 s;
+# never more than 30 s), on a 429 or the API's own 503 (nothing charged, waited up to
+# 60 s, since a per-minute limit names the rest of its minute; credit_balance_busy, the
+# credit balance held by other paid calls at that moment, is one of them); on no answer
+# (a timeout, a dropped connection), a 500 or another 5xx (the key answers with the first
+# send if it was made); and on a 502 provider_failed whose reasonCode is vendor_error,
+# vendor_timeout or none (refunded, so a new draw; the API gives the key back only where
+# the credits all came back, and where they did not the resend meets a 409 and takes the
+# 409's path, never a second charge). A 409 for the key, the first send
+# still being made, never uses that one resend: it is asked again after each
+# Retry-After, else 15 s, until the waits since the first 409 reach 120 s (the API
+# answers a call within about 105 s of its start), and a 429 or 503 met in that time
+# waits the same way, since several thumbnails asking at once can meet the per-key
+# limit. Past that the API says its answer was not recorded and the key keeps answering
+# 409, so the thumbnail stops and says where to find its job. Anything else stops at
+# once: another 4xx, or a 502 whose reasonCode names the picture or the prompt, which
+# fails the same way again. A stop says whether the thumbnail may stand charged.
+#
+# The keys come from the run's batch key (BATCH_KEY, else a new one, printed at the
+# start and saved in the output folder): thumbnail_keys draws each as a uuid5 of the
+# batch key, the model, the shape, each reference file's path and contents, the prompt
+# and how many identical prompts came before it. So a run that was cut off, run again
+# unchanged with BATCH_KEY=<its key> within 24 hours, sends every thumbnail the key it
+# sent before and gets each first call's answer back, charged once, instead of a second,
+# paid picture; a thumbnail whose prompt, model, shape or references changed (a file
+# replaced at the same path included) draws a new key by itself, and two identical
+# prompts still get two keys. After 24 hours the same keys draw and charge again.
+
+# Each thumbnail's idempotencyKey, one line per prompt given, in order (see ONE KEY).
+# Each reference in COMMON_REFS counts by its path and its contents; one that cannot be
+# read draws no key at all.
+thumbnail_keys() {
+  [ "$#" -gt 0 ] || return 0
+  printf '%s\0' "$@" | BATCH_KEY="$BATCH_KEY" MODEL="$MODEL" ASPECT="$ASPECT" python3 -c '
+import hashlib, os, sys, uuid
+refs = []
+for path in sys.argv[1:]:
+    try:
+        with open(path, "rb") as fh:
+            refs.append(path + "\t" + hashlib.sha256(fh.read()).hexdigest())
+    except OSError as e:
+        sys.exit("cannot read reference %s: %s" % (path, e))
+seen = {}
+for prompt in sys.stdin.buffer.read().decode("utf-8").split("\0")[:-1]:
+    prompt = prompt.strip()
+    n = seen.get(prompt, 0)
+    seen[prompt] = n + 1
+    parts = ["novoads-thumbnail", os.environ["BATCH_KEY"], os.environ["MODEL"],
+             os.environ["ASPECT"], "\n".join(refs), str(n), prompt]
+    print(uuid.uuid5(uuid.NAMESPACE_URL, "\n".join(parts)))
+' ${COMMON_REFS[@]+"${COMMON_REFS[@]}"}
+}
+
+# Every thumbnail, at most MAX_PARALLEL in flight, each POST with its own key (see ONE
+# KEY). Args: the reference assetIds as JSON, then the prompts. Sets BATCH_KEY (from the
+# environment, else a new one) and BATCH_KEY_GIVEN, and saves the batch key in the output
+# folder; when the keys cannot be drawn, one per prompt, it sends nothing.
+generate_all() {
+  local ref_json=$1
+  shift
+  # The batch key: BATCH_KEY from the environment (a run that was cut off), else a new one.
+  BATCH_KEY_GIVEN="${BATCH_KEY:+1}"
+  BATCH_KEY="${BATCH_KEY:-$(python3 -c 'import uuid; print(uuid.uuid4())')}"
+  local -a keys=()
+  local k prompt i=0
+  while IFS= read -r k; do keys+=("$k"); done < <(thumbnail_keys ${1+"$@"})
+  if [ "${#keys[@]}" -ne "$#" ]; then
+    echo "ERROR: ${#keys[@]} idempotencyKeys drawn for $# prompts; nothing was sent." >&2
+    return 1
+  fi
+  echo "$BATCH_KEY" > "$OUTPUT_DIR/batch_key.txt"
+
+  echo "═══════════════════════════════════════"
+  echo "Generating $# thumbnail(s), max $MAX_PARALLEL in flight..."
+  echo "Output: $OUTPUT_DIR"
+  echo "Batch key: $BATCH_KEY (saved in $OUTPUT_DIR/batch_key.txt). If this run is cut off, run it again unchanged with BATCH_KEY=$BATCH_KEY within 24 hours: each thumbnail it sent answers with its first call, charged once, instead of a second, paid picture. After 24 hours those keys draw and charge again, so look in GET /v1/generations first."
+  echo "═══════════════════════════════════════"
+
+  for prompt in ${1+"$@"}; do
+    # Block until a slot frees up, so we never exceed MAX_PARALLEL.
+    while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$MAX_PARALLEL" ]; do
+      sleep 1
+    done
+    generate_one "$((i + 1))" "$prompt" "$ref_json" "${keys[$i]}" &
+    i=$((i + 1))
+  done
+  wait
+}
 
 # ─── PROMPTS ────────────────────────────────────────────────────────────────
 # Define your prompts here. Each entry generates one thumbnail.
@@ -298,21 +520,8 @@ REF_JSON="[$REF_IDS]"
 echo "Reference assetIds: $REF_JSON"
 echo "(An assetId can be reused across calls: every prompt in this batch uses these.)"
 
-echo "═══════════════════════════════════════"
-echo "Generating ${#PROMPTS[@]} thumbnail(s), max $MAX_PARALLEL in flight..."
-echo "Output: $OUTPUT_DIR"
-echo "═══════════════════════════════════════"
-
-for i in "${!PROMPTS[@]}"; do
-  idx=$((i + 1))
-  # Block until a slot frees up, so we never exceed MAX_PARALLEL.
-  while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$MAX_PARALLEL" ]; do
-    sleep 1
-  done
-  generate_one "$idx" "${PROMPTS[$i]}" "$REF_JSON" &
-done
-
-wait
+# The batch key, every thumbnail's idempotencyKey, and the thumbnails (see ONE KEY).
+generate_all "$REF_JSON" ${PROMPTS[@]+"${PROMPTS[@]}"}
 
 echo "═══════════════════════════════════════"
 echo "DONE. Results in: $OUTPUT_DIR"
@@ -333,6 +542,11 @@ for p in glob.glob(sys.argv[1] + "/*_job.json"):
 print(round(total, 4))
 PY
 )
-echo "Total credits charged this run: $TOTAL"
+if [ -n "$BATCH_KEY_GIVEN" ]; then
+  # A replay is the first answer as it was, so a thumbnail an earlier run made counts here.
+  echo "Total credits the jobs report: $TOTAL (BATCH_KEY was given: a thumbnail a run made with it in the last 24 hours shows that run's charge, charged there once; past 24 hours each one here is a new charge)"
+else
+  echo "Total credits charged this run: $TOTAL"
+fi
 echo "═══════════════════════════════════════"
 open "$OUTPUT_DIR" 2>/dev/null || xdg-open "$OUTPUT_DIR" 2>/dev/null || true

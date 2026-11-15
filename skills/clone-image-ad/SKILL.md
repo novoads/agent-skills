@@ -331,6 +331,16 @@ It shares everything else with the generators: the same three always-on safety s
 same upload flow, each model's own reference cap (`gpt-image-2` 4, `nano-banana-pro` 14),
 the same local prompt-length check before spending.
 
+It also sends the same `idempotencyKey`, printed before the call with its send time, and resends a
+failed call by the same rules (the `chatgpt-image-ad` skill's Common errors). A run that was cut
+off, or stopped after a lost answer, is run again within 24 hours with
+`--idempotency-key <the key it printed>`: that call's answer comes back if it was made, or it is
+drawn, charged once either way, or, where that call failed with its charge standing, `409` until its
+24 hours pass and a stop with where to find its job. After 24 hours the key draws and charges again,
+so look first where a stop says (`GET /v1/generations?kind=image&limit=50&updatedSince=` a minute
+before that send, every page, each match read whole). Only for the same call: the key answers with
+the first picture whatever the prompt now says, so Phase 8's second model or a corrected prompt runs without it.
+
 ### Editing a source (Phase 7's second instrument)
 
 `POST /v1/images` accepts `sourceAssetId` — **on the GPT models; this validator sends it on

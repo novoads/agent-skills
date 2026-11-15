@@ -96,10 +96,10 @@ user as the only option without at least one retry (unless they explicitly waive
 
 1. **Inspect** the image from the `images[].url` in the response, or from `outputUrl` on the polled job if it answered `running` (the URL is presigned and expires: `expiresInSeconds` says when; re-read the job with `GET /v1/generations/{jobId}` for a fresh one).
 2. If **defective:** compose a **new prompt** that names the fix (e.g. "exactly two hands visible, five fingers each," "single coherent face," "product label sharp and readable"). Keep the creative intent; add corrective constraints rather than resending the identical body.
-3. Call `POST /v1/images` again with the same `model`, `aspectRatio`, `referenceAssetIds` and `productId` as before unless you are intentionally changing them.
+3. Call `POST /v1/images` again with the same `model`, `aspectRatio`, `referenceAssetIds` and `productId` as before unless you are intentionally changing them, and a new `idempotencyKey`: the first call's key answers with its first, defective picture, whatever the new prompt says.
 4. **Cap:** at most **2** regeneration attempts after the first image (**3** total per deliverable). After that, describe the remaining issues, show the best attempt, and ask the user how to proceed.
 5. **Credits:** each generation bills separately and there are no free re-rolls. QA retries use the QA-fix exception (no second pre-confirmation inside the cap) but are still billed — report the cumulative `creditsCharged` when you present results.
-6. **Do not blindly retry a `500`.** `POST /v1/images` takes no idempotency key, so a resubmit can render and charge twice. Check `GET /v1/generations` for a job that already landed first. (A `502 provider_failed` is different — the provider broke and credits are refunded automatically.)
+6. **Do not blindly retry a `500`.** Send it again only identical and with the same `idempotencyKey`, which answers with a job that already landed, charged once; under a new key, or none, a resubmit can render and charge twice. A call sent without a key: check `GET /v1/generations` for a job that already landed first. (A `502 provider_failed` is different — the provider broke and credits are refunded automatically.)
 
 Full agent steps: [SKILL.md — Generated image QA](../../SKILL.md).
 
@@ -118,20 +118,22 @@ Minimal product hero: matte black earbuds on concrete, soft studio three-point l
 ## curl example
 
 ```bash
+KEY=$(python3 -c 'import uuid; print(uuid.uuid4())')  # one per picture, kept for this call's resends
 source .env && curl -sS -X POST \
   -H "Authorization: Bearer $NOVOADS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nano-banana-pro",
     "prompt": "Minimal product hero: matte black earbuds on concrete, soft studio three-point lighting, subtle reflection, no people, no extra props.",
-    "aspectRatio": "1:1"
+    "aspectRatio": "1:1",
+    "idempotencyKey": "'"$KEY"'"
   }' \
   "https://api.novoads.ai/v1/images"
 ```
 
 The response is the finished job only when the render finishes in time: `images[]` with presigned URLs, plus `creditsCharged` and the
 `model` that ran. One still going after about 105 s answers `status: "running"` with no images (API 2.39.0): poll
-`GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid. Price it first:
+`GET /v1/generations/{jobId}` to a terminal status and read `outputUrl` and `outputAssetId` there, with `images[]` on a job of several. Never resubmit it; that job is already paid. The `idempotencyKey` is new for every picture and the same on a resend of that call after a timeout, a `429` or a `5xx`, which answers with the first call's job instead of a second charge; a new or corrected picture takes a new key, since a key answers with its first picture whatever the prompt now says. The estimate refuses the field. Price it first:
 
 ```bash
 source .env && curl -sS -X POST \

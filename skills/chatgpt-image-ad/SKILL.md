@@ -85,6 +85,7 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 | `referenceAssetIds` | up to **4**, order preserved, addressable positionally from the prompt |
 | `numImages` | `1`–`4`, **one call**, charged per image |
 | `productId` | optional, organizational only |
+| `idempotencyKey` | sent by the script, a new one per call and the same on that call's resends, and printed before the call: the same key within 24 hours answers with the first call's job instead of rendering and charging again, and after 24 hours draws and charges again. `--idempotency-key <key>` sends a printed key again from a new run, for the same call only, since it answers with the first picture whatever the prompt now says: a QA retry or a corrected prompt runs without it |
 
 `3:2`, `3:4`, `4:3` and `5:4` are **not** on this model — they exist on `nano-banana-pro`.
 The request schema is strict, so sending one is a `400` before anything is charged.
@@ -313,7 +314,8 @@ instead of retrying tighter.
 
 **5. One image per call.** Omit `numImages` (or send `1`). A library run wants one render
 per template, and a multi-image response can be the **only copy** of images 2–N — a lost
-response can lose them while the credits stay charged (see the `novoads-api` skill's
+response and a lost key can lose them while the credits stay charged (the key the script
+prints gets them back within 24 hours, with `--idempotency-key`; see the `novoads-api` skill's
 `reference.md`). **Write every image to disk the moment it arrives**, before starting the
 next template.
 
@@ -340,11 +342,13 @@ that is `clone-image-ad`'s job.
 | `401 unauthorized` | Missing, malformed or revoked key. Send the user to <https://novoads.ai/dashboard/settings?tab=api>. |
 | `402 insufficient_credits` | `details` carries `required` and `available`. Tell the user the gap; do not retry. |
 | `403 forbidden` | `details.reason` says which: `plan_required`, `subscription_inactive`, or API access off for the account. |
+| `409 conflict` with `details.idempotencyKey` | A call with this key is still being made, and it is charged once at most. The script asks again with the same key after the `Retry-After`, else 15 s, for up to 120 s in all, and the first call's answer comes back once it is made; a `429` or `503` met in that time waits the same way. Still `409` after that: its answer was not recorded and that key keeps answering `409` for its 24 hours. Find the job where the stop says: `GET /v1/generations?kind=image&limit=50&updatedSince=` a minute before the time its key line gave (a day more for a key given with `--idempotency-key`), and every further page (`offset` while `hasMore`), a job created since then whose `promptPreview`, its prompt's first 120 characters, begins as this prompt does, and where several do, the one whose whole `prompt` in `GET /v1/generations/{jobId}` does. Poll it to its end: one still in progress may still be drawing, or may be waiting for the API to fail it and refund it, usually within about 30 minutes of the charge and at the latest about 2 hours after it, and no such job since then means nothing was charged. Once that job has failed or is not there, run it again without `--idempotency-key`: a new key, charged once. Sooner, the picture may stand charged twice. |
 | `422 content_policy` | Moderation blocked it. The estimate does not run moderation, so this can land on a prompt the estimate priced cleanly. Nothing was charged. Rewrite or stop. |
-| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot. Honor `Retry-After`. |
+| `429 rate_limited` | **Branch on `details.reason`.** `key_limit` / `organization_limit` / `client_limit` are paced by slowing down; `image_concurrency_limit` is not — only waiting frees a slot; `credit_balance_busy` means other paid calls of the organization held the credit balance at that moment (`Retry-After: 2`). Honor `Retry-After`. Nothing was charged, so the script waits it out (at most 60 s, the rest of a per-minute window) and sends the call once more by itself, with the same `idempotencyKey`; a second `429` stops it with the server's message. After the key's `409`, a `429` waits like the `409` and does not use that one resend. |
 | `403` on the presigned PUT | The signed headers weren't echoed byte for byte. Send the `headers` object from `POST /v1/uploads` exactly as returned. |
-| `500 internal_error` | **Do not blindly retry** — `POST /v1/images` takes no idempotency key, so a retry can double-charge. Check `GET /v1/generations` for a job that already landed. |
-| `502 provider_failed` | The model provider failed. Credits are refunded automatically. The script prints `reasonCode` where the job has one: read it before you send anything again (Status lifecycle in the `novoads-api` skill's `reference.md`). |
+| `500 internal_error` | The call may have landed. The script sends it once more with the same `idempotencyKey`, which answers with the first call's job if it was made, never a second charge, and does the same after a timeout, a dropped connection or another `5xx`. **If that fails too, do not run it again blindly**: run it again within 24 hours with `--idempotency-key` and the key it printed, which answers with that call's job if it was made, or draws it if it was not, charged once either way, or, where that call failed with its charge standing, `409` until its 24 hours pass, and the run then stops with where to find its job. Or look first where the stop says (`GET /v1/generations?kind=image&limit=50&updatedSince=`, every page, matched on `promptPreview` and `createdAt`, each match read whole): no such job since then means nothing was charged. After 24 hours the key draws and charges again, so look first. A run without the flag sends a new key: a second picture, charged again, if the first was made. |
+| `502 provider_failed` | The model provider failed. Credits are refunded automatically. On `reasonCode` `vendor_error`, `vendor_timeout` or none, the script sends it once more by itself with the same key: a new draw, charged once if it works, since a `502` whose credits all came back gives its key back; where they did not all come back, the key answers `409` and the script takes the `409` row's path, never a second charge. On `moderation` or an `input_image_*` code it stops, since the same picture fails the same way. It prints `reasonCode` where the job has one: read it before you send anything again (Status lifecycle in the `novoads-api` skill's `reference.md`). |
+| `503 unavailable` | Nothing was charged (on `details.reason` `image_capacity` the credits were taken and given back at once). The script sends the call once more, with the same `idempotencyKey`, after the `Retry-After` (at most 60 s), else 2 s; a second `503` stops it with the server's message. |
 
 ## Files this skill owns
 

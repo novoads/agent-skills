@@ -62,8 +62,8 @@ file names the endpoint and the fields that matter to a beat.
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
@@ -595,9 +595,9 @@ refused with a `400` before anything is charged. (Measured 13.2 = the 2.0
 words/sec rate written out: 29 words/188 chars over a 14.2s span, 2026-08-11, one
 render, spaces counted. This read 15/sec yet called 1,000 chars 40s, implying 25.)
 
-**The script is read VERBATIM**, including anything in square brackets — the
-model interprets those as performance tags rather than skipping them. Keep stage
-directions out.
+**Square brackets are read before the voice:** a stage direction like
+`[Looks at camera]` is removed and not billed, a short voice tag like `[excited]` shapes
+the delivery, and an unfilled placeholder like `[product name]` is a `400` (`script_has_placeholders`) with nothing charged.
 
 **Language**, if the ad is not in English: pass `language` and pick a voice whose
 `languages` include it. A mismatch is refused before anything is charged, which

@@ -99,8 +99,8 @@ ask the user to install it before starting. A clean machine can clone an ad.
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
@@ -142,7 +142,7 @@ that brand has no fetchable video ads running — not a reason to re-sweep or to
 | **Source video** | yes | The ad to clone. `.mp4`, `.mov`, `.webm`. Handed over, or swept for above |
 | **Product photo** | strongly recommended | Becomes `startImageAssetId` or `@Image1` in `referenceAssetIds`. Without one, see "no photo" below — the answer is not "let Seedance invent it" |
 | **Product / offer description** | if no photo | Features, audience, selling points. Used to rewrite the dialogue and the product references, and to generate a still if they want one |
-| **A photo of the person** | for a series | It holds one face across clips, and a talking part over 10 seconds is a series. None to hand: make a casting picture of a new person of the source's type with `POST /v1/images`, priced and shown for a yes, before any clip uses it |
+| **A photo of the person** | for a series | It holds one face across clips, and a talking part over 15 seconds (over 10 when its inputs keep it there) is a series. None to hand: make a casting picture of a new person of the source's type with `POST /v1/images`, priced and shown for a yes, before any clip uses it |
 | **Brand voice** | optional | Check `MASTER_CONTEXT.md` first. If its brand blocks are empty, ask for tone and audience |
 
 **Check `references/` at the repo root before asking.** `references/products/` for product
@@ -349,8 +349,8 @@ Wait for the answer. This is a reading of their video, not an approval to spend.
 
 ```
 ┌─ Does someone talk on camera in this scene?
-│   YES → omni-flash: 4, 6, 8 or 10 s a clip, the shortest that holds its line (step 6). A part
-│         over 10 s splits into clips where the line splits: 15 s is 10 + 6, never one scene.
+│   YES → omni-flash: 4, 6, 8, 10, 12 or 15 s a clip (12 and 15 from text, 1 to 3 pictures or a
+│         first frame alone; read durationsSeconds on GET /v1/models), the shortest that holds its line (step 6). A longer part splits where the line splits.
 │         Stays on seedance-2.0: square, productSwap, animated characters, a model they name.
 │   NO, or it stays → that part ≤ 15 s: one clip, durationSeconds = its length, an integer in 4–15.
 │         Longer: two routes, and the USER picks. See "Over 15 seconds on Seedance" below.
@@ -438,7 +438,7 @@ The creative core. Working from step 3:
 - Keep the **same energy arc**: excited → calm, flat, or building.
 - Replace product-specific references with the user's product name, features and claims.
 - Match each line's **word count within about ±3 words** so the pacing survives.
-- Read it back at a natural pace against the target duration. On `omni-flash`, about 2.8 words a second after its first second: 8 words in 4 s, 14 in 6, 19 in 8, 25 in 10, and a longer line splits across clips at a sentence's end.
+- Read it back at a natural pace against the target duration. On `omni-flash`, about 2.8 words a second after its first second: 8 words in 4 s, 14 in 6, 19 in 8, 25 in 10, 30 in 12 and 39 in 15 (12 and 15 from text, 1 to 3 pictures or a first frame alone), and a longer line splits across clips at a sentence's end.
   On Seedance, **2.0 words per second** measured (~13 chars/sec with spaces), so a `D`-second clip holds about `2.0 × (D − 0.5)` words.
 - **Script variants.** If they asked for N *script variants* rather than N renders of one
   script (step 5), write N distinct adaptations that share the beat structure, the
@@ -499,7 +499,7 @@ Then:
 - **Write it in the source's language** if that is what the user wants rendered (on `omni-flash` the frame may stay in English with only the quoted line in that language: the [Omni guide](../../shared/skills/gemini-omni-flash/prompting/guide.md)). Nothing on
   the API pushes back on a Spanish or Portuguese prompt.
 
-**Duration:** a talking scene on `omni-flash`: 4, 6, 8 or 10, the shortest that holds its line. Elsewhere: that part ≤ 15s → match it, rounded to an integer in 4–15. Longer → whichever
+**Duration:** a talking scene on `omni-flash`: the shortest of the lengths `GET /v1/models` lists (4, 6, 8, 10, 12 or 15 today) that holds its line. Elsewhere: that part ≤ 15s → match it, rounded to an integer in 4–15. Longer → whichever
 route the user picked in step 5: one ≤15s render for a compression, or one duration per clip
 for a series. Never re-decide it here. Validate against the spoken word count; `SKILL.md`
 carries the table.
@@ -782,7 +782,7 @@ makes no Novoads call and costs no credits.
 
 ## Seedance 2.0 constraints that bite during a clone
 
-Full detail in [reference.md](../novoads-api/reference.md). A talking scene on `omni-flash` has its own narrower grid: `durationSeconds` 4, 6, 8 or 10, `aspectRatio` `9:16` or `16:9`, no `audioEnabled`, and `startImageAssetId` is a reference there, not a first frame.
+Full detail in [reference.md](../novoads-api/reference.md). A talking scene on `omni-flash` has its own narrower grid: `durationSeconds` one of the lengths `GET /v1/models` lists (4, 6, 8, 10, 12 or 15 today; 12 and 15 from text, 1 to 3 pictures or a first frame alone), `aspectRatio` `9:16` or `16:9`, no `audioEnabled`, and `startImageAssetId` is a reference there, not a first frame.
 
 | Constraint | What it means here |
 |---|---|

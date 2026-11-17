@@ -61,8 +61,8 @@ concurrency, the upload contract — the `novoads-api` skill's `reference.md` is
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
@@ -154,7 +154,7 @@ Three things to know about this call:
 
 - **It reads the image prompt too, and says so in `warnings`.** `POST /v1/estimates` returns the same advisory `warnings` array of craft notes on a `kind: "image"` call as it does on video, with rules of its own — `banned_polish` and `blank_label` both observed live on deployed spec 2.19.0 (verified live 2026-08-12). The older note here, that an image estimate came back with no `warnings` key at all, described the 2026-08-04 deployment and is retired. They are still **advisory**: none refuses the call, none changes `credits`, and they match substrings, so read each one, judge it against what your prompt actually says, and state your reasoning if you override it — never paste a suggested fix into a prompt it does not fit, and never drop one silently. The rewrite rules in Phase 3 remain the real check; this is a second opinion that costs nothing on a call you were making anyway.
 - **The body is strict.** This run sends `kind`, `prompt`, `model`, `numImages`; the arm also takes `language` and `resolution` (it moves the price; the script has no size flag and renders the default `2K`, so send it only for a direct `POST /v1/images` at that size). Sending `aspectRatio` or `referenceAssetIds` is a `400 Unrecognized key`: the estimate never sees them, and neither affects the price.
-- **Its length check happens to match this model's.** The estimate's own request schema caps `prompt` at 50,000 characters for every image model, which is exactly this model's ceiling on `POST /v1/images` (deployed spec 2.16.0, verified 2026-08-08). The agreement is a coincidence of this being the roomiest model on the API: on the GPT models (32,000 each) and the Seedream 5 pair (10,000 each) the estimate is the looser of the two and will price a prompt the generation then refuses. It does **not** run moderation either, so a prompt it blessed can still come back `422 content_policy`.
+- **It applies this model's own length ceiling, as the generation does.** The estimate's schema allows 50,000 characters, but the service then applies the named image model's own ceiling, as `POST /v1/images` does (50,000 here, the roomiest on the API; 32,000 on each GPT model, 10,000 on each Seedream 5 model and 5,000 on `seedream-5.5`), so an over-long image prompt is refused at the estimate, at no charge. It does **not** run moderation either, so a prompt it blessed can still come back `422 content_policy`.
 
 Estimate the **final** prompt, the one the script will send with the safety suffixes
 appended, or the quote will be short by roughly 1,500 characters' worth of prompt.

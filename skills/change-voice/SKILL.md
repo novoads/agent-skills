@@ -49,8 +49,8 @@ names the endpoint and the fields that matter to a re-voice.
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
@@ -367,8 +367,8 @@ poll `GET /v1/generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4
 (`voiceChange.reasonCode` names the cause); on `succeeded`, download. The same price as audio
 out, from the same `kind: "voice-change"` estimate, but charged differently: audio out at the
 request, video out only once the job finds speech in the source (a source with none ends
-`failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), refunded if the job fails after that. It needs a video source and is
-enabled per workspace; both refusals are a `400` with nothing charged. Only the voice
+`failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), refunded if the job fails after that. It needs a video source, and a deployment may keep
+it closed to a workspace; both refusals are a `400` with nothing charged. Only the voice
 changes. The mux becomes the server's; Gate 6's span choices are not made for you; Gate 7
 stays yours.
 **Read [references/video-out.md](references/video-out.md) before sending it.**
@@ -402,7 +402,7 @@ POST /v1/voice-changes  { assetId | jobId, voiceId (REQUIRED), productId?,
                             output: "video" }
                           A JOB. status: queued (new) | running (the same change,
                           already rendering) | succeeded (already made, nothing charged).
-                          VIDEO source only, enabled per workspace. See Video out.
+                          VIDEO source only. See Video out.
 
 GET  /v1/generations/{jobId}
                         Video out only, on queued/running: poll until "succeeded"

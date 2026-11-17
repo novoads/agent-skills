@@ -61,9 +61,9 @@ case "$code" in
   403)
     echo "" >&2
     if [[ "$body" == *"plan_required"* ]]; then
-      echo "The key is fine (403). This organization's plan does not include API access yet," >&2
-      echo "so there is nothing to change about the key itself." >&2
-      echo "Check your plan at https://novoads.ai/dashboard/settings?tab=billing" >&2
+      echo "The key is fine (403). This organization has no live plan: none yet, or it ended." >&2
+      echo "Every plan includes the API, so there is nothing to change about the key itself." >&2
+      echo "Choose or renew one at https://novoads.ai/dashboard/settings?tab=billing" >&2
     else
       echo "The key is fine (403), but the REST API is not enabled for this account yet." >&2
       echo "$body" >&2

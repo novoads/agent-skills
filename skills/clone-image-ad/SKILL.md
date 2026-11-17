@@ -154,8 +154,8 @@ Use `brand.claims` where we have a true equivalent — it makes the substitution
 a rhythm-preserving guess. Its absence never blocks.
 
 > Three claims carried into this clone — check them before it runs anywhere:
-> • "300 Natural AI Actors" → "1,000+ AI actors"
-> • "35 languages" → "5 languages"
+> • "300 Natural AI Actors" → "100+ AI actors"
+> • "35 languages" → "30+ languages"
 > • "30% off first month" → "from $15/month, cancel anytime"
 
 **Never carry a real named person through.** "Ashvin Melwani, CMO at Obvi" in a Novoads ad puts
@@ -380,8 +380,8 @@ becomes at the provider.
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.

@@ -136,7 +136,7 @@ here blocks your first ad:
 | Tool | Only if you | Install |
 |---|---|---|
 | **Meta publishing deps** | publish finished creatives to the Meta Marketing API (`meta-ad-builder`) | `pip install -r shared/skills/meta-ad-builder/scripts/requirements.txt` |
-| **Node.js + `whisper`** | use the manual caption path instead of `POST /v1/captions`: a style outside the 30 presets, or hand-editing the wording before burn-in | `brew install node`; `pip install openai-whisper` plus a model download (the binary alone returns an EMPTY transcript, not an error) |
+| **Node.js + `whisper`** | use the manual caption path instead of `POST /v1/captions`: a style outside the 30 presets, or a source rendered without sound (the API takes corrected words in `lines`) | `brew install node`; `pip install openai-whisper` plus a model download (the binary alone returns an EMPTY transcript, not an error) |
 
 Linux: `apt install curl jq ffmpeg python3`. Windows: **WSL2** or **Git Bash**;
 the skills here are shell scripts and `curl` calls, so they need a POSIX shell.
@@ -298,8 +298,8 @@ workflow.
 
 ### 🎬 Seedance 2.5 — the long one
 
-Any integer duration from **4 to 30 seconds**, which makes it the only model here that renders past
-15 in a single call. Everything else is 2.0's shape: the same six aspect ratios, the same nine
+Any integer duration from **4 to 30 seconds**, which makes it one of two models here that render past
+15 in a single call (the other is `kling-v4`). Everything else is 2.0's shape: the same six aspect ratios, the same nine
 `referenceAssetIds`, the same `audioEnabled` toggle, the same 4,000-character prompt ceiling — so
 the five Seedance formulas apply unchanged.
 
@@ -329,8 +329,9 @@ takes it, priced first. Square ads, animated characters and product swaps stay o
 
 `omni-flash` carries a **20,000-character** prompt ceiling, the roomiest of any video model here,
 shared only with `wan-3.0` (`kling-v3-pro` takes 2,500, the rest 4,000), which is what makes long
-structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`,
-aspect ratios `9:16` or `16:9` only — and since API 2.30.0 it also takes reference images.
+structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`, and
+`12` and `15` from text, 1 to 3 reference images or a first frame alone (read `durationsSeconds`
+on `GET /v1/models`), aspect ratios `9:16` or `16:9` only — and since API 2.30.0 it also takes reference images.
 Prompt craft in
 [shared/skills/gemini-omni-flash/prompting/guide.md](shared/skills/gemini-omni-flash/prompting/guide.md),
 which is Google DeepMind's own guide with the parts this API cannot reach marked as such.
@@ -403,7 +404,7 @@ skill.
 | **Claymation / stop-motion clay ad** | The 8-beat narrative arc (setup → inciting moment → social validation → quiet despair → clay infographic → discovery → transformation → resolution), a 5-beat short, hand-sculpted clay style lock, per-beat material detail, and a local ffmpeg + Whisper read of a reference video as a second entry for recreating a clay ad you were shown | [claymation-ad](skills/claymation-ad/SKILL.md) · formulas in [references/formulas.md](skills/claymation-ad/references/formulas.md) |
 | **Still → motion graphic** | One `seedance-2.5` call off `startImageAssetId`, where the image you hand over is the shot rather than a reference: motion vocabulary for seven image classes (UI, hero, flat-lay, key art, collage, product, character), a timed-beat prompt template, and the clauses that hold text pixel-identical and pin regions still. The judgement is what moves, in what order, and what is absent at 0.0s | [image-to-motion](skills/image-to-motion/SKILL.md) |
 | **YouTube thumbnails** | 5 CTR formulas (peace-sign branding, real-vs-AI, terminal flow, reaction shock, before/after split) on `nano-banana-pro`, likeness locked with face references | [generate-youtube-thumbnail](skills/generate-youtube-thumbnail/SKILL.md) |
-| **Burn captions onto an MP4** | Whisper transcript → reading phrases → captions-only HTML on a transparent background → ffmpeg alpha overlay. The manual caption path, for a style outside the 30 presets or wording you need to hand-correct. **Out of band: no API call, no credits** | [caption-video](shared/skills/caption-video/SKILL.md) |
+| **Burn captions onto an MP4** | Whisper transcript → reading phrases → captions-only HTML on a transparent background → ffmpeg alpha overlay. The manual caption path, for a style outside the 30 presets or a source with no sound (the API takes corrected words in `lines`). **Out of band: no API call, no credits** | [caption-video](shared/skills/caption-video/SKILL.md) |
 | **Overlay b-roll cutaways on a finished MP4** | Whisper transcript → EDL of overlay windows (`file`, `start`, `end`, `covers`) → validate → ffmpeg overlay → verify duration, audio and every window. Base audio runs untouched, duration never changes. **Local ffmpeg, no credits** (the cutaway clips themselves are generated first, and those are charged) | [broll-overlay](shared/skills/broll-overlay/SKILL.md) |
 | **Lay a music bed under a finished MP4** | Track trimmed and faded to the exact cut length, ducked under the voice, picture stream-copied so burned captions survive bit-exact. **Mixing is local ffmpeg and free; generating a track is one priced API call on the same key** (two tracks per request), or bring your own file | [music-mix](shared/skills/music-mix/SKILL.md) |
 
@@ -479,12 +480,13 @@ is the current answer, this table is a map.
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
 |---|---|---|---|---|---|
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
-| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
+| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | One of two models here that render past 15s (the other is `kling-v4`). Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
 | **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, about a fifth of the price, back in 2–3 min. The drafting tier. |
-| **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` (with no `firstFrameAssetId`) and 8s. The model for a scene where someone talks, and for long structured briefs and silent b-roll. |
+| **`omni-flash`** | Video | `4` `6` `8` `10` `12` `15` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` (with no `firstFrameAssetId`) and 8s. The model for a scene where someone talks, and for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
 | **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | 2,500 chars | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`kling-v4`** | Video | 3 to 30s, any integer | `16:9` `9:16` `1:1` | 4,000 chars | Kling 4.0. Sound always on (`audioEnabled` is a `400`). Text, or `startImageAssetId` plus an optional `lastFrameAssetId`. No `referenceAssetIds`. `resolution` `720p` or `1080p` (default). Dearer than `kling-v3-pro` at the same length: price both. |
 | **`wan-3.0`** | Video | 4–15s, any integer | `9:16` `16:9` `1:1` `4:3` `3:4` | **20,000 chars** | Wan 3.0 (API 2.53.0). Defaults to `9:16` (with no start picture) and 5s. Audio on by default, off with `audioEnabled: false`. Text alone, `startImageAssetId` (plus an optional `lastFrameAssetId`, which needs it), **or** up to 9 `referenceAssetIds`; never a start frame and references together. `resolution` `480p` `720p` `1080p`, default `720p`, each tier its own price. Unmeasured here: no render time on record. |
 | **`gpt-image-2.6-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default** (added in API 2.57.0, the default since 2.58.0): a call with no `model` and no `preset` renders this. The newest; slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
 | **`gpt-image-2.6-flare`** | Image | — | same six | **32,000 chars** | The newest fast one, for most images (API 2.57.0). Can answer `running`: poll it. |
@@ -493,13 +495,14 @@ is the current answer, this table is a map.
 | **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 and 2.6 arrivals. Can answer `running`: poll it. |
 | **`nano-banana-pro`** | Image | — | 10 ratios incl. `3:2` `4:3` `5:4` | **50,000 chars** | Photoreal people and products; strongest identity lock across references. The most prompt room on the API. |
 | **`reve-2.1`** | Image | — | n/a | n/a | **Retired (API 2.48.0).** `POST /v1/images` and `POST /v1/estimates` refuse it with `400` `invalid_input`, `details.reason: "model_retired"`, before any charge; `GET /v1/models` no longer lists it. |
+| **`seedream-5.5`** | Image | n/a | the seven Seedream ratios, read `GET /v1/models` | **5,000 chars** | Seedream 5.5. Up to 4 `referenceAssetIds`. `resolution` `1.5K` or `2K` (default), each its own price. |
 | **`seedream-5-lite`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Lite (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
 | **`seedream-5-pro`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Pro (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
 
 Image calls take `numImages` 1–4. Two of their limits are **per model** and neither is one
 number across the set. The `referenceAssetIds` cap is 14 on `nano-banana-pro`, 4 on
-each of the five GPT models, 10 on each Seedream 5 model. The prompt ceiling is 50,000, 32,000 and
-10,000 in that same order (deployed spec 2.16.0 split it from what used to be 4,000 everywhere;
+each of the five GPT models, 10 on each Seedream 5 model (4 on `seedream-5.5`). The prompt ceiling is 50,000, 32,000 and
+10,000 in that same order (5,000 on `seedream-5.5`; deployed spec 2.16.0 split it from what used to be 4,000 everywhere;
 Seedream 5 arrived at 10,000 in API 2.39.0). So a prompt written for one image model may be too long
 for another, and moving a long `nano-banana-pro` or GPT prompt to a Seedream 5 model is the case that
 hits it. The five GPT models are the case that does not, because
@@ -672,8 +675,9 @@ every live pack skill name each time it runs, so a copy sitting under the same n
 
 Everything above assumes you cloned the repo. If you installed through the `skills` CLI instead:
 
-- **Pin to a release with a tag:** `npx skills add novoads/agent-skills#v1.0.0`, naming the
-  latest release tag (`v1.0.0` today). Tags work. 40-character commit SHAs do not, because the CLI
+- **Pin to a release with a tag:** `npx skills add novoads/agent-skills#<tag>`, naming the
+  latest release tag (the newest `v` tag on the repo's Tags page; the `VERSION` file at the root
+  names it). Tags work. 40-character commit SHAs do not, because the CLI
   installs by cloning a branch or a tag. A pinned install moves only when you point it at a newer
   tag. Releases are tagged `vX.Y.Z` and written up in [CHANGELOG.md](CHANGELOG.md).
 - **Update with `npx skills update`**, and read this before you do. **The reinstall is `rm -rf` on
@@ -712,7 +716,7 @@ Everything above needs a POSIX shell, `curl`, and a key in `.env`. If you have n
 (claude.ai on the web, or Windows with no WSL and no Git Bash), Novoads also runs a hosted
 connector at **[novoads.ai/mcp](https://novoads.ai/mcp)**. It is a **separate surface**, not a
 way to run this pack: it carries none of the skills, prompt libraries or formulas in this repo,
-and it quotes costs in different units. **The skills in this repo never use it.** They stop and
+and this repo cannot test what it runs. **The skills in this repo never use it.** They stop and
 ask for the API key instead, even in a session where the connector is already connected.
 
 ## Vendor prompting guides

@@ -67,15 +67,15 @@ phrasing from drifting back.
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 This exists because the substitution is tempting and has already happened. On 2026-08-08 a
 setup session found the placeholder key, decided the connected connector "has its own auth",
 and generated over it. Three things go wrong when a session drifts there: this repo can only
 test and ratchet the REST path, so nothing here covers what the session actually ran; the
-connector quotes costs in different units, so every price the user is shown is wrong; and the
+connector runs none of this repo's gates, so nothing here checks the prices it shows; and the
 user ends up with a working demo and still no key, which is the one thing they had to do.
 
 The rule is repeated verbatim in every `SKILL.md` because skills are installable on their own,

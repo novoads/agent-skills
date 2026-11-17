@@ -109,15 +109,15 @@ still works, because the user can supply the words.
 **Assertions.**
 
 - On (a) both paths are named with their real trade — credits versus local
-  toolchain, thirty presets versus anything you can write, transcribed wording
-  versus wording you can hand-correct — and the run **waits**.
+  toolchain, thirty presets versus anything you can write; both take corrected
+  words, the API in `lines` — and the run **waits**.
 - On (b) the run says the API path is unavailable **and why** (`409`, no speech to
   transcribe), rather than trying it and reporting the refusal as an error.
 - On (b) the words come from the user, and the run says so before rendering. It
   does not transcribe a silent track and burn the empty result.
-- A user who asks for a caption look outside the presets, or who needs to correct
-  an invented brand name before it is burned in, lands here without being sent to
-  the API first.
+- A user who asks for a caption look outside the presets lands here without being
+  sent to the API first. One who only needs to correct an invented brand name
+  before it is burned in is offered the API's `lines` as well as this skill.
 
 **Fails if:** one path is chosen without the other being named; or the `409` is
 surfaced as a bug; or a silent source is transcribed anyway.

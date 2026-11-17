@@ -58,8 +58,8 @@ Neither is a Novoads dependency. Both run locally on the user's file.
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
@@ -416,7 +416,7 @@ The template is the deliverable; this step only proves it. It runs the full sequ
    ```
 
    Swap `referenceAssetIds` for `startImageAssetId` if that is the template's mode. Never
-   both. A template where someone talks renders on `omni-flash` instead: `durationSeconds` 4, 6, 8 or 10, the shortest that holds its line, and no mini draft (*A scene where someone talks* in the [Omni guide](../../shared/skills/gemini-omni-flash/prompting/guide.md)). Returns `202` with `jobId` and `creditsCharged`.
+   both. A template where someone talks renders on `omni-flash` instead: `durationSeconds` the shortest of the lengths `GET /v1/models` lists that holds its line (4, 6, 8, 10, 12 or 15 today; 12 and 15 from text, 1 to 3 pictures or a first frame alone), and no mini draft (*A scene where someone talks* in the [Omni guide](../../shared/skills/gemini-omni-flash/prompting/guide.md)). Returns `202` with `jobId` and `creditsCharged`.
 
 5. **Poll** `GET /v1/generations/{jobId}` every 15 seconds until a **terminal** status —
    `succeeded`, `failed`, `blocked` or `canceled`. Not until `succeeded`: a loop waiting
@@ -455,7 +455,7 @@ sequence:
 }
 \```
 
-   `startImageAssetId` instead if that is this formula's mode — never both, that is a `400`. Where someone talks: `"model": "omni-flash"` and `durationSeconds` 4, 6, 8 or 10, the shortest that holds the line; a longer part splits (the `novoads-api` skill's decision tree).
+   `startImageAssetId` instead if that is this formula's mode — never both, that is a `400`. Where someone talks: `"model": "omni-flash"` and `durationSeconds` the shortest of the lengths `GET /v1/models` lists that holds its line (4, 6, 8, 10, 12 or 15 today; 12 and 15 from text, 1 to 3 pictures or a first frame alone); a longer part splits (the `novoads-api` skill's decision tree).
 
 5. Poll `GET /v1/generations/{jobId}` every 15s until a terminal status, then download from
    `GET /v1/generations/{jobId}/watch`.

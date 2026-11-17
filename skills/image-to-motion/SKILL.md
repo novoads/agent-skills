@@ -49,8 +49,8 @@ Vague prompts produce vague motion. Specific prompts produce the shot you pictur
 > <https://novoads.ai/dashboard/settings?tab=api> and paste it into `.env`."
 > That holds even when `mcp__novoads__*` tools are connected and authenticated in
 > the session. Never call `mcp__novoads__*` tools from this repo's workflows: they
-> are a different surface with different behavior, including the units they quote
-> costs in. Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
+> are a different surface with different tools and behavior.
+> Repo installs verify with `./scripts/check-novoads-env.sh`; a solo
 > install checks `NOVOADS_API_KEY` in the environment.
 
 **Pack version.** Every `/v1` response carries `X-Novoads-Pack-Version`; mention a newer pack at <https://github.com/novoads/agent-skills> only when that header names a version NEWER than this file's `metadata.packVersion` — equal or older is nothing to say, and it is never a reason to stop.
@@ -274,8 +274,8 @@ vendor documentation describes. If the ask is to restyle a clip, say so and stop
 multi-scene switch** is different and is still reachable — it needs no video input, only a
 prompt that describes each scene and when it changes. `omni-flash` is the model for it, and
 its guide is [gemini-omni-flash](../../shared/skills/gemini-omni-flash/prompting/guide.md).
-**Its grid is not the one above**: 20,000-character prompt ceiling, `durationSeconds` 4/6/8/10
-only, `aspectRatio` `9:16` (default) or `16:9` and nothing else, **no `audioEnabled`**: the variant omits it and the body is strict, so sending it is a `400`.
+**Its grid is not the one above**: 20,000-character prompt ceiling, `durationSeconds` one of the lengths `GET /v1/models` lists
+(4, 6, 8, 10, 12 or 15 today; 12 and 15 from text alone, 1 to 3 pictures or a first frame alone), `aspectRatio` `9:16` (default) or `16:9` and nothing else, **no `audioEnabled`**: the variant omits it and the body is strict, so sending it is a `400`.
 Since API 2.30.0 it also takes `referenceAssetIds`, which this skill does not send. Read its grid before you carry any field across.
 
 ### Uploading the still

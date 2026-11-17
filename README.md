@@ -298,8 +298,8 @@ workflow.
 
 ### 🎬 Seedance 2.5 — the long one
 
-Any integer duration from **4 to 30 seconds**, which makes it the only model here that renders past
-15 in a single call. Everything else is 2.0's shape: the same six aspect ratios, the same nine
+Any integer duration from **4 to 30 seconds**, which makes it one of two models here that render past
+15 in a single call (the other is `kling-v4`). Everything else is 2.0's shape: the same six aspect ratios, the same nine
 `referenceAssetIds`, the same `audioEnabled` toggle, the same 4,000-character prompt ceiling — so
 the five Seedance formulas apply unchanged.
 
@@ -480,12 +480,13 @@ is the current answer, this table is a map.
 | Model | Kind | Duration | Aspect ratios | Prompt cap | Notes |
 |---|---|---|---|---|---|
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
-| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
+| **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | One of two models here that render past 15s (the other is `kling-v4`). Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
 | **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, about a fifth of the price, back in 2–3 min. The drafting tier. |
 | **`omni-flash`** | Video | `4` `6` `8` `10` `12` `15` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` (with no `firstFrameAssetId`) and 8s. The model for a scene where someone talks, and for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
 | **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | 2,500 chars | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |
+| **`kling-v4`** | Video | 3 to 30s, any integer | `16:9` `9:16` `1:1` | 4,000 chars | Kling 4.0. Sound always on (`audioEnabled` is a `400`). Text, or `startImageAssetId` plus an optional `lastFrameAssetId`. No `referenceAssetIds`. `resolution` `720p` or `1080p` (default). Dearer than `kling-v3-pro` at the same length: price both. |
 | **`wan-3.0`** | Video | 4–15s, any integer | `9:16` `16:9` `1:1` `4:3` `3:4` | **20,000 chars** | Wan 3.0 (API 2.53.0). Defaults to `9:16` (with no start picture) and 5s. Audio on by default, off with `audioEnabled: false`. Text alone, `startImageAssetId` (plus an optional `lastFrameAssetId`, which needs it), **or** up to 9 `referenceAssetIds`; never a start frame and references together. `resolution` `480p` `720p` `1080p`, default `720p`, each tier its own price. Unmeasured here: no render time on record. |
 | **`gpt-image-2.6-sunburst`** | Image | — | `1:1` `4:5` `2:3` `9:16` `16:9` `21:9` | **32,000 chars** | **The API default** (added in API 2.57.0, the default since 2.58.0): a call with no `model` and no `preset` renders this. The newest; slower, keeps fine detail and labels exact. Can answer `running`: poll it. |
 | **`gpt-image-2.6-flare`** | Image | — | same six | **32,000 chars** | The newest fast one, for most images (API 2.57.0). Can answer `running`: poll it. |
@@ -494,13 +495,14 @@ is the current answer, this table is a map.
 | **`gpt-image-2`** | Image | — | same six | **32,000 chars** | Typography and UI mimicry. Unchanged by the 2.5 and 2.6 arrivals. Can answer `running`: poll it. |
 | **`nano-banana-pro`** | Image | — | 10 ratios incl. `3:2` `4:3` `5:4` | **50,000 chars** | Photoreal people and products; strongest identity lock across references. The most prompt room on the API. |
 | **`reve-2.1`** | Image | — | n/a | n/a | **Retired (API 2.48.0).** `POST /v1/images` and `POST /v1/estimates` refuse it with `400` `invalid_input`, `details.reason: "model_retired"`, before any charge; `GET /v1/models` no longer lists it. |
+| **`seedream-5.5`** | Image | n/a | the seven Seedream ratios, read `GET /v1/models` | **5,000 chars** | Seedream 5.5. Up to 4 `referenceAssetIds`. `resolution` `1.5K` or `2K` (default), each its own price. |
 | **`seedream-5-lite`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Lite (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
 | **`seedream-5-pro`** | Image | n/a | read `GET /v1/models` | read `GET /v1/models` | Seedream 5 Pro (API 2.39.0). Up to 10 `referenceAssetIds`. Can answer `running`: poll it. |
 
 Image calls take `numImages` 1–4. Two of their limits are **per model** and neither is one
 number across the set. The `referenceAssetIds` cap is 14 on `nano-banana-pro`, 4 on
-each of the five GPT models, 10 on each Seedream 5 model. The prompt ceiling is 50,000, 32,000 and
-10,000 in that same order (deployed spec 2.16.0 split it from what used to be 4,000 everywhere;
+each of the five GPT models, 10 on each Seedream 5 model (4 on `seedream-5.5`). The prompt ceiling is 50,000, 32,000 and
+10,000 in that same order (5,000 on `seedream-5.5`; deployed spec 2.16.0 split it from what used to be 4,000 everywhere;
 Seedream 5 arrived at 10,000 in API 2.39.0). So a prompt written for one image model may be too long
 for another, and moving a long `nano-banana-pro` or GPT prompt to a Seedream 5 model is the case that
 hits it. The five GPT models are the case that does not, because

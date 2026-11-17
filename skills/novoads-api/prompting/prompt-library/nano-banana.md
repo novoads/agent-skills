@@ -27,7 +27,7 @@ There is **one** Nano Banana here: `nano-banana-pro`. The `nano-banana-2` / `nan
 legacy `nano-banana` split is gone, so **there is no variant question to ask the user** — the
 old "Nano Banana 2 or Pro?" prompt is void.
 
-The image models this page routes between, all on the same endpoint (the two Seedream 5 ids are in [reference.md](../../reference.md)):
+The image models this page routes between, all on the same endpoint (the three Seedream ids, `seedream-5.5`, `seedream-5-lite` and `seedream-5-pro`, are in [reference.md](../../reference.md)):
 
 | API `model` value | When to use |
 |---|---|

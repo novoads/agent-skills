@@ -230,7 +230,7 @@ There is **no `styleFamily`** on any variant. It was deleted from the API in spe
 | `seedance-2.0` | 4–15, any integer (**5**) | `16:9` (default) `9:16` `1:1` `4:3` `3:4` `21:9` | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
 | `seedance-2.5` | **4–30, any integer** (**5**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
 | `seedance-2.0-mini` | 4–15, any integer (**10**) | same | ≤9 images; video and audio (2.35.0) | yes | 4,000 |
-| `omni-flash` | 4, 6, 8, 10 (**8**) | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
+| `omni-flash` | 4, 6, 8, 10, 12, 15 (**8**); 12 and 15 from text, 1 to 3 images or a first frame alone | `9:16` (default) `16:9` | images + 1 video (2.30.0), limit in the OpenAPI document | — | 20,000 |
 | `veo-3.1` | 4, 6, 8 (**8**) | `9:16` (default) `16:9` | — | — | 4,000 |
 | `kling-v3-pro` (2.38.0) | 3–15, any integer | `16:9` `9:16` `1:1` | start frame, and an end frame beside it (2.44.0) | yes | 2,500 |
 | `wan-3.0` (2.53.0) | 4–15, any integer (**5**) | `9:16` (default) `16:9` `1:1` `4:3` `3:4` | ≤9 images, or a start frame with an optional end frame (not both) | yes | 20,000 |

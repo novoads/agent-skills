@@ -72,7 +72,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 
 | The user wants | Route |
 |---|---|
-| A UGC video: a person talking to camera about a product | `omni-flash`, one call per talking part: fewer words come out wrong (measured 2026-11-08, videos with a word wrong: in Spanish 12% against about half on Seedance; in English, on our own renders, 12% against about 20%), and at `720p` every length it renders costs less than `seedance-2.0`. Read *A scene where someone talks* in the [Omni guide](../../shared/skills/gemini-omni-flash/prompting/guide.md), and take the person, setting and flaw layers from [seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md). It renders 4, 6, 8 or 10 seconds at `9:16` or `16:9`, so a longer part splits where the line splits (*Script length → duration*) and the clips are stitched (*Splitting a long script*). **It stays on `seedance-2.0`** when the ad is square, when the scene needs `productSwap` or has animated characters, or when the user names a model: [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) for the **shape** — how many beats, how many API calls, which reference mode — then [seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md) for the **craft** of writing each layer |
+| A UGC video: a person talking to camera about a product | `omni-flash`, one call per talking part: fewer words come out wrong (measured 2026-11-08, videos with a word wrong: in Spanish 12% against about half on Seedance; in English, on our own renders, 12% against about 20%), and at `720p` every length it renders costs less than `seedance-2.0`. Read *A scene where someone talks* in the [Omni guide](../../shared/skills/gemini-omni-flash/prompting/guide.md), and take the person, setting and flaw layers from [seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md). It renders the lengths `GET /v1/models` lists in its `durationsSeconds` (today 4, 6, 8, 10, 12 and 15; 12 and 15 only from text, 1 to 3 pictures or a first frame alone) at `9:16` or `16:9`, so a part longer than one clip holds splits where the line splits (*Script length → duration*) and the clips are stitched (*Splitting a long script*). **It stays on `seedance-2.0`** when the ad is square, when the scene needs `productSwap` or has animated characters, or when the user names a model: [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) for the **shape** — how many beats, how many API calls, which reference mode — then [seedance-2-ugc.md](prompting/prompt-library/seedance-2-ugc.md) for the **craft** of writing each layer |
 | The user says "a start frame for each scene", or asks for several scenes | On a scene that stays on Seedance, that phrasing commits you to one call per scene (`startImageAssetId`), which forecloses multi-beat cuts inside a single render — the two modes are mutually exclusive. Say so, and offer the one-shot alternative from [seedance-2-ugc-v2.md](prompting/prompt-library/seedance-2-ugc-v2.md) before generating anything. A talking scene on `omni-flash` is already one call a clip, so there is nothing to offer |
 | B-roll cutaways, burned captions, background music, or variations of a finished ad | Not part of making the ad. Deliver the base video first, then **offer** these as a separate pass, each owned by its own skill: `broll-overlay` (needs the base **and** its transcript from `POST /v1/transcripts` — no local install; it **overlays** — the base audio keeps running and the final duration is unchanged — it does not extend), `POST /v1/captions`, then `music-mix` last |
 | A Seedance scene, but cheap, to test a prompt before committing | `seedance-2.0-mini`, same grid, same formulas, about a fifth of the price and back in 2–3 minutes. The draft-then-finalize loop is *Mini-draft tier* in [seedance-2.md](prompting/prompt-library/seedance-2.md). A talking scene on `omni-flash` has no such draft: mini would show neither its look nor its voice |
@@ -81,7 +81,7 @@ Offer, do not choose. A first render fired on a guess is a charge the user did n
 | A product hero: elemental effects, splash or mist, no person | `seedance-2.0` + [seedance-2-product-hero.md](prompting/prompt-library/seedance-2-product-hero.md) |
 | A studio lookbook: polished, voiceover, multi-look | `seedance-2.0` + [seedance-2-studio-lookbook.md](prompting/prompt-library/seedance-2-studio-lookbook.md) |
 | A fast-paced feature walkthrough | `seedance-2.0` + [seedance-2-feature-walkthrough.md](prompting/prompt-library/seedance-2-feature-walkthrough.md); where the person talks, `omni-flash` (the UGC row above) with that file's beats |
-| A fast vertical clip with no dialogue requirement | `omni-flash`, and read `shared/skills/gemini-omni-flash/prompting/guide.md` first — its 20,000-character prompt ceiling is the roomiest here, shared only with `wan-3.0` (the Seedance variants and `veo-3.1` take 4,000, `kling-v3-pro` 2,500), and its grids are narrower than Seedance's (`durationSeconds` 4/6/8/10 only, `aspectRatio` `9:16` or `16:9` only, `resolution` read from `GET /v1/models`). Since API 2.30.0 it also takes reference images, one reference video and, where the server publishes them, a first frame, a last frame and a seed: see *Start frame or references* below |
+| A fast vertical clip with no dialogue requirement | `omni-flash`, and read `shared/skills/gemini-omni-flash/prompting/guide.md` first — its 20,000-character prompt ceiling is the roomiest here, shared only with `wan-3.0` (the Seedance variants and `veo-3.1` take 4,000, `kling-v3-pro` 2,500), and its grids are narrower than Seedance's (`durationSeconds` read from `GET /v1/models`, today 4, 6, 8, 10, 12 or 15, `aspectRatio` `9:16` or `16:9` only, `resolution` read from `GET /v1/models`). Since API 2.30.0 it also takes reference images, one reference video and, where the server publishes them, a first frame, a last frame and a seed: see *Start frame or references* below |
 | A talking clip whose first word must land immediately | `omni-flash`, like any talking clip (on 32 of our own Omni clips, voice detection put the first speech at a median of 0.15s, 25 of them under half a second and 4 past a second, and 2 of 8 first clips of an ad past a second, 2026-11-09), with its opening checked in §7 and trimmed if it opens quiet. Where it stays on `seedance-2.0`: a reference or a start frame (measured at about 0.5s of leading silence), the eye-contact-break beat dropped from the prompt, and the same check. `sora-2`, measured here at **no leading silence at all**, left the API in 2026-09: a call naming it is a `400` `invalid_input` |
 | Veo 3.1 by name, or a shot that has to evolve over its own runtime | `veo-3.1`, and read [veo-3-1.md](prompting/prompt-library/veo-3-1.md) first. Grid is `durationSeconds` 4/6/8 only, `aspectRatio` `9:16` (the default with no start picture) or `16:9`, `startImageAssetId` yes, **`referenceAssetIds` no**. Nothing in this repo has measured a Veo render — quote its wait as unknown rather than borrowing Seedance's |
 | A video that starts from a specific photo | any video model but `omni-flash` plus `startImageAssetId`, which animates that image as the first frame. On `omni-flash` that field is a reference image the model may place anywhere in the clip; for a true first frame use `firstFrameAssetId` where the server publishes it. The shape: send `aspectRatio` and it holds; leave it out and the photo's shape decides (`kling-v3-pro` keeps the photo's own proportions, 2:5 to 5:2; the other models take the nearest of their shapes). When the photo is not the video's shape, AI adds background around the whole photo to fit, the photo itself kept whole |
@@ -138,7 +138,7 @@ Use this structure:
   3. [DEMO]    (silent beat — thumb brushing the suede, small nod)
   4. [VERDICT] "I'm wearing these to the gym tomorrow. You have to see them in person."
 
-Total spoken words: ~28  |  Target duration: 15s (omni-flash: 10s + 6s)  |  language: en  |  Fits at natural pace: ✅
+Total spoken words: ~28  |  Target duration: 12s (omni-flash: one 12s clip)  |  language: en  |  Fits at natural pace: ✅
 
 Approve this dialogue? (yes / edit / rewrite)
 ```
@@ -316,14 +316,12 @@ arithmetic. Nobody has measured 2.5's leading silence separately, so the mode sc
 | 50–59 words | 26–30s |
 | **60+ words** | **Too long even here** — split, or cut the script |
 
-**A longer clip is not a longer script poured into the same ad.** Thirty seconds wants more beats,
-not slower delivery: a second location, a demo the actor actually performs, a reaction. If the
-script only fills 15s, render 15s — on `seedance-2.0`, which is cheaper at that length from `720p` up.
+**A longer clip is not a longer script poured into the same ad.** Thirty seconds wants more beats, not slower delivery: a second location, a demo the actor actually performs, a reaction. If the script only fills 15s, render 15s — on `seedance-2.0`, which is cheaper at that length from `720p` up.
 
 **Nobody here has timed a `seedance-2.5` render.** Do not quote `seedance-2.0`'s 3-to-8-minute
 fleet range for it; say the wait is unknown and poll.
 
-### `omni-flash` — enum 4, 6, 8, 10
+### `omni-flash`: the lengths `GET /v1/models` lists
 
 | Script length | Duration |
 |---|---|
@@ -331,7 +329,9 @@ fleet range for it; say the wait is unknown and poll.
 | 9–14 words | 6s |
 | 15–19 words | 8s |
 | 20–25 words | 10s |
-| **26+ words** | **Too long for one clip** — split across clips where the line splits, never one long scene: a 15-second ad is 10 + 6 |
+| 26 to 30 words | 12s |
+| 31 to 39 words | 15s (12 and 15 from text, 1 to 3 pictures or a first frame alone, else split at 25) |
+| **40+ words** | **Too long for one clip**: split where the line splits |
 
 A clip holds about **2.8 spoken words a second after its first second**, `2.8 × (D − 1)`, with a number counted as the words it takes to say. A line past that can be cut mid-word, which is where Omni dropped words in the 2026-11-08 count, and since API 2.60.2 the estimate's `warnings` say so as `omni_line_too_long`. A short line reads slow, so take the shortest clip that holds it. Check the opening in §7 all the same: a few clips start late.
 

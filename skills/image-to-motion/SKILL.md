@@ -274,8 +274,8 @@ vendor documentation describes. If the ask is to restyle a clip, say so and stop
 multi-scene switch** is different and is still reachable — it needs no video input, only a
 prompt that describes each scene and when it changes. `omni-flash` is the model for it, and
 its guide is [gemini-omni-flash](../../shared/skills/gemini-omni-flash/prompting/guide.md).
-**Its grid is not the one above**: 20,000-character prompt ceiling, `durationSeconds` 4/6/8/10
-only, `aspectRatio` `9:16` (default) or `16:9` and nothing else, **no `audioEnabled`**: the variant omits it and the body is strict, so sending it is a `400`.
+**Its grid is not the one above**: 20,000-character prompt ceiling, `durationSeconds` one of the lengths `GET /v1/models` lists
+(4, 6, 8, 10, 12 or 15 today; 12 and 15 from text alone, 1 to 3 pictures or a first frame alone), `aspectRatio` `9:16` (default) or `16:9` and nothing else, **no `audioEnabled`**: the variant omits it and the body is strict, so sending it is a `400`.
 Since API 2.30.0 it also takes `referenceAssetIds`, which this skill does not send. Read its grid before you carry any field across.
 
 ### Uploading the still

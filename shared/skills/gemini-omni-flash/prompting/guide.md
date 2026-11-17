@@ -31,7 +31,7 @@ headline capabilities below, and a prompt written against them wastes a paid ren
 | Reference video | **`referenceVideoAssetId`** (API 2.30.0 on): one video. Where the server also publishes `firstFrameAssetId`, its length bounds `durationSeconds`. It shares the reference slots with the images |
 | `seed` | an integer, 0 to 2147483647, only where the server publishes it |
 | `resolution` | read `resolutions` from `GET /v1/models`: `360p`, `720p`, `1080p` and, where the list carries it, `4k` (API 2.31.0); or `720p` alone, depending on the server. Never assume `4k`. Send the key only when the list has more than one value; otherwise it is a `400` |
-| `durationSeconds` | **enum: 4, 6, 8, 10 only.** Not the continuous 4–15 grid Seedance has. Out-of-grid values are rejected, never rounded. Defaults to 8 |
+| `durationSeconds` | **Read `durationsSeconds` from `GET /v1/models`:** today 4, 6, 8, 10, 12 and 15. 12 and 15 take text alone, 1 to 3 reference images or `firstFrameAssetId` alone; with a start and end frame, a reference video or 4 or more images the longest is 10, and a 12 or 15 there is a `400` before any charge. Values off the list are rejected, never rounded. Defaults to 8 |
 | `aspectRatio` | **`9:16` (default) or `16:9`.** With `firstFrameAssetId`, where the server publishes it, and no `aspectRatio`, the nearer of the two to that picture decides instead (a square one takes `9:16`); sent, it holds. Either way, when the picture is not the video's shape, AI adds background around the whole picture to fit, the picture itself kept whole. That is the whole grid — no `1:1`, no `4:3`, no `21:9`. Seedance's wider grid does not apply here |
 | Prompt ceiling | **20,000, the largest of any VIDEO model here**, shared only with `wan-3.0` (`kling-v3-pro` takes 2,500, the rest 4,000). Those two are the only places the long, layered prompts below actually fit. It is not the largest on the API: since deployed spec 2.16.0 two image models are roomier still (`nano-banana-pro` 50,000, `gpt-image-2` 32,000), which is a fact about `POST /images` and changes nothing about a video call |
 | `language` | yes |
@@ -380,12 +380,12 @@ Prompt: Change the small ships to stingrays.
 On this API `omni-flash` is the model for a scene where someone talks on camera: it makes the
 person and the speech in one call, lip-synced, and fewer words come out wrong (measured 2026-11-08, videos with a word wrong: in Spanish 12% against about half on Seedance; in English, on our own renders, 12% against about 20%).
 
-- **One clip, a line that fits.** `durationSeconds` is the shortest of 4, 6, 8 or 10 that holds the
-  line: about 2.8 words a second after the first second, so 8 words in 4, 14 in 6, 19 in 8 and 25
-  in 10, with a number counted as the words it takes to say. A line past that can be cut mid-word.
+- **One clip, a line that fits.** `durationSeconds` is the shortest length that holds the line:
+  about 2.8 words a second after the first second, so 8 words in 4, 14 in 6, 19 in 8, 25 in 10,
+  30 in 12 and 39 in 15, with a number counted as the words it takes to say. A line past that can be cut mid-word.
   A short line reads slow.
 - **A longer part splits where the line splits**, at a sentence's end, each clip its own call: a
-  15-second ad is 10 + 6, never one scene. Stitch them afterwards: *Splitting a long script* in the `novoads-api` skill.
+  line over 39 words, or over 25 when the inputs keep the clip at 10. Stitch them afterwards: *Splitting a long script* in the `novoads-api` skill.
 - **Quote only the spoken line.** Any other quoted word can be drawn on screen, so say when a
   gesture lands in plain words.
 - **Name the pictures once, and close the prompt.** Open with `@Image1 is the product, @Image2 is
@@ -427,8 +427,8 @@ session or multi-modal inputs are marked, not silently dropped.
       doing on every ad prompt: `no on-screen text, no captions, no subtitles` keeps the model from
       inventing burned-in captions you would then have to re-render to remove.
 - [ ] **Pin timing and framing in the prompt text** as well as in the fields — but the fields are
-      what bind. `durationSeconds` is 4/6/8/10 and `aspectRatio` is `9:16` or `16:9`; a prompt
-      asking for `12s` does not override the field, it just confuses the composition.
+      what bind. `durationSeconds` is one of the lengths `GET /v1/models` lists and `aspectRatio` is `9:16` or `16:9`; a prompt
+      asking for `20s` does not override the field, it just confuses the composition.
 - [ ] **Anchor consistency with a reference image** in `referenceAssetIds`, named by its `@ImageN`
       token. `startImageAssetId` is a reference on this model too, not a first frame; for a true
       first frame use `firstFrameAssetId` where the server publishes it.

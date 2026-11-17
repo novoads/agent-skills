@@ -329,8 +329,9 @@ takes it, priced first. Square ads, animated characters and product swaps stay o
 
 `omni-flash` carries a **20,000-character** prompt ceiling, the roomiest of any video model here,
 shared only with `wan-3.0` (`kling-v3-pro` takes 2,500, the rest 4,000), which is what makes long
-structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`,
-aspect ratios `9:16` or `16:9` only — and since API 2.30.0 it also takes reference images.
+structured briefs possible. Its grids are narrower than Seedance's — durations `4/6/8/10`, and
+`12` and `15` from text, 1 to 3 reference images or a first frame alone (read `durationsSeconds`
+on `GET /v1/models`), aspect ratios `9:16` or `16:9` only — and since API 2.30.0 it also takes reference images.
 Prompt craft in
 [shared/skills/gemini-omni-flash/prompting/guide.md](shared/skills/gemini-omni-flash/prompting/guide.md),
 which is Google DeepMind's own guide with the parts this API cannot reach marked as such.
@@ -481,7 +482,7 @@ is the current answer, this table is a map.
 | **`seedance-2.0`** | Video | 4–15s, any integer | `16:9` `9:16` `1:1` `4:3` `3:4` `21:9` | 4,000 chars | The flagship. Native audio + lip-sync, mutable with `audioEnabled: false`. `startImageAssetId` **or** up to 9 `referenceAssetIds`, never both. Fleet range 3–8 min; one render here came back in ~171s. |
 | **`seedance-2.5`** | Video | **4–30s, any integer** | same as above | 4,000 chars | The only model here that renders past 15s. Otherwise 2.0's shape — audio toggle, 9 reference images, six ratios. **`480p`, `720p`, and `1080p` where `GET /v1/models` lists it (API 2.28.0); never `4k`.** Dearer than `seedance-2.0` from `720p` up, the same at `480p`; nothing has timed one, so quote the wait as unknown. |
 | **`seedance-2.0-mini`** | Video | 4–15s, any integer | same as above | 4,000 chars | Same grid, same formulas, about a fifth of the price, back in 2–3 min. The drafting tier. |
-| **`omni-flash`** | Video | `4` `6` `8` `10` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` (with no `firstFrameAssetId`) and 8s. The model for a scene where someone talks, and for long structured briefs and silent b-roll. |
+| **`omni-flash`** | Video | `4` `6` `8` `10` `12` `15` | `9:16` `16:9` | **20,000 chars** | Reference images and one reference video (API 2.30.0 on). Defaults to `9:16` (with no `firstFrameAssetId`) and 8s. The model for a scene where someone talks, and for long structured briefs and silent b-roll. |
 | **`veo-3.1`** | Video | `4` `6` `8` | `9:16` `16:9` | 4,000 chars | Start frame only, no reference images. Defaults to 8s — the one model that defaults to its own ceiling. Shot-evolution prompting. Unmeasured here: no render time on record. |
 | **`sora-2`** | Video | n/a | n/a | n/a | **Removed from the API in 2026-09**, when OpenAI ended the Sora 2 API: a call naming it is a `400` `invalid_input`, and `GET /v1/models` no longer lists it. |
 | **`kling-v3-pro`** | Video | 3–15s, grid in `GET /v1/models` | `16:9` `9:16` `1:1` | 2,500 chars | Kling 3.0 (API 2.38.0). One resolution; audio on or off with `audioEnabled`. Text, or `startImageAssetId` as the first frame and, since API 2.44.0, `lastFrameAssetId` as the last. No `referenceAssetIds`. |

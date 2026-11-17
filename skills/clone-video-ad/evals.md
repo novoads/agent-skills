@@ -258,9 +258,9 @@ from the expiring URL.
 
 **Assertions.**
 
-- Every talking part's body carries `"model":"omni-flash"`, and a `durationSeconds` of 4, 6, 8 or 10,
+- Every talking part's body carries `"model":"omni-flash"`, and a `durationSeconds` of 4, 6, 8, 10, 12 or 15,
   the shortest that holds its line. No body leaves `model` out.
-- A part over 10 seconds splits at a sentence's end, each clip its own call. The agent does not ask
+- A part over 15 seconds, or over 10 when its inputs keep it there, splits at a sentence's end, each clip its own call. The agent does not ask
   which route to take: the "Over 15 seconds" choice is for what stays on Seedance.
 - Each line fits `2.8 × (D − 1)` words, counted as spoken. An `omni_line_too_long` warning is read
   and judged out loud.

@@ -246,7 +246,7 @@ It runs the same access checks and the same structural validation the paid call 
 
 - **It is the one endpoint with an opinion about the prompt** — the `warnings` array above. `POST /v1/videos` and `POST /v1/images` have none and return no such field. Compose against the formula file *before* you price: the warnings are a substring-matching second opinion, not a review, and a prompt that trips nothing can still be a bad prompt.
 - **What it does still refuse, at no charge:** a malformed body — it is strict, and any key its arm does not list is a `400` — and a prompt longer than the *named model's* character ceiling (4,000 for the three Seedance variants and `veo-3.1`, 20,000 for `omni-flash` and `wan-3.0`, 2,500 for `kling-v3-pro`; name no model and it is judged as `seedance-2.0`).
-- **On the image arm it applies the named model's own ceiling, as the generation does.** The estimate's schema allows 50,000 characters, but the service then applies the named image model's own ceiling, as `POST /v1/images` does (each GPT model 32,000, each Seedream 5 model 10,000, `nano-banana-pro` 50,000), so an over-long image prompt is refused at the estimate, at no charge.
+- **On the image arm it applies the named model's own ceiling, as the generation does.** The estimate's schema allows 50,000 characters, but the service then applies the named image model's own ceiling, as `POST /v1/images` does (each GPT model 32,000, each Seedream 5 model 10,000, `seedream-5.5` 5,000 and `nano-banana-pro` 50,000), so an over-long image prompt is refused at the estimate, at no charge.
 - A quote it returns cannot disagree with the invoice, with two exceptions worth knowing: it never sees `aspectRatio`, the asset fields, or `productId`, and it **skips moderation**, which the paid call runs. A clean estimate can still come back `422` at generation — moderation is the only thing left that refuses a prompt for what it says.
 
 **Multiply before you show.** N variations is N charges. Show the per-call number, the count, and the total.
@@ -329,8 +329,8 @@ fleet range for it; say the wait is unknown and poll.
 | 9–14 words | 6s |
 | 15–19 words | 8s |
 | 20–25 words | 10s |
-| 26 to 30 words | 12s |
-| 31 to 39 words | 15s (12 and 15 from text, 1 to 3 pictures or a first frame alone, else split at 25) |
+| 26 to 30 words | 12s (from text, 1 to 3 pictures or a first frame alone; else split at 25) |
+| 31 to 39 words | 15s (the same inputs as 12s; else split at 25) |
 | **40+ words** | **Too long for one clip**: split where the line splits |
 
 A clip holds about **2.8 spoken words a second after its first second**, `2.8 × (D − 1)`, with a number counted as the words it takes to say. A line past that can be cut mid-word, which is where Omni dropped words in the 2026-11-08 count, and since API 2.60.2 the estimate's `warnings` say so as `omni_line_too_long`. A short line reads slow, so take the shortest clip that holds it. Check the opening in §7 all the same: a few clips start late.
@@ -584,7 +584,7 @@ Say which check failed and show the evidence — the transcript line, the silenc
 
 **But the API as a whole does return the words now.** `POST /v1/transcripts` gives you text, word-level timings and an SRT in one synchronous call, on the base video, with no local install — see *POST /v1/transcripts* in [reference.md](reference.md). So "the user wants an SRT" is no longer a reason to leave the API, and nor is wanting to **edit the wording before rendering** (below); wanting a style outside the 30 presets still is.
 
-The words are heard from the audio unless you send your own: `lines`, a list of `{ start, end, text }` in seconds (correct a brand name from `POST /v1/transcripts` and send it back). `position` (`top`, `center`, `bottom`), `language` and `translateTo` are optional; `translateTo` moves the price.
+The words are heard from the audio unless you send your own: `lines`, a list of `{ start, end, text }` in seconds (correct a brand name from `POST /v1/transcripts` and send it back). `position` (`top`, `center`, `bottom`), `language` and `translateTo` are optional; `translateTo` moves the price. With `lines`, write them in the language to show: `translateTo` beside `lines` is a `400` `invalid_input` with nothing charged, and `language` changes nothing.
 
 ### The call
 
@@ -646,7 +646,7 @@ Both exist. Present both and let the user pick; do not silently default.
 | Control over wording | Full: send `lines` | Full — edit the transcript before rendering |
 | Source | An API `jobId`, or any video you upload | Any local file |
 
-**Rules of thumb.** One finished clip, a standard look, no local toolchain → the API. Hand-corrected wording (invented brand names are the usual reason): the API takes corrected words in `lines`. A caption style outside the 30, a needed SRT, or a batch big enough that per-minute credits add up → the local skill. If the video was rendered with `audioEnabled: false`, the API cannot caption it at all.
+**Rules of thumb.** One finished clip, a standard look, no local toolchain → the API. Hand-corrected wording (invented brand names are the usual reason): the API takes corrected words in `lines`. A caption style outside the 30, or a batch big enough that per-minute credits add up → the local skill. An SRT comes from `POST /v1/transcripts`. If the video was rendered with `audioEnabled: false`, the API cannot caption it at all.
 
 ## Images come back in the response, or answer `running`
 

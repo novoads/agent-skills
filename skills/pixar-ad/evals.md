@@ -46,7 +46,7 @@ zero hits outside a sentence that is explicitly about the MCP surface.
 **Why:** E0 proves the skill *can* run with no connector. It does not prove the skill
 *refuses* one that is there, and that is the failure that actually happened. On 2026-08-08 a
 setup session found the placeholder key, decided the connected connector "has its own auth",
-and generated over it: the user got a working demo, wrong prices (the connector quotes in
+and generated over it: the user got a working demo, wrong prices (the connector then quoted in
 different units), and still no API key. A connected connector is a decoy that satisfies the
 request while skipping the only step the human owes.
 

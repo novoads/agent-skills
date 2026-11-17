@@ -367,8 +367,8 @@ poll `GET /v1/generations/{jobId}` until `succeeded` (`outputUrl` is the new mp4
 (`voiceChange.reasonCode` names the cause); on `succeeded`, download. The same price as audio
 out, from the same `kind: "voice-change"` estimate, but charged differently: audio out at the
 request, video out only once the job finds speech in the source (a source with none ends
-`failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), refunded if the job fails after that. It needs a video source and is
-enabled per workspace; both refusals are a `400` with nothing charged. Only the voice
+`failed`, or is refused at the request (no job is created) when an earlier attempt already found none; neither is charged), refunded if the job fails after that. It needs a video source, and a deployment may keep
+it closed to a workspace; both refusals are a `400` with nothing charged. Only the voice
 changes. The mux becomes the server's; Gate 6's span choices are not made for you; Gate 7
 stays yours.
 **Read [references/video-out.md](references/video-out.md) before sending it.**
@@ -402,7 +402,7 @@ POST /v1/voice-changes  { assetId | jobId, voiceId (REQUIRED), productId?,
                             output: "video" }
                           A JOB. status: queued (new) | running (the same change,
                           already rendering) | succeeded (already made, nothing charged).
-                          VIDEO source only, enabled per workspace. See Video out.
+                          VIDEO source only. See Video out.
 
 GET  /v1/generations/{jobId}
                         Video out only, on queued/running: poll until "succeeded"

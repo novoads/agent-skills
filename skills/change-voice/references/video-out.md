@@ -44,7 +44,7 @@ curl -sS https://api.novoads.ai/v1/generations/<jobId> -A novoads-skill/change-v
   same `kind: "voice-change"` estimate. Never a typed number.
 - **A video source only.** An audio upload with `output: "video"` is a `400`, and nothing
   is charged: there is no picture to put the voice back on. Use audio out.
-- **Enabled per workspace.** Where it is off, the call is a `400` whose message says to
+- **Where a deployment keeps it closed to a workspace**, the call is a `400` whose message says to
   omit `output`. Do that, and run Gate 6 locally: the same result, done by you. Not a retry.
 - **What changes and what does not.** The words, the timing and the accent are the
   source's; only the voice changes. So Gate 1 (refuse a file with no speech before the

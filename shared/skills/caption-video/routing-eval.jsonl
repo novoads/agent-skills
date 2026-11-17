@@ -1,8 +1,9 @@
 // caption-video is the FALLBACK. The API's captions endpoint is the default path
 // and it belongs to novoads-api, so every positive here carries the reason the API
-// path was ruled out: the style, the wording, or a source with no audio track.
+// path was ruled out: the style, the budget, or a source with no audio track.
+// Wording alone is two-sided: the API takes corrected words in `lines` too.
 {"intent":"burn karaoke style captions in our own brand font, the presets don't have it","expected_skill":"caption-video"}
-{"intent":"the transcript is wrong in three places, fix the words first and then burn them in","expected_skill":"caption-video"}
+{"intent":"the transcript is wrong in three places, fix the words first and then burn them in","expected_skill":"caption-video","ambiguous_with":["novoads-api"]}
 {"intent":"the api refused this file because it was rendered without audio, caption it locally","expected_skill":"caption-video"}
 {"intent":"word by word captions in the exact colours from our brand kit","expected_skill":"caption-video"}
 {"intent":"caption this without spending anything, the file is already on my machine","expected_skill":"caption-video"}
@@ -13,7 +14,7 @@
 // express is what moves it here.
 {"intent":"captions on this, but none of the preset styles are right","expected_skill":"caption-video","ambiguous_with":["novoads-api"]}
 // Same file, same operation, different reason: the words have to be read and
-// corrected before they are burned into pixels, which the endpoint cannot do.
+// corrected before they are burned into pixels, which the endpoint takes in `lines` too.
 {"intent":"subtitle this clip, and let me read the text before it goes on","expected_skill":"caption-video","ambiguous_with":["novoads-api"]}
 // Near-misses: a sidecar file is refused by name, and the other two are on-screen
 // text that is not a caption.

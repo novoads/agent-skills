@@ -5,8 +5,7 @@ description: >-
   Burn timed, styled captions into a finished video on the local machine, without
   re-rendering the source. This is the manual fallback to the API's captioning
   endpoint, POST /v1/captions, which stays the default path: come here when the
-  style the user wants is outside the API's presets, when the wording has to be
-  hand-corrected before it is burned into the pixels, or when the source was
+  style the user wants is outside the API's presets, or when the source was
   rendered with audio disabled and the API refuses it. Transcribes the audio with
   Whisper, groups words into reading phrases, renders the captions in a real
   browser via HyperFrames, and composites them over the source with ffmpeg using
@@ -50,15 +49,16 @@ skill costs a first-time setup.
 Come here instead when the user:
 
 - wants a caption look the presets do not cover,
-- has to hand-correct the words before they are burned in. Invented brand names
-  are the usual reason: transcription mishears them, and the API gives you
-  nowhere to fix it,
 - is captioning enough footage that per-minute credits add up,
 - has a line the API path burns **wrong**. Its renderer can truncate a word even
   when its own transcript is correct — see *Safety rules* below. There is nothing
   to fix on that path, so the local burn is the fix,
 - or has a source rendered with `audioEnabled: false`, which the API refuses with
   a `409`. This skill can still caption it if the user supplies the words.
+
+Hand-correcting the words is not a reason on its own: the API takes corrected
+words in `lines`, a list of `{ start, end, text }` in seconds. Invented brand names
+are the usual reason: read the words from `POST /v1/transcripts`, fix them, send them back.
 
 ## When to use this skill
 

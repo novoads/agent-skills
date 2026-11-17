@@ -56,18 +56,18 @@ appears in a retry; or a clean first draw is read as proof the prompt is safe.
 
 ---
 
-## GI2 — A clean estimate is proof of the price, not of the length
+## GI2 — A clean estimate is proof of the price and the length, not of moderation
 
 **Scenario.** A dense-text template — a chat thread, a comparison table, a long
 typographic hero — whose final prompt, with the always-on suffixes appended, runs long.
 
-**Observed trap (deployed spec `2.16.0`, verified 2026-08-08).** `POST /v1/estimates`
-caps `prompt` at **50,000 characters for every image model**. `POST /v1/images` caps
-**this** model at **32,000**. A prompt between those two numbers prices cleanly and is
-then refused by the generation. Only `nano-banana-pro`, at 50,000, has the two numbers
-agree — which is exactly why the number cannot be carried between the two image skills.
+**What the estimate checks.** The schema of `POST /v1/estimates` allows **50,000
+characters for every image model**, but the service then applies the named model's own
+ceiling, as `POST /v1/images` does: **32,000** on **this** model, so an over-long prompt
+is refused at the estimate, at no charge. `nano-banana-pro` takes 50,000, which is why
+the number cannot be carried between the two image skills.
 
-The same asymmetry has a second half: the estimate **skips moderation**, which the paid
+What it does not check: the estimate **skips moderation**, which the paid
 call runs, so a prompt it priced clean can still come back `422 content_policy` with
 nothing charged.
 
@@ -234,7 +234,8 @@ against first attempts; or the final report sums estimates instead of charges.
   product, three named fabrications, and a retry that cured one of them. The seed
   variability that moves the fix into the base prompt is from the later dogfooding run.
 - **GI2 and GI3 are read off deployed spec with live verification stamps** (`2.16.0`
-  2026-08-08; the edit arm confirmed live during the dogfooding run). GI3's flag-gating
+  2026-08-08; GI2's length check re-read off the estimate's code on 2026-11-17, not
+  probed; the edit arm confirmed live during the dogfooding run). GI3's flag-gating
   half is spec-read, not probed here.
 - **GI4 is a repeat offence**, which is the argument for it existing: the field was
   available and the run still did the dance, because nothing an operator reads said so.

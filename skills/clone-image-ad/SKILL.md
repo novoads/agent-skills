@@ -154,8 +154,8 @@ Use `brand.claims` where we have a true equivalent — it makes the substitution
 a rhythm-preserving guess. Its absence never blocks.
 
 > Three claims carried into this clone — check them before it runs anywhere:
-> • "300 Natural AI Actors" → "1,000+ AI actors"
-> • "35 languages" → "5 languages"
+> • "300 Natural AI Actors" → "100+ AI actors"
+> • "35 languages" → "30+ languages"
 > • "30% off first month" → "from $15/month, cancel anytime"
 
 **Never carry a real named person through.** "Ashvin Melwani, CMO at Obvi" in a Novoads ad puts

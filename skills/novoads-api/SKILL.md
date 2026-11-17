@@ -246,7 +246,7 @@ It runs the same access checks and the same structural validation the paid call 
 
 - **It is the one endpoint with an opinion about the prompt** — the `warnings` array above. `POST /v1/videos` and `POST /v1/images` have none and return no such field. Compose against the formula file *before* you price: the warnings are a substring-matching second opinion, not a review, and a prompt that trips nothing can still be a bad prompt.
 - **What it does still refuse, at no charge:** a malformed body — it is strict, and any key its arm does not list is a `400` — and a prompt longer than the *named model's* character ceiling (4,000 for the three Seedance variants and `veo-3.1`, 20,000 for `omni-flash` and `wan-3.0`, 2,500 for `kling-v3-pro`; name no model and it is judged as `seedance-2.0`).
-- **On the image arm its length check is looser than the generation's.** The estimate's request schema caps `prompt` at 50,000 characters whatever image model you name, while `POST /v1/images` caps each GPT model at 32,000 and each Seedream 5 model at 10,000 (deployed spec 2.59.0, read 2026-11-07). So an image prompt between the two prices cleanly and is then refused at generation. Only `nano-banana-pro`, at 50,000, has the two numbers agree.
+- **On the image arm it applies the named model's own ceiling, as the generation does.** The estimate's schema allows 50,000 characters, but the service then applies the named image model's own ceiling, as `POST /v1/images` does (each GPT model 32,000, each Seedream 5 model 10,000, `nano-banana-pro` 50,000), so an over-long image prompt is refused at the estimate, at no charge.
 - A quote it returns cannot disagree with the invoice, with two exceptions worth knowing: it never sees `aspectRatio`, the asset fields, or `productId`, and it **skips moderation**, which the paid call runs. A clean estimate can still come back `422` at generation — moderation is the only thing left that refuses a prompt for what it says.
 
 **Multiply before you show.** N variations is N charges. Show the per-call number, the count, and the total.
@@ -582,9 +582,9 @@ Say which check failed and show the evidence — the transcript line, the silenc
 
 **What it does not do: THIS endpoint never returns caption text, timings, or an SRT.** There is no transcript field anywhere on a caption job — `GET /v1/generations/{jobId}` carries `outputUrl` and nothing else about the words. That is still true and is not a bug to file.
 
-**But the API as a whole does return the words now.** `POST /v1/transcripts` gives you text, word-level timings and an SRT in one synchronous call, on the base video, with no local install — see *POST /v1/transcripts* in [reference.md](reference.md). So "the user wants an SRT" is no longer a reason to leave the API; wanting to **edit the wording before rendering**, or wanting a style outside the 30 presets, still is.
+**But the API as a whole does return the words now.** `POST /v1/transcripts` gives you text, word-level timings and an SRT in one synchronous call, on the base video, with no local install — see *POST /v1/transcripts* in [reference.md](reference.md). So "the user wants an SRT" is no longer a reason to leave the API, and nor is wanting to **edit the wording before rendering** (below); wanting a style outside the 30 presets still is.
 
-**There is nothing to write.** The text is transcribed from the audio. Your only choice is `preset`.
+The words are heard from the audio unless you send your own: `lines`, a list of `{ start, end, text }` in seconds (correct a brand name from `POST /v1/transcripts` and send it back). `position` (`top`, `center`, `bottom`), `language` and `translateTo` are optional; `translateTo` moves the price.
 
 ### The call
 
@@ -643,10 +643,10 @@ Both exist. Present both and let the user pick; do not silently default.
 | Styles | **30 presets**, fixed | Anything you can write in HTML/CSS/GSAP |
 | Output | A new MP4, subtitles burned in | A new MP4, subtitles burned in |
 | Transcript / SRT | **Not from this endpoint** — but `POST /v1/transcripts` returns text, word timings and an SRT, billed per minute of source and priced through `POST /v1/estimates`, no install | **Yes** — Whisper gives word-level timings you keep and can re-use |
-| Control over wording | None — transcribed, not authored | Full — edit the transcript before rendering |
+| Control over wording | Full: send `lines` | Full — edit the transcript before rendering |
 | Source | An API `jobId`, or any video you upload | Any local file |
 
-**Rules of thumb.** One finished clip, a standard look, no local toolchain → the API. A caption style outside the 30, hand-corrected wording (invented brand names are the usual reason), a needed SRT, or a batch big enough that per-minute credits add up → the local skill. If the video was rendered with `audioEnabled: false`, the API cannot caption it at all.
+**Rules of thumb.** One finished clip, a standard look, no local toolchain → the API. Hand-corrected wording (invented brand names are the usual reason): the API takes corrected words in `lines`. A caption style outside the 30, a needed SRT, or a batch big enough that per-minute credits add up → the local skill. If the video was rendered with `audioEnabled: false`, the API cannot caption it at all.
 
 ## Images come back in the response, or answer `running`
 

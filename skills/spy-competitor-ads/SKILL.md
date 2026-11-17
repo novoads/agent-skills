@@ -355,7 +355,7 @@ Three claims it carries that are easy to get wrong by hand:
 
 What stays yours is the only part no sort can decide: **which of the three is worth cloning**,
 read against the product you are cloning for. And it never becomes a craft judgement — you
-have not watched these ads. Reading one properly is `analyze_ad`, charged **per ad**, which
+have not watched these ads. Reading one properly is `POST /v1/analyses` on the ad's file, uploaded first with `POST /v1/uploads` (price it with `{"kind":"analysis"}`), charged **per ad**, which
 against a twenty-ad sweep is an order of magnitude more than the sweep cost. Offer it on the
 top one to three as its own priced step; never quietly upgrade "rank these" into twenty reads.
 

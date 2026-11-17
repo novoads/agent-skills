@@ -110,7 +110,10 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `GET` | `/generations/{jobId}` | One job, with `outputUrl` once it has succeeded. |
 | `GET` | `/generations/{jobId}/watch` | `302` to a freshly signed download URL. |
 | `GET` | `/models` | The model catalog, with each model's grid and price. |
-| `GET` | `/actors` | The library actors that `productSwap` and `/videos/animate-actor` cast. Reads only. Where the deployment offers it. |
+| `GET` `POST` | `/actors` | `GET` lists the actors you may cast: the library's and your own. `POST` saves a face that `POST /images` made from a description alone as your actor, with a `voiceId` from `GET /voices` and, if you want, a `name`; saving charges nothing. Where the deployment offers it. |
+| `POST` | `/videos/talking-actors` | An actor from `GET /actors` says your script in a voice from `GET /voices`. `202`, charged, asynchronous; price it with `POST /estimates`. Where the deployment offers it. |
+| `POST` | `/product-cutouts` | A product photo and its name in, the product alone on plain white out. `202`, charged, asynchronous. |
+| `POST` | `/post-productions` | A tighter copy of a finished video, beside the original. `202`, asynchronous; read the live spec. Where the deployment offers it. |
 | `GET` `POST` | `/products` | List and create products. |
 | `GET` `PATCH` `DELETE` | `/products/{productId}` | One product. |
 | `GET` | `/products/{productId}/folders` | Folders under a product. Read-only. |
@@ -129,7 +132,7 @@ Request:
 
 `contentType` is one of `image/jpeg`, `image/png`, `image/webp`, `video/mp4`, `video/quicktime`, `video/webm`, `audio/mpeg`, `audio/wav`. `sizeBytes` is the exact byte count, maximum 104,857,600 (100 MB).
 
-**The two audio types are newer than the rest and only one endpoint consumes them** (verified live 2026-08-12, deployed spec `2.21.0`): `POST /voice-changes`, whose whole subject is speech that may not have a picture attached. Everywhere else an audio `assetId` is refused by kind — `POST /transcripts` names it and says so. Minting one is free either way, so an audio id sitting unused costs nothing; sending it to the wrong endpoint is a `400`, not a conversion.
+**Audio uploads go to `POST /voice-changes`, `POST /assemblies` (`voiceOver` and `music`) and the Seedance family's `referenceAudioAssetIds` (mp3 only)**; everywhere else an audio `assetId` is refused by kind — `POST /transcripts` names it and says so. Minting one is free either way, so an audio id sitting unused costs nothing; sending it to the wrong endpoint is a `400`, not a conversion.
 
 Response `201`:
 
@@ -398,7 +401,7 @@ On the Seedance family (the models whose body in the OpenAPI document lists the 
 
 **The prompt ceiling is per model too, since deployed spec 2.16.0.** It was 4,000 on all three of the models that existed then; now the GPT models take 32,000, `nano-banana-pro` 50,000, each Seedream 5 model 10,000 (API 2.39.0) and `seedream-5.5` 5,000; `reve-2.1`, the one that kept 4,000, is retired (API 2.48.0). The 2.5 and 2.6 ids arrived after the split and have never carried 4,000. Read off the live per-model request schemas and verified on 2026-08-08. The consequence worth knowing is the reverse of the reference cap's: a prompt written for one model is not automatically sendable to another, and a run that switches `model` to a Seedream 5 model can be refused on length alone with nothing else changed. The refusal is a `400` and charges nothing.
 
-**One thing this does not cover: `POST /estimates` does not share these numbers.** Its own request schema caps `prompt` at 50,000 for every image model, so a 20,000-character `seedream-5-lite` prompt prices cleanly and is then refused by `POST /images`. A clean estimate is proof of the price, not of the length.
+**`POST /estimates` applies these numbers too.** The estimate's schema allows 50,000 characters, but the service then applies the named image model's own ceiling, as `POST /images` does, so an over-long image prompt is refused at the estimate, at no charge.
 
 **The reference cap is per model and is not uniform.** Each of the five GPT models takes 4, `nano-banana-pro` 14, each Seedream 5 model 10 (API 2.39.0) and `seedream-5.5` 4 (read `maxItems` in the OpenAPI document). Seedream 5 takes no `quality`, `resolution` or `outputFormat`; Seedream 5.5 takes `resolution` `1.5K` or `2K`. Do not carry one number across the set: the bodies are strict, so a fifth reference to `gpt-image-2` is `400 Too big: expected array to have <=4 items` rather than a silently dropped image, which is the good outcome: a dropped reference is a paid render missing the product. Verified live 2026-08-04 against spec 2.7.0 (which raised `nano-banana-pro` from 4 to 14), each probe pinned with an out-of-range `numImages` so no body could be valid: 15 refs on `nano-banana-pro` → too big, 14 → accepted; 9 on `reve-2.1` (since retired) → too big, 8 → accepted; 5 on `gpt-image-2` → too big. The two 2.5 models arrived at 4 as well, read off their published schemas in deployed spec 2.25.0, and so did the two 2.6 models in 2.57.0 (read off deployed spec 2.59.0 on 2026-11-07). Their vendor accepts more, and 4 is where this API holds them. Standing re-check: `./scripts/verify-image-caps.sh`.
 
@@ -524,7 +527,7 @@ Burns styled subtitles into a video and returns a `jobId`. **Asynchronous and ch
 
 Both bodies are strict (`additionalProperties: false`). **Exactly one of `jobId` and `assetId`** on `POST /captions`; sending both is a `400` rather than a guess, because captioning the wrong one of two sources still bills for it. The path form exists because an `assetId` contains slashes and cannot be a path segment.
 
-**The subtitle text is transcribed from the video's own audio. There is nothing to write, and there is nothing to read back FROM THIS ENDPOINT:** no response and no field on a caption job carries the caption text or its timings. `GET /generations/{jobId}` on a caption job returns `outputUrl` and no transcript. **The output is a new MP4 with the subtitles burned in — there is no SRT on the captions endpoint** (verified 2026-08-04, still true).
+**The words are heard from the video's own audio unless you send your own:** `lines`, a list of `{ start, end, text }` in seconds (correct a brand name from `POST /transcripts` and send it back). `position` (`top`, `center`, `bottom`), `language` and `translateTo` are optional on both bodies; `translateTo` moves the price. **There is nothing to read back FROM THIS ENDPOINT:** no response and no field on a caption job carries the caption text or its timings. `GET /generations/{jobId}` on a caption job returns `outputUrl` and no transcript. **The output is a new MP4 with the subtitles burned in — there is no SRT on the captions endpoint** (verified 2026-08-04, still true).
 
 **A workflow that needs the WORDS uses `POST /transcripts`, not this.** That endpoint returns text, word-level timings and an SRT in one synchronous call, and it runs on the BASE video — which is where you want it anyway, because b-roll placement is read from the transcript before the captions step. Captioning and transcribing are two operations, priced separately.
 
@@ -782,7 +785,7 @@ call again: the audio was probably rendered and charged.
 
 | Field | Required | Notes |
 |---|---|---|
-| `script` | **yes** | 1–1,000 characters, about 40 seconds. Read **VERBATIM**, including anything in square brackets — the model reads those as performance tags rather than skipping them, so keep stage directions out |
+| `script` | **yes** | 1–1,000 characters, about 40 seconds. Square brackets are read before the voice: a stage direction like `[Looks at camera]` is removed and not billed, a short voice tag like `[excited]` shapes the delivery, and an unfilled placeholder like `[product name]` is a `400` (`script_has_placeholders`) with nothing charged |
 | `voiceId` | **yes** | no default, ever. From `GET /voices` |
 | `language` | no | ISO 639-1. Validated against the voice's own recorded languages |
 | `productId` | no | files the job under a product. Organizational only |
@@ -847,7 +850,7 @@ returns the finished video as a polled job instead — [Video out](#video-out), 
 | Field | Required | Notes |
 |---|---|---|
 | `jobId` | one of the two | a video this API generated |
-| `assetId` | one of the two | a file you uploaded. **Video or audio** (`audio/mpeg`, `audio/wav`) — the only endpoint here that takes audio-only uploads |
+| `assetId` | one of the two | a file you uploaded. **Video or audio** (`audio/mpeg`, `audio/wav`) — the only endpoint here whose source may be audio alone; audio uploads also go to `POST /assemblies` and Seedance's `referenceAudioAssetIds` |
 | `voiceId` | **yes** | no default, and **no substitution, ever**. From `GET /voices` |
 | `productId` | no | organizational only |
 | `output` | no | `"audio"` (default, the `200` below) or `"video"` (a `202` job; a video source only, enabled per workspace). See [Video out](#video-out) |
@@ -1044,7 +1047,7 @@ While the job is unfinished this is a `409` naming the current status.
   "total": 12, "limit": 10, "offset": 0, "hasMore": true }
 ```
 
-Every list endpoint on this API answers with the same five keys — `items`, `total`, `limit`, `offset`, `hasMore` — so `.items` is the one accessor to learn. `total` ignores pagination. Query params: `limit`, `offset`, `updatedSince`, `sortBy`, `sortOrder`.
+The paginated lists (`GET /generations`, `GET /products`, `GET /products/{productId}/folders`) answer with the same five keys: `items`, `total`, `limit`, `offset`, `hasMore`. The catalogs do not: `GET /voices` is `.voices`, `GET /actors` `.actors`, `GET /caption-presets` `.presets`, `GET /models` `.models`. `total` ignores pagination. Query params: `limit`, `offset`, `updatedSince`, `sortBy`, `sortOrder`.
 
 Each item carries `id`, `name`, `description`, `targetAudience`, `mainFeatures`, `painPoint`, `perceived`, `folders`, `createdAt`, `updatedAt`. Every descriptive field except `name` can be `null`.
 
@@ -1139,7 +1142,7 @@ About 4% of `seedance-2.0` renders run past 10 minutes. Failures are usually rep
 | Concurrent **voice-over** jobs per organization | 10 (`429`, `details.reason` `voiceover_concurrency_limit`), where `POST /voiceovers` is offered — again its own budget |
 | Concurrent **voice-change** jobs per organization | 10 (`429`, `details.reason` `voice_change_concurrency_limit`), where `POST /voice-changes` is offered — again its own budget |
 | Source duration, `POST /voice-changes` | 5 minutes (`400`, named, nothing charged) |
-| JSON request body | 64 KB |
+| JSON request body | about 309 KB (six bytes per character of the longest prompt, plus 16 KB) |
 | Upload size | 100 MB |
 | Upload URL lifetime | 900 seconds |
 | Output URL lifetime | 3,600 seconds, minted at read time |

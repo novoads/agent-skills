@@ -136,7 +136,7 @@ here blocks your first ad:
 | Tool | Only if you | Install |
 |---|---|---|
 | **Meta publishing deps** | publish finished creatives to the Meta Marketing API (`meta-ad-builder`) | `pip install -r shared/skills/meta-ad-builder/scripts/requirements.txt` |
-| **Node.js + `whisper`** | use the manual caption path instead of `POST /v1/captions`: a style outside the 30 presets, or hand-editing the wording before burn-in | `brew install node`; `pip install openai-whisper` plus a model download (the binary alone returns an EMPTY transcript, not an error) |
+| **Node.js + `whisper`** | use the manual caption path instead of `POST /v1/captions`: a style outside the 30 presets, or a source rendered without sound (the API takes corrected words in `lines`) | `brew install node`; `pip install openai-whisper` plus a model download (the binary alone returns an EMPTY transcript, not an error) |
 
 Linux: `apt install curl jq ffmpeg python3`. Windows: **WSL2** or **Git Bash**;
 the skills here are shell scripts and `curl` calls, so they need a POSIX shell.
@@ -404,7 +404,7 @@ skill.
 | **Claymation / stop-motion clay ad** | The 8-beat narrative arc (setup → inciting moment → social validation → quiet despair → clay infographic → discovery → transformation → resolution), a 5-beat short, hand-sculpted clay style lock, per-beat material detail, and a local ffmpeg + Whisper read of a reference video as a second entry for recreating a clay ad you were shown | [claymation-ad](skills/claymation-ad/SKILL.md) · formulas in [references/formulas.md](skills/claymation-ad/references/formulas.md) |
 | **Still → motion graphic** | One `seedance-2.5` call off `startImageAssetId`, where the image you hand over is the shot rather than a reference: motion vocabulary for seven image classes (UI, hero, flat-lay, key art, collage, product, character), a timed-beat prompt template, and the clauses that hold text pixel-identical and pin regions still. The judgement is what moves, in what order, and what is absent at 0.0s | [image-to-motion](skills/image-to-motion/SKILL.md) |
 | **YouTube thumbnails** | 5 CTR formulas (peace-sign branding, real-vs-AI, terminal flow, reaction shock, before/after split) on `nano-banana-pro`, likeness locked with face references | [generate-youtube-thumbnail](skills/generate-youtube-thumbnail/SKILL.md) |
-| **Burn captions onto an MP4** | Whisper transcript → reading phrases → captions-only HTML on a transparent background → ffmpeg alpha overlay. The manual caption path, for a style outside the 30 presets or wording you need to hand-correct. **Out of band: no API call, no credits** | [caption-video](shared/skills/caption-video/SKILL.md) |
+| **Burn captions onto an MP4** | Whisper transcript → reading phrases → captions-only HTML on a transparent background → ffmpeg alpha overlay. The manual caption path, for a style outside the 30 presets or a source with no sound (the API takes corrected words in `lines`). **Out of band: no API call, no credits** | [caption-video](shared/skills/caption-video/SKILL.md) |
 | **Overlay b-roll cutaways on a finished MP4** | Whisper transcript → EDL of overlay windows (`file`, `start`, `end`, `covers`) → validate → ffmpeg overlay → verify duration, audio and every window. Base audio runs untouched, duration never changes. **Local ffmpeg, no credits** (the cutaway clips themselves are generated first, and those are charged) | [broll-overlay](shared/skills/broll-overlay/SKILL.md) |
 | **Lay a music bed under a finished MP4** | Track trimmed and faded to the exact cut length, ducked under the voice, picture stream-copied so burned captions survive bit-exact. **Mixing is local ffmpeg and free; generating a track is one priced API call on the same key** (two tracks per request), or bring your own file | [music-mix](shared/skills/music-mix/SKILL.md) |
 
@@ -675,8 +675,9 @@ every live pack skill name each time it runs, so a copy sitting under the same n
 
 Everything above assumes you cloned the repo. If you installed through the `skills` CLI instead:
 
-- **Pin to a release with a tag:** `npx skills add novoads/agent-skills#v1.0.0`, naming the
-  latest release tag (`v1.0.0` today). Tags work. 40-character commit SHAs do not, because the CLI
+- **Pin to a release with a tag:** `npx skills add novoads/agent-skills#<tag>`, naming the
+  latest release tag (the newest `v` tag on the repo's Tags page; the `VERSION` file at the root
+  names it). Tags work. 40-character commit SHAs do not, because the CLI
   installs by cloning a branch or a tag. A pinned install moves only when you point it at a newer
   tag. Releases are tagged `vX.Y.Z` and written up in [CHANGELOG.md](CHANGELOG.md).
 - **Update with `npx skills update`**, and read this before you do. **The reinstall is `rm -rf` on

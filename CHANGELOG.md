@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.6.3 — 2026-11-18
+
 ### Fixed
 
 **The skills now say what the API takes today.** `omni-flash` renders 12 and 15 second clips from text, 1 to 3 pictures or a first frame alone (read `durationsSeconds` on `GET /v1/models`), so a 15 second talking part is one clip, not 10 + 6 and a join; `kling-v4` is a second model past 15 seconds, offered and priced beside `kling-v3-pro` and never made the default; `seedream-5.5`, GIF output on the two 2.6 GPT ids, caption `lines` in your own words, and the talking actor, `POST /actors`, product cut-out and post-production endpoints are listed; and stale lines on the image estimate's length check, list keys, the body cap, audio uploads, square brackets in a voice-over, the connector, the pinned tag and the setup scripts' `plan_required` message now match the API. A talking actor's own recording (`recordingAssetId`, an upload in mp3, wav, m4a, ogg, aac or WebM, sent with `recordingConsent: true`) is listed among the audio uploads, and voice-change video out no longer says it is enabled per workspace: it needs a video source, and a deployment may keep it closed to a workspace.

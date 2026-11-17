@@ -712,7 +712,7 @@ Everything above needs a POSIX shell, `curl`, and a key in `.env`. If you have n
 (claude.ai on the web, or Windows with no WSL and no Git Bash), Novoads also runs a hosted
 connector at **[novoads.ai/mcp](https://novoads.ai/mcp)**. It is a **separate surface**, not a
 way to run this pack: it carries none of the skills, prompt libraries or formulas in this repo,
-and it quotes costs in different units. **The skills in this repo never use it.** They stop and
+and this repo cannot test what it runs. **The skills in this repo never use it.** They stop and
 ask for the API key instead, even in a session where the connector is already connected.
 
 ## Vendor prompting guides

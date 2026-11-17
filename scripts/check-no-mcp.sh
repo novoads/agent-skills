@@ -50,7 +50,7 @@ ALLOW=(
   # 4. The ONE survivor: a subordinated redirect for environments that cannot run
   #    this repo at all (claude.ai web, Windows with no WSL and no Git Bash).
   'README.md::connector at \*\*\[novoads\.ai/mcp\]'
-  'README.md::and it quotes costs in different units\. \*\*The skills in this repo never use it\.\*\*'
+  'README.md::and this repo cannot test what it runs\. \*\*The skills in this repo never use it\.\*\*'
 
   # 5. The anti-MCP evals. E0/C0 are the original ratchet; E0b/C0b are the
   #    connector-decoy variants. They describe the failure in order to test for it.

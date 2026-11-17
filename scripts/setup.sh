@@ -113,8 +113,8 @@ explain_probe_failure() {
       ;;
     403)
       if [[ "$body" == *"plan_required"* ]]; then
-        echo "⚠️  The key is valid (403). This organization has no plan with API access yet."
-        echo "  Check your plan at $BILLING_URL"
+        echo "⚠️  The key is valid (403). This organization has no live plan: none yet, or it ended. Every plan includes the API."
+        echo "  Choose or renew one at $BILLING_URL"
       else
         echo "⚠️  The key is valid (403), but the REST API is not enabled for this account yet."
         echo "  Nothing to fix on your side. $body"
@@ -308,8 +308,8 @@ print_agent_close() {
   echo ""
   echo "One routing fact worth having: these skills run on the REST API with"
   echo "NOVOADS_API_KEY. If mcp__novoads__* tools happen to be connected in this"
-  echo "session they are a different surface, carrying none of this repo's skills"
-  echo "and quoting costs in different units, so they cannot finish this setup."
+  echo "session they are a different surface, carrying none of this repo's skills,"
+  echo "so they cannot finish this setup."
   echo "Say so if it comes up; just do not offer it as a second way to get a key."
   echo "Same category: the pack checks for updates every session and the"
   echo "novoads-update skill applies them, so neither belongs in the close either."

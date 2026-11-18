@@ -532,8 +532,10 @@ prompt library in `skills/novoads-api/prompting/prompt-library/` is vendor craft
 comes from the skill's `reference.md`. There is no b-roll or scene endpoint: a silent `omni-flash`
 or Seedance clip is the b-roll path.
 
-**Also on the API since 2.40.0 to 2.44.0:** the dashboard's image to ad, product to ad and upscale
-tools on one photo (`preset` on `POST /v1/images`), background removal on a video up to 30 seconds
+**Also on the API since 2.40.0 to 2.44.0:** the dashboard's upscale tool on one photo
+(`preset: "upscale"` on `POST /v1/images`; the `image-to-ad` and `product-to-ad` presets were
+retired in API 3.0.0, and an ad picture from a product photo is now a prompt with the photo in
+`referenceAssetIds`), background removal on a video up to 30 seconds
 (`POST /v1/background-removals`), your product in a library actor's hands on the Seedance family
 (`productSwap`), and a library actor moved by a clip you upload (`POST /v1/videos/animate-actor`:
 MP4 or MOV, with or without the clip's own sound).

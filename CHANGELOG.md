@@ -12,6 +12,33 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Changed
+
+**No skill routes to the `image-to-ad` or `product-to-ad` presets any more (both retired in API
+3.0.0).** `preset` on `POST /v1/images` and on the image arm of `POST /v1/estimates` takes
+`upscale` only. The API refuses either retired preset as it refuses an unknown one, with `400`
+`invalid_input` before any charge, and refuses the fields they took (`styleMode`, `style`,
+`sceneType`, `culturalContext`, `lighting`, `person`, `customInstructions`, `language`,
+`includeText`, `templateId`) in a `POST /v1/images` body. For an agent:
+
+- **An ad picture from a product photo is a model body:** a prompt with the photo in
+  `referenceAssetIds`, priced as that model's picture. `novoads-api`'s router, the image-ad
+  overview and the README say so, where they used to offer the two presets by name. For an ad
+  creative the router now starts from the image-ad skills (`image-ad-prompting/OVERVIEW.md`,
+  then `chatgpt-image-ad` or `nano-banana-image-ad`), whose templates write the prompt and whose
+  scripts send the photo with `--image-ref`; it and `reference.md` name the two dashboard tools
+  the presets ran, Image to Product Ad and Image Product to Ad Pro.
+- **`reference.md`'s `preset` section documents `upscale` alone:** the photo in `imageAssetId`,
+  rendered at 4K on `nano-banana-pro`, with `productId` and `idempotencyKey` the only other
+  fields. The two retired presets' rows, their fields and their shared hourly limit are gone,
+  and one line says what was retired and what to send instead.
+- **A preset quote is sent alone.** The estimate lines in `novoads-api` and its `reference.md`
+  no longer say `numImages` goes beside a `preset`: `upscale` makes one image, and `numImages`
+  beside it is a `400` on the quote as on the render.
+- **Pictures the two presets made before stay readable** on `GET /v1/generations` and
+  `GET /v1/generations/{jobId}`, and each one's `assetId` works wherever a generated image's
+  does.
+
 ## v1.6.3 — 2026-11-18
 
 ### Fixed

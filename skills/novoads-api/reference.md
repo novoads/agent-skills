@@ -19,7 +19,7 @@ Companion to `SKILL.md`. Read that first for the call sequence. This file is the
 - [POST /videos](#post-videos)
   - [`audioEnabled`](#audioenabled) · [`startImageAssetId` and `referenceAssetIds` are two modes, not two fields](#startimageassetid-and-referenceassetids-are-two-modes-not-two-fields) · [`omni-flash` inputs (API 2.30.0)](#omni-flash-inputs-api-2300) · [`resolution` is a price field, and `GET /models` sets it per model](#resolution-is-a-price-field-and-get-models-sets-it-per-model) · [`kling-v3-pro` (API 2.38.0)](#kling-v3-pro-api-2380) · [`productSwap`: an actor holds your product (API 2.42.0)](#productswap-an-actor-holds-your-product-api-2420)
 - [POST /images](#post-images)
-  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [`preset`: image to ad, product to ad, upscale (API 2.40.0)](#preset-image-to-ad-product-to-ad-upscale-api-2400) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response can be the only copy of images 2..N](#the-response-can-be-the-only-copy-of-images-2n)
+  - [A slow render answers `running`: poll it (API 2.39.0)](#a-slow-render-answers-running-poll-it-api-2390) · [`preset`: upscale only (API 3.0.0)](#preset-upscale-only-api-300) · [Chain from `images[].assetId`, never from `images[].url`](#chain-from-imagesassetid-never-from-imagesurl) · [`sourceAssetId` — editing an image (spec 2.10.0, the GPT models only)](#sourceassetid--editing-an-image-spec-2100-the-gpt-models-only) · [The response can be the only copy of images 2..N](#the-response-can-be-the-only-copy-of-images-2n)
 - [POST /captions, POST /videos/{jobId}/captions](#post-captions-post-videosjobidcaptions)
   - [Presets and pricing](#presets-and-pricing) · [Failure modes](#failure-modes)
 - [POST /transcripts](#post-transcripts)
@@ -95,7 +95,7 @@ Older copies of this file said analysis was deliberately absent here. That stopp
 | `POST` | `/assemblies` | Put one finished ad together from clips you already have. `202`, charged, asynchronous (API 2.56.0). Where the deployment offers it. |
 | `POST` | `/background-removals` | Remove the background of a video up to 30 s, by `jobId` or uploaded `assetId`. `202`, charged, asynchronous (API 2.41.0). |
 | `POST` | `/videos/{jobId}/background-removal` | Same operation, the job in the path. |
-| `POST` | `/images` | Generate images, or run a `preset` (image to ad, product to ad, upscale; API 2.40.0) on one photo. `200` with the images, or, for a render still going after about 105 s, `200` with `status: "running"` and no images: poll the job (API 2.39.0). |
+| `POST` | `/images` | Generate images, or run the `upscale` `preset` on one photo (the only `preset` since API 3.0.0). `200` with the images, or, for a render still going after about 105 s, `200` with `status: "running"` and no images: poll the job (API 2.39.0). |
 | `POST` | `/music` | Generate a music bed from a prompt. `202`, charged, asynchronous. Returns **two** tracks. |
 | `POST` | `/captions` | Burn subtitles into a generated or uploaded video. `202`, charged, asynchronous. |
 | `POST` | `/transcripts` | The words of a video with their timings. **`200`, charged, SYNCHRONOUS — the transcript is in the response.** |
@@ -166,7 +166,7 @@ Discriminated on `kind`, and strict. Any field not listed is a 400.
 | `kind` | required, `"video"` | required, `"image"` |
 | `prompt` | required | required, and refused beside a `preset`, which takes none (API 2.40.0) |
 | `model` | `seedance-2.0` (default), `seedance-2.5`, `seedance-2.0-mini`, `omni-flash`, `veo-3.1`, `kling-v3-pro` (API 2.38.0), `kling-v4`, `wan-3.0` (API 2.53.0). `sora-2` was removed in 2026-09: naming it is a `400` `invalid_input` | `gpt-image-2.6-sunburst` (API 2.57.0; the default since 2.58.0), `gpt-image-2.6-flare` (API 2.57.0), `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `nano-banana-pro`, `seedream-5.5`, `seedream-5-lite`, `seedream-5-pro` (API 2.39.0). `reve-2.1` is retired (API 2.48.0): naming it answers `400` `invalid_input`, `details.reason: "model_retired"`, not a price |
-| `preset` | n/a | `image-to-ad`, `product-to-ad`, `upscale` in place of `model` (API 2.40.0): the quote of that preset's render. `numImages` on `image-to-ad` and `product-to-ad`; `upscale` takes none. `prompt`, `model`, `quality`, `resolution`, `outputFormat` and `sourceAssetId` beside a `preset` are a `400`. See [`preset`](#preset-image-to-ad-product-to-ad-upscale-api-2400) |
+| `preset` | n/a | `upscale` in place of `model`, the only value since API 3.0.0: the quote of that render. Send it alone: `numImages`, `prompt`, `model`, `quality`, `resolution`, `outputFormat`, `frameCount`, `frameDurationMs` and `sourceAssetId` beside a `preset` are a `400`. The retired `image-to-ad` and `product-to-ad` are a `400` `invalid_input` here too. See [`preset`](#preset-upscale-only-api-300) |
 | `productSwap` | `true` prices the swap and the render together, Seedance family only, refused on any other model (API 2.42.0). See [`productSwap`](#productswap-an-actor-holds-your-product-api-2420) | n/a |
 | `durationSeconds` | 3 to 30 (3 since API 2.38.0) | n/a |
 | `resolution` | `360p` `480p` `720p` `1080p` `4k`, **range-checked per model** | spelled exactly (`4k` is a `400`): `1K` `2K` `4K` on `nano-banana-pro` (API 2.36.0) and `1.5K` `2K` on `seedream-5.5`, default `2K`; **moves the price** (API 2.36.0) |
@@ -424,21 +424,15 @@ Most image renders still come back finished in the `200`. Since API 2.39.0 the s
 - A job with several images is one job, one entry in `GET /generations`, and one slot against the image budget.
 - **Any script that reads `images[]` from the response must branch on `status` first.** A script that does not reports a paid, still-rendering job as an empty result. The pack's own image scripts poll; a hand-rolled `curl` has to do the same.
 
-### `preset`: image to ad, product to ad, upscale (API 2.40.0)
+### `preset`: upscale only (API 3.0.0)
 
-The dashboard's Image to Ad, Product to Ad and Upscale tools, on `POST /images`. Send `preset` **instead of** `model` and `prompt`: the server builds the prompt from the fields below and renders on the model the preset pins, and the response's `model` says which. `imageAssetId` is **required** on all three: the one photo it works on, an id from `POST /uploads` (JPEG, PNG or WebP) or a generated image's `images[].assetId`.
+The dashboard's Upscale tool, on `POST /images`. Send `preset: "upscale"` **instead of** `model` and `prompt`: the server builds the prompt and renders the photo at 4K on `nano-banana-pro`, one image at the ratio closest to the photo's own, and the response's `model` says so. `imageAssetId` is **required**: the one photo it works on, an id from `POST /uploads` (JPEG, PNG or WebP) or a generated image's `images[].assetId`.
 
-| `preset` | What comes back | Its own fields |
-|---|---|---|
-| `image-to-ad` | An ad built around the photo, rendered on `gpt-image-2` | `styleMode` (`simple` or `choose-styles`, the dashboard's mode switch), `style`, `sceneType`, `culturalContext`, `lighting`, `person` (`enabled`, `gender`, `interaction`), `customInstructions` (up to 500 characters), `aspectRatio` (the preset's own list, not the model table's), `language`, `includeText`, `numImages` 1 to 4 |
-| `product-to-ad` | The photo placed in one of the dashboard's ad templates | `templateId` (an enabled template), `language`, `numImages` 1 to 4. No `aspectRatio`: the template sets it |
-| `upscale` | The photo at 4K on `nano-banana-pro`, one image at the photo's own ratio | none: no `aspectRatio`, no `numImages` |
-
-- **Read every enum from the OpenAPI document** (`GET /v1/openapi.json`: styles, scene types, lighting, templates, ratios) rather than from the dashboard. Where the dashboard falls back silently on a value it does not know, the API answers `400 invalid_input`, and nothing is charged for a refused body.
-- **Strict bodies.** `model`, `prompt`, `quality`, `resolution`, `outputFormat`, `referenceAssetIds` or `sourceAssetId` beside a `preset` is a `400`. `productId` is accepted on all three and only files the result under a product; the preset reads nothing from it.
-- **Price:** `POST /estimates` with `kind: "image"`, the same `preset` and, on `image-to-ad` and `product-to-ad`, the same `numImages` (`upscale` takes none, and a preset quote refuses `prompt`), and the charge equals the quote.
+- **`upscale` is the only `preset` since API 3.0.0.** `image-to-ad` and `product-to-ad` were retired with the dashboard tools they ran. A body naming either is refused as any unknown preset is, with `400` `invalid_input` on `POST /images` (`preset must be one of: upscale.`) and on `POST /estimates`, before anything is charged. Their fields went with them, so `styleMode`, `style`, `sceneType`, `culturalContext`, `lighting`, `person`, `customInstructions`, `language`, `includeText` or `templateId` in a `POST /images` body is a `400` too.
+- **An ad picture from a product photo is now a model body:** a `prompt` you write, with the photo in `referenceAssetIds`, priced as that model's picture. The pictures the two presets made before stay readable on `GET /generations` and `GET /generations/{jobId}`, and each one's `assetId` works wherever a generated image's does.
+- **Strict body.** `upscale` takes `imageAssetId`, `productId` and `idempotencyKey` and nothing else: `model`, `prompt`, `quality`, `resolution`, `outputFormat`, `referenceAssetIds`, `sourceAssetId`, `aspectRatio` or `numImages` beside it is a `400`, and nothing is charged. `productId` only files the result under a product; the preset reads nothing from it.
+- **Price:** `POST /estimates` with `kind: "image"` and `preset: "upscale"` sent alone (a preset quote refuses `prompt` and `numImages`), and the charge equals the quote.
 - **It can answer `running`** like any image render: poll as [above](#a-slow-render-answers-running-poll-it-api-2390), never resubmit.
-- Image to ad and product to ad share an hourly limit per organization with the dashboard's own two tools; past it, `429 rate_limited` and nothing is charged.
 
 ### Chain from `images[].assetId`, never from `images[].url`
 

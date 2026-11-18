@@ -1,6 +1,6 @@
 ---
 name: clone-image-ad
-metadata: {packVersion: 1.6.3}
+metadata: {packVersion: 1.6.4}
 description: >-
   Clones a STATIC IMAGE ad into finished ads for your own product, into a reusable prompt
   TEMPLATE, or both — the template is what makes the ads and the ads are what prove the

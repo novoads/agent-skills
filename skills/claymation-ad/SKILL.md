@@ -1,6 +1,6 @@
 ---
 name: claymation-ad
-metadata: {packVersion: 1.6.3}
+metadata: {packVersion: 1.6.4}
 description: >-
   Builds a hand-sculpted stop-motion CLAY ad on the Novoads REST API as a
   STORYBOARD: five to eight beats, each rendered from its own key frame, a

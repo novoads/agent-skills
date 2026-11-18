@@ -23,7 +23,11 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 - **An ad picture from a product photo is a model body:** a prompt with the photo in
   `referenceAssetIds`, priced as that model's picture. `novoads-api`'s router, the image-ad
-  overview and the README say so, where they used to offer the two presets by name.
+  overview and the README say so, where they used to offer the two presets by name. For an ad
+  creative the router now starts from the image-ad skills (`image-ad-prompting/OVERVIEW.md`,
+  then `chatgpt-image-ad` or `nano-banana-image-ad`), whose templates write the prompt and whose
+  scripts send the photo with `--image-ref`; it and `reference.md` name the two dashboard tools
+  the presets ran, Image to Product Ad and Image Product to Ad Pro.
 - **`reference.md`'s `preset` section documents `upscale` alone:** the photo in `imageAssetId`,
   rendered at 4K on `nano-banana-pro`, with `productId` and `idempotencyKey` the only other
   fields. The two retired presets' rows, their fields and their shared hourly limit are gone,

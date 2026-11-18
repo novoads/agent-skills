@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.6.4 — 2026-11-18
+
 ### Changed
 
 **No skill routes to the `image-to-ad` or `product-to-ad` presets any more (both retired in API

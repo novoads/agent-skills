@@ -139,9 +139,9 @@ ratio from the wrong grid is a `400` before anything is charged.
 
 ## How to use this file
 
-**Nothing to photograph** (a service, an app, a place, a course)? The fitting set is T8 and the two no-photo finishes, T8's sticky notes and T13's comic, sent with no reference image. A full-library run for a product with a photo renders each template, not its finish.
+**Nothing to photograph** (a service, an app, a place, a course)? T8 and the two no-photo finishes, T8's sticky notes and T13's comic, need nothing and are sent with no reference image and no `--pin-block`; with a logo, T40, T41 and T42 fit too. A full-library run for a product with a photo renders each template, not its finish.
 
-When the user asks for an image ad with a known format, find the matching template below, **check the aspect-ratio table above against the model you're using**, then replace the `{placeholder}` variables and invoke the matching `chatgpt-image-ad` or `nano-banana-image-ad` skill with the filled prompt + the brand's reference image.
+When the user asks for an image ad with a known format, find the matching template below, **check the aspect-ratio table above against the model you're using**, then replace the `{placeholder}` variables and invoke the matching `chatgpt-image-ad` or `nano-banana-image-ad` skill with the filled prompt + the brand's reference image, when its **Reference image:** line asks for one.
 
 **Pass every brand mark in the frame as a reference asset. Unpinned means invented.**
 The `Reference image:` line on each template is a requirement, not a suggestion, and it

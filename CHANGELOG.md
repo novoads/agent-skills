@@ -31,13 +31,14 @@ charge); its model notes name the one sentence to swap for a softer one that pas
   name and tagline in one line under the panels.
 - **T8 no longer asks for a product photo.** Its board is all words; a product hero, when there
   is one, still sets the colour of the brand column's marker.
-- **A business with nothing to photograph is routed to them.** The library's "How to use this file",
-  the image-ad overview and the pin rule of `chatgpt-image-ad` and `nano-banana-image-ad` say that
-  these finishes are sent with no reference image and no `--pin-block`.
+- **A business with nothing to photograph is routed to them.** The library's "How to use this file"
+  and the image-ad overview name T8 and the two finishes, sent with no reference image and no
+  `--pin-block`, and T40 to T42 for a business with a logo; the pin rule of `chatgpt-image-ad` and
+  `nano-banana-image-ad` names T8 and the finishes as its one exception.
 - **`check_library.py` measures a finish too.** A second `Template prompt, <name> finish` block in
   an entry is held to the room a pinned body has on the tightest model; an entry fails when it
-  holds a second prompt under any other label, a ratio off every grid, or a finish with no model
-  notes of its own. `--selftest` proves the parser sees a grown finish and that the format checks
+  holds a second `**Template prompt` block under any other label, a finish with no ratio line or
+  one off every grid, or a finish with no model notes of its own. `--selftest` proves the parser sees a grown finish and that the format checks
   fire. `template-format.md` gains the shape of a second finish.
 
 ## v1.6.4 — 2026-11-18

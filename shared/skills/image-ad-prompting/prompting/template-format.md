@@ -66,7 +66,7 @@ When a new look keeps a template's idea and changes only how it is drawn (T8's s
 - **{model}:** {what the test showed}
 ```
 
-The label `**Template prompt, {name} finish:**` is exact: `check_library.py` measures a finish only under it, and fails an entry that holds a second prompt under any other label, a finish ratio off every grid, or a finish with no `**Model notes` of its own. Add the finish to the library's contents list as an indented line under its template.
+The label `**Template prompt, {name} finish:**` is exact: `check_library.py` measures a finish only under it, and fails an entry that holds a second `**Template prompt` block under any other label, a finish with no `**Aspect ratio:**` line or one off every grid, or a finish with no `**Model notes` of its own. Add the finish to the library's contents list as an indented line under its template.
 
 ## Field-by-field guidance
 

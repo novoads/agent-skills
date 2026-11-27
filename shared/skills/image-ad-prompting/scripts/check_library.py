@@ -5,7 +5,8 @@ Runs the mechanical half of evals.md against
 `prompting/prompt-library.md` and the skills that consume it:
 
   L1  every template + the always-on suffixes fits the prompt cap of the model it
-      is sent under, which since spec 2.16.0 is a different number per model
+      is sent under, which since spec 2.16.0 is a different number per model; a
+      second finish's prompt fits the pinned room on the tightest model
   L1b the library publishes how many templates still have room for the pin block
   L2  no template states two different counts for the same countable element
   L3  a template whose art must be numerically true carries the approximation note
@@ -234,9 +235,10 @@ def finish_format_failures(t: dict) -> list[str]:
     """A second finish holds the shape L1 measures: its label, its ratio, its notes.
 
     A prompt block under any other label ships unmeasured with a green check, so
-    every `**Template prompt` label past the first must be a finish label; every
-    `**Aspect ratio:**` in the section, a finish's included, must be on a grid;
-    and each finish carries its own `**Model notes` block.
+    every `**Template prompt` label past the first must be a finish label; each
+    finish carries its own `**Aspect ratio:**` line, in backticks and on a grid
+    (the entry's own ratio is checked beside REQUIRED_FIELDS), and its own
+    `**Model notes` block.
     """
     out = []
     labels = len(re.findall(r"\*\*Template prompt", t["section"]))
@@ -246,9 +248,14 @@ def finish_format_failures(t: dict) -> list[str]:
             f"finish(es) parsed: a second prompt must be labelled "
             f"'**Template prompt, <name> finish:**' or L1 never measures it"
         )
-    for ratio in re.findall(r"\*\*Aspect ratio:\*\*\s*`([^`]+)`", t["section"]):
-        if ratio not in KNOWN_RATIOS:
-            out.append(f"L5 {t['tag']} — aspect ratio '{ratio}' is on no model's grid")
+    ratio_lines = re.findall(r"\*\*Aspect ratio:\*\*([^\n]*)", t["section"])
+    if len(ratio_lines) < 1 + len(t["finishes"]):
+        out.append(f"L5 {t['tag']} — a second finish has no '**Aspect ratio:**' line of its own")
+    for line in ratio_lines[1:]:  # the first is the entry's own, checked above
+        ratio = re.match(r"\s*`([^`]+)`", line)
+        if not ratio or ratio.group(1) not in KNOWN_RATIOS:
+            shown = ratio.group(1) if ratio else line.strip()
+            out.append(f"L5 {t['tag']} — aspect ratio '{shown}' is on no model's grid")
     if t["finishes"] and len(re.findall(r"\*\*Model notes", t["section"])) < 1 + len(t["finishes"]):
         out.append(f"L5 {t['tag']} — a second finish has no '**Model notes' block of its own")
     return out
@@ -343,9 +350,12 @@ def selftest() -> int:
                       any("labels but" in f for f in finish_format_failures(t_rel))))
         t_ok = next(t for t in parse_templates(text) if t["tag"] == with_finish["tag"])
         bad_ratio = t_ok["section"].replace("**Aspect ratio:** `4:5`", "**Aspect ratio:** `7:5`", 1)
-        cases.append(("L5 checks every aspect ratio in a section, a finish's included",
+        no_ratio = t_ok["section"].replace("**Aspect ratio:** `4:5`", "", 1)
+        cases.append(("L5 checks a finish's own aspect ratio: on a grid, and present",
                       not finish_format_failures(t_ok)
-                      and any("7:5" in f for f in finish_format_failures({**t_ok, "section": bad_ratio}))))
+                      and any("7:5" in f for f in finish_format_failures({**t_ok, "section": bad_ratio}))
+                      and any("no '**Aspect ratio:**'" in f
+                              for f in finish_format_failures({**t_ok, "section": no_ratio}))))
 
     # L1b — the published number moves when the library does, and it is the
     # tightest model's number, which is the only one that is not "all of them".

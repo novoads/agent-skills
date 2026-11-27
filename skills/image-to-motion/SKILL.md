@@ -1,6 +1,6 @@
 ---
 name: image-to-motion
-metadata: {packVersion: 1.6.4}
+metadata: {packVersion: 1.7.0}
 description: >-
   Turn any still image into a professional motion graphic through the Novoads API on
   Seedance 2.5. Covers how to read a reference image, motion vocabulary for any image

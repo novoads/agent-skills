@@ -36,6 +36,9 @@ template.
 
 ### L1 — the template fits the cap it will be sent under
 
+A second finish's prompt is a body too: it is held to the room a pinned body has on the
+tightest model, with no baseline.
+
 **Why:** the cap is measured on the *final* prompt, and the final prompt is not
 the one you wrote — the generator appends 1,575 characters of always-on suffix
 first. A template that reads as 2,900 characters is a 4,484-character request.
@@ -154,7 +157,9 @@ a missing `Model notes` means a consuming skill cannot route, and an aspect rati
 off the grid is a `400` on a strict request schema.
 
 **Check:** every entry carries When to use / Aspect ratio / Reference image /
-Variables / Model notes, and the ratio is on some model's grid. Automated.
+Variables / Model notes, and the ratio is on some model's grid. A second finish of an entry
+(`**Template prompt, <name> finish:**`) carries its own Aspect ratio, on a grid, and its own Model
+notes, and no second `**Template prompt` block hides under another label. Automated.
 
 ### L6 — every stated template count is the real one
 

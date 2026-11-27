@@ -12,6 +12,35 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+### Added
+
+**Two image-ad finishes that need no product photo, for a service, an app, a place or a course.**
+Both are second finishes of templates already in the library, so it still holds 40 templates.
+In a direct test of the models, three stand-in businesses (one in Spanish) were drawn on
+`gpt-image-2.6-sunburst`, with checks on `gpt-image-2` and `nano-banana-pro`; each finish's model
+notes name which fill ran on which model. Every picture rendered every word as written. On
+`gpt-image-2` the provider's safety check refused the comic's shocked panel on 2 of 3 runs (no
+charge); its model notes name the one sentence to swap for a softer one that passed there 3 of 3.
+
+- **T8's sticky notes finish:** the same old-way-against-us comparison, written in marker on two
+  columns of sticky notes on a plain wall, `4:5`, with no hand, no board and no reference image.
+  The brand's name heads its column and its colour marks the ticks; a price note goes on each
+  side only when the user typed both, and a rival's name only when the user named one.
+- **T13's comic finish:** the before and after as a two-panel stick-figure comic, `1:1`: the
+  smug belief in the first panel, the shock and three ticked cards in the second, and the brand's
+  name and tagline in one line under the panels.
+- **T8 no longer asks for a product photo.** Its board is all words; a product hero, when there
+  is one, still sets the colour of the brand column's marker.
+- **A business with nothing to photograph is routed to them.** The library's "How to use this file"
+  and the image-ad overview name T8 and the two finishes, sent with no reference image and no
+  `--pin-block`, and T40 to T42 for a business with a logo; the pin rule of `chatgpt-image-ad` and
+  `nano-banana-image-ad` names T8 and the finishes as its one exception.
+- **`check_library.py` measures a finish too.** A second `Template prompt, <name> finish` block in
+  an entry is held to the room a pinned body has on the tightest model; an entry fails when it
+  holds a second `**Template prompt` block under any other label, a finish with no ratio line or
+  one off every grid, or a finish with no model notes of its own. `--selftest` proves the parser sees a grown finish and that the format checks
+  fire. `template-format.md` gains the shape of a second finish.
+
 ## v1.6.4 — 2026-11-18
 
 ### Changed

@@ -72,6 +72,8 @@ default:
 3) Have your own idea? Describe it and I will build 3 custom takes.
 ```
 
+A business with nothing to photograph (a service, an app, a place, a course) gets the templates that need no photo: T8 and its sticky notes finish, and T13's comic finish (`prompting/prompt-library.md`), sent with no reference image. A full-library run for a product with a photo renders each template, not its finish.
+
 **The full library spans every generator skill.** Templates routed to different engines
 are one plan with one total, never a deferred second pass. Observed 2026-08-08: a run
 scoped "the full set" to the one engine its own skill drives, quoted 26 of 40, and parked

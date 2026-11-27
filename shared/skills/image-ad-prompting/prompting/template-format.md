@@ -38,6 +38,36 @@ Validated example: `{path/to/iteration/dir/}`
 
 (End every entry with a horizontal rule on its own line so the next entry has visual separation.)
 
+## A second finish of an existing template
+
+When a new look keeps a template's idea and changes only how it is drawn (T8's sticky notes on a wall, T13's stick-figure comic), add it inside that template's entry, not as a new `T<n>`: the library's count stays the same. Put it after the entry's `**Model notes:**` and before the entry's closing `---`:
+
+```markdown
+### T{n}, second finish — {one-line title}
+
+{One or two sentences: what changes from the template, and who it is for.}
+
+**Aspect ratio:** `{ratio}`
+
+**Reference image:** {what to pass, or "none" with how the brand appears instead}
+
+**Variables** (on top of the ones above):
+- `{variable_name}` — {description}
+
+**Template prompt, {name} finish:**
+\`\`\`
+{The full prompt.}
+\`\`\`
+
+**Example fill** ({brand}):
+- `{variable_name}` = `{example value}`
+
+**Model notes ({name} finish):**
+- **{model}:** {what the test showed}
+```
+
+The label `**Template prompt, {name} finish:**` is exact: `check_library.py` measures a finish only under it, and fails an entry that holds a second prompt under any other label, a finish ratio off every grid, or a finish with no `**Model notes` of its own. Add the finish to the library's contents list as an indented line under its template.
+
 ## Field-by-field guidance
 
 ### `{tag}`

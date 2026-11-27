@@ -1,6 +1,6 @@
 # Image-ad prompt library
 
-Validated, parameterizable prompt templates for generating standalone Meta ad creatives. Pair each with a brand product reference image via `--image-ref` for brand fidelity.
+Validated, parameterizable prompt templates for generating standalone Meta ad creatives. Pair each with a brand product reference image via `--image-ref` for brand fidelity, unless its **Reference image:** line says none.
 
 **Hard rule:** every prompt in this library produces a *standalone* image upload — no iOS chrome, no platform UI, no brand-row, no link card, no engagement counts. Those are added by Meta when displaying the ad.
 
@@ -138,6 +138,8 @@ forgetting produces a square image and a wasted charge. The request schemas are 
 ratio from the wrong grid is a `400` before anything is charged.
 
 ## How to use this file
+
+**Nothing to photograph** (a service, an app, a place, a course)? The fitting set is T8 and the two no-photo finishes, T8's sticky notes and T13's comic, sent with no reference image. A full-library run for a product with a photo renders each template, not its finish.
 
 When the user asks for an image ad with a known format, find the matching template below, **check the aspect-ratio table above against the model you're using**, then replace the `{placeholder}` variables and invoke the matching `chatgpt-image-ad` or `nano-banana-image-ad` skill with the filled prompt + the brand's reference image.
 
@@ -572,10 +574,10 @@ The same comparison, written on two columns of sticky notes stuck on a plain wal
 
 **Aspect ratio:** `4:5` (two columns of five or six notes)
 
-**Reference image:** none. The brand's name is the header of its column and its colour is the marker of its ticks.
+**Reference image:** none. Send it with no `--image-ref` and no `--pin-block`: the brand appears only as its hand-written name, the header of the right column, and its colour is the marker of its ticks.
 
 **Variables** (on top of the ones above; `{N}` is fixed at four here):
-- `{brand.name}`, `{competitor_label}`, `{brand.color_marker}` — as above. `{competitor_label}` is the old way the reader lives with today (`Doing your own books`, `Paper rota + group chat`); a rival's name only when the user typed it.
+- `{brand.name}`, `{competitor_label}`, `{brand.color_marker}` — as above, except that here the brand is the RIGHT column and `{brand.color_marker}` is a name and a hex, as in the example fill. `{competitor_label}` is the old way the reader lives with today (`Doing your own books`, `Paper rota + group chat`); a rival's name only when the user typed it.
 - `{brand_wins[0..3]}`, `{competitor_cons[0..3]}` — four items a side, five words at most each; a longer one wraps to two lines on its note.
 - `{competitor_price}`, `{brand_price}` — optional, a price on each side only when the user typed both; otherwise delete both "Second note" lines. Never an invented number.
 - `{old_note_color}`, `{brand_note_color}` — the two note colours, a name and a hex (`soft pink ~#F4B6C2`, `pale green ~#CFEBA9`); the brand side in a tint of its own colour.
@@ -613,7 +615,7 @@ Exactly the words listed above and nothing else: no headline above the notes, no
 - `{old_note_color}` = `soft yellow ~#F7E27A` · `{brand_note_color}` = `light orange ~#FBC6A4`
 
 **Model notes (sticky notes finish):**
-- **both: clean.** Tested 2026-11-27 on three stand-in businesses (a bookkeeping service, a staff-rota app, maths lessons in Spanish): `gpt-image-2.6-sunburst` 6 of 6, `gpt-image-2` 2 of 2 and `nano-banana-pro` 1 of 1 rendered every word as written, accents included, with long items wrapped inside their notes.
+- **both: clean**, in a direct test of the models on 2026-11-27: `gpt-image-2.6-sunburst` 6 of 6 (the bookkeeping, rota and Spanish maths fills), `gpt-image-2` 2 of 2 (the Spanish fill, no prices) and `nano-banana-pro` 1 of 1 (the rota fill, with prices), every word as written, accents included, long items wrapped inside their notes.
 - **nano-banana-pro:** the most photographic wall and the largest lettering.
 - **gpt-image-2:** clean, and the closest to the hand-held board's flat daylight.
 
@@ -864,7 +866,7 @@ The same before and after, drawn as a two-panel web comic: one stick figure says
 
 **Aspect ratio:** `1:1`
 
-**Reference image:** none. The brand is its name and colour in the line under the panels, and its colour on the ticks.
+**Reference image:** none. Send it with no `--image-ref` and no `--pin-block`: the brand appears only as its hand-lettered name and colour in the line under the panels, and its colour on the ticks.
 
 **Variables:**
 - `{old_belief_line}` — what the reader thinks before, in their own voice, eight words at most (`I'll just do my taxes myself this year`).
@@ -896,8 +898,13 @@ Exactly the words listed above and nothing else: no caption boxes, no title, no 
 - `{brand.name}` = `Ledgerly` · `{brand.color_primary}` = `deep teal ~#1F6F5C` · `{tagline}` = `Bookkeeping for freelancers`
 
 **Model notes (comic finish):**
-- **gpt-image-2.6-sunburst** and **nano-banana-pro:** clean. Tested 2026-11-27 on the same three stand-in businesses: 6 of 6 and 1 of 1, every word as written, the Spanish `¿` and accents included.
-- **gpt-image-2:** the provider's safety check refused 2 of 3 runs of this prompt (no charge) and passed the third. For this model, send the right panel's figure with this line instead, which passed 3 of 3 on it, and 1 of 1 on each of the other two, with a smaller reaction: `now leaning back, amazed: big round eyes, mouth open in a surprised O, hair sticking up in a few scribbled strands, short surprise lines around the head and the laptop.`
+- **gpt-image-2.6-sunburst:** clean, 6 of 6 in a direct test of the model on 2026-11-27 (the bookkeeping, rota and Spanish maths fills), every word as written, the Spanish `¿` and accents included.
+- **nano-banana-pro:** clean, 1 of 1 (the bookkeeping fill, in English).
+- **gpt-image-2:** in a direct test of the model the provider's safety check passed the first run of the rota fill and refused the next two (no charge). For this model, replace this one sentence of the RIGHT panel, and nothing else:
+  `now thrown back in shock: huge round eyes with tiny pupils, mouth wide open, hair standing on end in scribbled strands, burst lines around the head and the laptop.`
+  with:
+  `now leaning back, amazed: big round eyes, mouth open in a surprised O, hair sticking up in a few scribbled strands, short surprise lines around the head and the laptop.`
+  It passed 3 of 3 on gpt-image-2 (the rota fill), and 1 of 1 on each of the other two (the bookkeeping fill on sunburst, the Spanish fill on nano-banana-pro), with every word as written and a smaller reaction. Keep the shocked sentence on the other two models: it is the stronger joke.
 - **One drawing for every brand:** the figure, desk and laptop come out the same whatever the fill; only the words and the accent colour change. It is one ad per brand, not a series.
 
 ---

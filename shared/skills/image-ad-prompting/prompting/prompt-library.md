@@ -67,7 +67,9 @@ struggles, the note tells the consuming skill which model to prefer.
 - [T5 — Comparison table (light)](#t5--comparison-table-light)
 - [T6 — Comparison table (dark, hooky)](#t6--comparison-table-dark-hooky)
 - [T8 — Handwritten whiteboard / posterboard comparison](#t8--handwritten-whiteboard--posterboard-comparison)
+  - [its sticky notes finish, no product photo](#t8-second-finish--sticky-notes-on-a-wall-no-product-photo)
 - [T13 — Before/After two-panel split](#t13--beforeafter-two-panel-split)
+  - [its stick-figure comic finish, no product photo](#t13-second-finish--a-stick-figure-comic-no-product-photo)
 - [T17 — Stacked-bar with vs without comparison](#t17--stacked-bar-with-vs-without-comparison)
 - [T18 — Flowchart "old way" vs "new way"](#t18--flowchart-old-way-vs-new-way)
 - [T38 — Big stat hero with chart](#t38--big-stat-hero-with-chart)
@@ -509,7 +511,7 @@ Casual, organic, social-content aesthetic — feels homemade UGC, not over-style
 
 **Aspect ratio:** `2:3` (a tall held-up board needs vertical room — 1:1 clips the headline at the top)
 
-**Reference image:** product hero (informs the brand color used for the "wins" column marker)
+**Reference image:** none needed — every word on the board is text. A product hero, when the brand has one, only informs the colour of the brand column's marker; a service, an app or a place with nothing to photograph sets `{brand.color_marker}` by hand. For a finish with no hand and no board, see the sticky notes finish below.
 
 **Variables:**
 - `{N}` — number of reasons (default 5)
@@ -563,6 +565,57 @@ No additional text, no overlays, no logos beyond what's hand-written on the boar
 **Model notes:**
 - **nano-banana-pro:** strong. Handheld board + handwritten marker is in its wheelhouse. **Preferred backend.**
 - **gpt-image-2:** clean for the lettering, weaker on the held-board photograph realism. Acceptable fallback.
+
+### T8, second finish — sticky notes on a wall (no product photo)
+
+The same comparison, written on two columns of sticky notes stuck on a plain wall instead of a hand-held board. It needs no product photo, no person and no reference image, so it fits a service, an app, a place or a course as well as a product.
+
+**Aspect ratio:** `4:5` (two columns of five or six notes)
+
+**Reference image:** none. The brand's name is the header of its column and its colour is the marker of its ticks.
+
+**Variables** (on top of the ones above; `{N}` is fixed at four here):
+- `{brand.name}`, `{competitor_label}`, `{brand.color_marker}` — as above. `{competitor_label}` is the old way the reader lives with today (`Doing your own books`, `Paper rota + group chat`); a rival's name only when the user typed it.
+- `{brand_wins[0..3]}`, `{competitor_cons[0..3]}` — four items a side, five words at most each; a longer one wraps to two lines on its note.
+- `{competitor_price}`, `{brand_price}` — optional, a price on each side only when the user typed both; otherwise delete both "Second note" lines. Never an invented number.
+- `{old_note_color}`, `{brand_note_color}` — the two note colours, a name and a hex (`soft pink ~#F4B6C2`, `pale green ~#CFEBA9`); the brand side in a tint of its own colour.
+
+**Template prompt, sticky notes finish:**
+```
+4:5 portrait static ad creative, 1080x1350, edge-to-edge — a real-world photograph of sticky notes stuck on a plain wall in two columns, hand-written in marker, comparing {competitor_label} with {brand.name}. Standalone ad creative, ready to upload as a Meta ad creative. No product, no person and no hand in the frame.
+
+Setting: a plain matte off-white painted wall ~#ECEBE7 fills the whole frame, lit by soft daylight from the left, with one faint diagonal window-light shadow across the top-left corner. Nothing else on the wall.
+
+Layout: two vertical columns of rectangular sticky notes (3M Post-it style, wider than tall, about 3:2), side by side and centred, together about 75% of the frame's width and 85% of its height. The notes hang almost straight, at most 2 degrees off, with small even gaps between notes. The two columns hold the same number of notes, aligned row by row.
+
+LEFT column, every note {old_note_color}:
+- Header note: "{competitor_label}", large black marker, underlined once in red marker.
+- Second note: "{competitor_price}", large black marker.
+- Then four notes, one item each, black marker, each starting with a hand-drawn red X: "{competitor_cons[0]}" / "{competitor_cons[1]}" / "{competitor_cons[2]}" / "{competitor_cons[3]}".
+
+RIGHT column, every note {brand_note_color}:
+- Header note: "{brand.name}", large black marker, underlined once in {brand.color_marker} marker.
+- Second note: "{brand_price}", large black marker.
+- Then four notes, one item each, black marker, each starting with a hand-drawn {brand.color_marker} tick: "{brand_wins[0]}" / "{brand_wins[1]}" / "{brand_wins[2]}" / "{brand_wins[3]}".
+
+Handwriting: casual marker lettering written by a real person, slightly uneven baseline and stroke weight, not a font. A long item wraps to two lines inside its note instead of shrinking. One or two notes have a slightly curled bottom corner that casts a soft shadow.
+
+Exactly the words listed above and nothing else: no headline above the notes, no extra notes, no logo, no button, no number or price that is not listed, no surrounding social platform UI.
+```
+
+**Example fill** (Shiftwise, a stand-in staff-rota app with nothing to photograph):
+- `{brand.name}` = `Shiftwise`
+- `{competitor_label}` = `Paper rota + group chat`
+- `{brand.color_marker}` = `bright orange ~#E4572E`
+- `{competitor_price}` = `$0 + your Sundays` · `{brand_price}` = `$3 per staff a month`
+- `{competitor_cons[0..3]}` = `Swaps lost in the chat` / `No-shows every Friday` / `Hours added up by hand` / `Rota redone every Sunday`
+- `{brand_wins[0..3]}` = `Rota built in minutes` / `Swaps approved in the app` / `Reminders before each shift` / `Hours sent to payroll`
+- `{old_note_color}` = `soft yellow ~#F7E27A` · `{brand_note_color}` = `light orange ~#FBC6A4`
+
+**Model notes (sticky notes finish):**
+- **both: clean.** Tested 2026-11-27 on three stand-in businesses (a bookkeeping service, a staff-rota app, maths lessons in Spanish): `gpt-image-2.6-sunburst` 6 of 6, `gpt-image-2` 2 of 2 and `nano-banana-pro` 1 of 1 rendered every word as written, accents included, with long items wrapped inside their notes.
+- **nano-banana-pro:** the most photographic wall and the largest lettering.
+- **gpt-image-2:** clean, and the closest to the hand-held board's flat daylight.
 
 ---
 
@@ -804,6 +857,48 @@ No additional text, no logos overlay, no UI chrome.
 
 **Model notes:**
 - **both: clean.** Tone contrast renders cleanly on both. nano-banana edges ahead for photoreal before-after; gpt-image-2 edges ahead if both halves contain rendered text.
+
+### T13, second finish — a stick-figure comic (no product photo)
+
+The same before and after, drawn as a two-panel web comic: one stick figure says what they believed, then the same figure is thrown back by what the brand did. It needs no product photo and no reference image, so it fits a service, an app or a course as well as a product.
+
+**Aspect ratio:** `1:1`
+
+**Reference image:** none. The brand is its name and colour in the line under the panels, and its colour on the ticks.
+
+**Variables:**
+- `{old_belief_line}` — what the reader thinks before, in their own voice, eight words at most (`I'll just do my taxes myself this year`).
+- `{reaction_line}` — the shocked answer, five words at most, one word in capitals (`wait. it did WHAT?!`).
+- `{list_items[0..2]}` — the three things the brand did, four words at most each; a number only when the user typed it.
+- `{brand.name}`, `{brand.color_primary}` (a name and a hex), `{tagline}` — the bottom line, the tagline six words at most.
+
+**Template prompt, comic finish:**
+```
+1:1 static ad creative, 1080x1080, edge-to-edge — a two-panel comic strip drawn in black ink on white, in the style of a simple hand-drawn stick-figure web comic: a big round head, a stick body and stick arms, expressive eyes, thin slightly uneven pen lines, light pen hatching on the desk only, no colour except one accent. Standalone ad creative, ready to upload as a Meta ad creative. No photograph and no product.
+
+Layout: two equal panels side by side, each with a hand-drawn black border, a thin white gutter between them, together filling the top 82% of the canvas. The bottom 18% is plain white with one centred line of hand lettering.
+
+LEFT panel: the stick figure sits at a desk with an open laptop, relaxed and smug: half-closed eyes, a sly half-smile, one eyebrow raised. A hand-drawn speech bubble above them, hand-lettered in black: "{old_belief_line}".
+
+RIGHT panel: the SAME stick figure at the same desk and laptop, now thrown back in shock: huge round eyes with tiny pupils, mouth wide open, hair standing on end in scribbled strands, burst lines around the head and the laptop. A hand-drawn speech bubble, hand-lettered in black: "{reaction_line}". Rising out of the laptop screen, exactly three small hand-drawn rounded cards stacked one above the other, each with a small {brand.color_primary} tick and one line: "{list_items[0]}" / "{list_items[1]}" / "{list_items[2]}".
+
+Same character, same desk, same viewpoint in both panels, so the eye reads only the change in the face and the cards.
+
+Bottom line, centred, hand-lettered: "{brand.name}" in {brand.color_primary}, then in black: "{tagline}".
+
+Exactly the words listed above and nothing else: no caption boxes, no title, no signature, no extra speech bubbles, no logo, no surrounding social platform UI.
+```
+
+**Example fill** (Ledgerly, a stand-in bookkeeping service for freelancers):
+- `{old_belief_line}` = `I'll just do my taxes myself this year`
+- `{reaction_line}` = `wait. it did WHAT?!`
+- `{list_items[0..2]}` = `Every receipt sorted` / `Taxes set aside` / `Books closed monthly`
+- `{brand.name}` = `Ledgerly` · `{brand.color_primary}` = `deep teal ~#1F6F5C` · `{tagline}` = `Bookkeeping for freelancers`
+
+**Model notes (comic finish):**
+- **gpt-image-2.6-sunburst** and **nano-banana-pro:** clean. Tested 2026-11-27 on the same three stand-in businesses: 6 of 6 and 1 of 1, every word as written, the Spanish `¿` and accents included.
+- **gpt-image-2:** the provider's safety check refused 2 of 3 runs of this prompt (no charge) and passed the third. For this model, send the right panel's figure with this line instead, which passed 3 of 3 on it, and 1 of 1 on each of the other two, with a smaller reaction: `now leaning back, amazed: big round eyes, mouth open in a surprised O, hair sticking up in a few scribbled strands, short surprise lines around the head and the laptop.`
+- **One drawing for every brand:** the figure, desk and laptop come out the same whatever the fill; only the words and the accent colour change. It is one ad per brand, not a series.
 
 ---
 

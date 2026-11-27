@@ -180,11 +180,18 @@ def parse_templates(text: str) -> list[dict]:
         )
         ratio = re.search(r"\*\*Aspect ratio:\*\*\s*`([^`]+)`", section)
         notes = re.search(r"\*\*Model notes:\*\*(.*?)(?=\n---|\Z)", section, re.S)
+        # A second finish of the same template carries its own fenced prompt under a
+        # "**Template prompt, <name> finish ...:**" label. It is sent like any body, so
+        # L1 measures it too; the first block stays the template's own prompt.
+        finishes = re.findall(
+            r"\*\*Template prompt, ([^\n*]+?) finish[^\n]*\n```\n(.*?)\n```", section, re.S
+        )
         out.append(
             {
                 "tag": head.group(1),
                 "title": head.group(2).strip(),
                 "prompt": body.group(1) if body else None,
+                "finishes": finishes,
                 "ratio": ratio.group(1) if ratio else None,
                 "notes": notes.group(1) if notes else "",
                 "section": section,
@@ -286,6 +293,21 @@ def selftest() -> int:
     cases.append(("L1 catches a body over the default model's room",
                   grown[victim["tag"]] > room[DEFAULT_MODEL]
                   and all(v <= room[DEFAULT_MODEL] for v in bodies.values())))
+
+    # L1 — a finish is measured too: grow the first finish past the pinned room.
+    with_finish = next((t for t in parse_templates(text) if t["finishes"]), None)
+    if with_finish:
+        name, fbody = with_finish["finishes"][0]
+        grown_text = text.replace(
+            fbody, fbody + ("\nx" * (room[TIGHTEST_MODEL] - PIN_BLOCK_CHARS)), 1)
+        regrown = next(t for t in parse_templates(grown_text)
+                       if t["tag"] == with_finish["tag"])
+        cases.append(("L1 measures a template's second finish",
+                      len(regrown["finishes"][0][1])
+                      > room[TIGHTEST_MODEL] - PIN_BLOCK_CHARS
+                      and regrown["prompt"] == with_finish["prompt"]))
+    else:
+        cases.append(("L1 finds the library's second finishes", False))
 
     # L1b — the published number moves when the library does, and it is the
     # tightest model's number, which is the only one that is not "all of them".
@@ -421,6 +443,19 @@ def main() -> int:
                 f"{BASELINE_OVER_TIGHTEST[t['tag']]} to {n} chars while still over "
                 f"{TIGHTEST_MODEL}'s cap. Re-measure and update the baseline."
             )
+    # A finish is a body a run sends, so it gets the same room as any template, with
+    # no baseline: a new finish is new text and must fit the tightest model pinned.
+    for t in templates:
+        for name, finish in t["finishes"]:
+            n = len(finish)
+            if args.verbose:
+                print(f"  {t['tag']:<4} {name} finish: body {n:>5}  "
+                      f"({room_pinned - n} spare pinned on {TIGHTEST_MODEL})")
+            if n > room_pinned:
+                failures.append(
+                    f"L1 {t['tag']} {name} finish — body is {n} chars, over the "
+                    f"{room_pinned} a pinned body has on {TIGHTEST_MODEL}. Trim it."
+                )
     for tag in BASELINE_OVER_TIGHTEST:
         if tag not in {t["tag"] for t in templates}:
             failures.append(f"L1 {tag} — baselined but no longer in the library; delete the row")

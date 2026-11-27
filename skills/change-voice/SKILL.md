@@ -1,6 +1,6 @@
 ---
 name: change-voice
-metadata: {packVersion: 1.6.4}
+metadata: {packVersion: 1.7.0}
 description: >-
   Replaces the voice in a video or audio file with one from the Novoads voice
   catalog, over the REST API. Converts the SPEECH in the source to a voice you

@@ -12,6 +12,8 @@ as Added / Changed / Fixed, or as dated `###` subsections like the ones below.
 
 ## Unreleased
 
+## v1.7.0 — 2026-11-27
+
 ### Added
 
 **Two image-ad finishes that need no product photo, for a service, an app, a place or a course.**
